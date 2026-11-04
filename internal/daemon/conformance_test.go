@@ -21,6 +21,7 @@ import (
 	"github.com/open-linux-router/open-linux-router/internal/inspection"
 	"github.com/open-linux-router/open-linux-router/internal/iptv"
 	"github.com/open-linux-router/open-linux-router/internal/link"
+	"github.com/open-linux-router/open-linux-router/internal/network"
 	"github.com/open-linux-router/open-linux-router/internal/qos"
 	"github.com/open-linux-router/open-linux-router/internal/remote"
 	socksout "github.com/open-linux-router/open-linux-router/internal/socksout"
@@ -49,6 +50,7 @@ func moduleRoutes() map[string][]core.Route {
 		dhcp.ModuleName:    dhcp.HTTP{}.Routes(),
 		dns.ModuleName:     dns.HTTP{}.Routes(),
 		devices.ModuleName: devices.HTTP{}.Routes(),
+		network.ModuleName: network.HTTP{}.Routes(),
 		// Both halves of gateway, because the NAT package's routes are mounted
 		// under the same prefix and are as much of the module's surface as the
 		// routing ones (gateway.HTTP.NAT).

@@ -138,12 +138,25 @@ func toolName(module, verb string) string {
 
 // inputSchema builds a tool's arguments from its route.
 //
-// Query parameters become top-level properties; a request body becomes the
-// nested "config" property, carrying the module's own projection verbatim.
+// Path and query parameters become top-level properties; a request body becomes
+// the nested "config" property, carrying the module's own projection verbatim.
 func inputSchema(rt routeDoc, proj projections) (json.RawMessage, error) {
 	properties := map[string]json.RawMessage{}
+	var required []string
+
+	for _, segment := range strings.Split(rt.Path, "/") {
+		name, _ := pathParameter(segment)
+		if name == "" {
+			continue
+		}
+		properties[name] = json.RawMessage(`{"type":"string","minLength":1}`)
+		required = append(required, name)
+	}
 
 	for _, q := range rt.Query {
+		if _, exists := properties[q.Name]; exists {
+			return nil, fmt.Errorf("query parameter %q conflicts with a path parameter", q.Name)
+		}
 		encoded, err := json.Marshal(map[string]string{
 			"type":        q.Type,
 			"description": q.Summary,
@@ -152,6 +165,15 @@ func inputSchema(rt routeDoc, proj projections) (json.RawMessage, error) {
 			return nil, err
 		}
 		properties[q.Name] = encoded
+		if q.Required {
+			required = append(required, q.Name)
+		}
+	}
+
+	if rt.Body != core.BodyNone {
+		if _, exists := properties[configKey]; exists {
+			return nil, fmt.Errorf("parameter %q conflicts with the request body argument", configKey)
+		}
 	}
 
 	switch rt.Body {
@@ -170,11 +192,15 @@ func inputSchema(rt routeDoc, proj projections) (json.RawMessage, error) {
 		return nil, fmt.Errorf("unknown body shape %q", rt.Body)
 	}
 
-	// Every property is optional, including the body: POST /plan with no body
-	// plans the *stored* configuration, which is the drift check (§5.4) and is
-	// a question worth being able to ask without composing a document first.
-	return json.Marshal(map[string]any{
+	// Query parameters are optional unless declared required. Bodies remain
+	// optional: POST /plan with no body plans the stored configuration. Path
+	// parameters always identify the route and must be supplied.
+	schema := map[string]any{
 		"type":       "object",
 		"properties": properties,
-	})
+	}
+	if len(required) > 0 {
+		schema["required"] = required
+	}
+	return json.Marshal(schema)
 }

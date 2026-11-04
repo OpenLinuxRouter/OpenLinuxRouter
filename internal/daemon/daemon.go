@@ -51,6 +51,7 @@ import (
 	"github.com/open-linux-router/open-linux-router/internal/iptv"
 	"github.com/open-linux-router/open-linux-router/internal/link"
 	"github.com/open-linux-router/open-linux-router/internal/mcp"
+	"github.com/open-linux-router/open-linux-router/internal/network"
 	"github.com/open-linux-router/open-linux-router/internal/qos"
 	"github.com/open-linux-router/open-linux-router/internal/remote"
 	"github.com/open-linux-router/open-linux-router/internal/runtimedb"
@@ -431,6 +432,11 @@ func run(args []string) error {
 		Lock:    srv.ApplyLock(),
 		Events:  srv.Events(),
 	}.Routes(), devices.Config{})
+
+	// Remote equipment is observed on demand; inventory writes never alter it.
+	srv.Mount(network.ModuleName, network.HTTP{
+		Service: network.NewService(store), Lock: srv.ApplyLock(), Events: srv.Events(),
+	}.Routes(), network.Config{})
 
 	bootID, bootErr := os.ReadFile("/proc/sys/kernel/random/boot_id")
 	if bootErr != nil || strings.TrimSpace(string(bootID)) == "" {

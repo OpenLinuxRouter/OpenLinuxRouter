@@ -15,6 +15,7 @@ Modules:
   ingress     Publish internal services at https:// names
   iptv        Routed IPTV multicast (IGMP proxy)
   link        Network interfaces olr has been given
+  network     Network equipment: switches, access points and routers
   remote      Get back into your network from outside it
   socks-out   Transparent outbound SOCKS5 for selected networks and devices
   system      Show how this router may be reached

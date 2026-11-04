@@ -20,6 +20,7 @@ import (
 	"github.com/open-linux-router/open-linux-router/internal/ingress"
 	"github.com/open-linux-router/open-linux-router/internal/iptv"
 	"github.com/open-linux-router/open-linux-router/internal/link"
+	"github.com/open-linux-router/open-linux-router/internal/network"
 	"github.com/open-linux-router/open-linux-router/internal/qos"
 	"github.com/open-linux-router/open-linux-router/internal/remote"
 	"github.com/open-linux-router/open-linux-router/internal/socksout"
@@ -36,6 +37,7 @@ type configurationSchema struct {
 	DHCP     *dhcp.Config     `json:"dhcp,omitempty"`
 	DNS      *dns.Config      `json:"dns,omitempty"`
 	Devices  *devices.Config  `json:"devices,omitempty"`
+	Network  *network.Config  `json:"network,omitempty"`
 	Gateway  *gateway.Config  `json:"gateway,omitempty"`
 	IPTV     *iptv.Config     `json:"iptv,omitempty"`
 	SocksOut *socksout.Config `json:"socksout,omitempty"`
@@ -47,7 +49,7 @@ type configurationSchema struct {
 
 func configurationStore(path string) *core.Store {
 	return core.NewStore(path, system.ModuleName, link.ModuleName, dial.ModuleName,
-		dhcp.ModuleName, dns.ModuleName, devices.ModuleName, gateway.ModuleName,
+		dhcp.ModuleName, dns.ModuleName, devices.ModuleName, network.ModuleName, gateway.ModuleName,
 		iptv.ModuleName, socksout.ModuleName, qos.ModuleName, remote.ModuleName,
 		ingress.ModuleName, firewall.ModuleName)
 }
@@ -143,6 +145,13 @@ func validateBackup(ctx context.Context, doc core.Document, source link.Source) 
 				return e
 			}
 			return devices.Validate(c).Err()
+		},
+		func() error {
+			c, e := network.FromDocument(doc)
+			if e != nil {
+				return e
+			}
+			return c.Validate()
 		},
 		func() error {
 			c, e := gateway.FromDocument(doc)

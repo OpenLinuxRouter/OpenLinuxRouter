@@ -12,6 +12,7 @@ import (
 	"github.com/open-linux-router/open-linux-router/internal/ingress"
 	"github.com/open-linux-router/open-linux-router/internal/iptv"
 	"github.com/open-linux-router/open-linux-router/internal/link"
+	"github.com/open-linux-router/open-linux-router/internal/network"
 	"github.com/open-linux-router/open-linux-router/internal/remote"
 	"github.com/open-linux-router/open-linux-router/internal/socksout"
 	"github.com/open-linux-router/open-linux-router/internal/system"
@@ -36,6 +37,7 @@ func newRoot() *cobra.Command {
 	root.AddCommand(
 		system.Command(),
 		link.Command(),
+		network.Command(),
 		dial.Command(),
 		dhcp.Command(),
 		dns.Command(),

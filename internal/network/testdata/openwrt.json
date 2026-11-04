@@ -1,0 +1,24 @@
+{
+  "system.board": {
+    "kernel": "6.6.73", "hostname": "edge-ap", "system": "ARMv8 Processor rev 4",
+    "model": "Example OpenWrt AP", "board_name": "example,ap",
+    "release": {"distribution": "OpenWrt", "version": "24.10.0", "revision": "r28427-test", "target": "mediatek/filogic"}
+  },
+  "system.info": {"localtime": 1739050000, "uptime": 12345, "load": [0,0,0], "memory": {"total": 524288000}},
+  "network.device.status": {
+    "br-lan": {"external":false,"present":true,"type":"bridge","up":true,"carrier":true,"macaddr":"02:11:22:33:44:50","bridge-members":["lan1","lan2"],"statistics":{"rx_bytes":9007199254740993,"tx_bytes":200,"rx_packets":10,"tx_packets":20,"rx_errors":0,"tx_errors":0}},
+    "lan1": {"external":false,"present":true,"type":"Network device","up":true,"carrier":true,"macaddr":"02:11:22:33:44:51","speed":"1000F","statistics":{"rx_bytes":100,"tx_bytes":200}},
+    "lan2": {"external":false,"present":true,"type":"Network device","up":true,"carrier":false,"macaddr":"02:11:22:33:44:52"},
+    "eth0.20": {"external":false,"present":true,"type":"8021q","up":true,"parent":"eth0","macaddr":"02:11:22:33:44:53"}
+  },
+  "network.interface.dump": {"interface":[{"interface":"lan","up":true,"device":"br-lan","l3_device":"br-lan","ipv4-address":[{"address":"192.0.2.1","mask":24}],"ipv6-address":[{"address":"2001:db8::1","mask":64}]}]},
+  "network.wireless.status": {
+    "radio0": {"up":true,"pending":false,"autostart":true,"disabled":false,"config":{"path":"platform/radio","band":"5g","channel":"36","htmode":"HE80"},"interfaces":[{"section":"default_radio0","ifname":"phy0-ap0","config":{"mode":"ap","ssid":"Test network","encryption":"sae","key":"WIFI_SECRET_MUST_NOT_ESCAPE","network":["lan"]}}]}
+  },
+  "hostapd.phy0-ap0.get_status": {"iface":"phy0-ap0","phy":"phy0","freq":5180,"channel":36,"bssid":"02:11:22:33:44:60","ssid":"Test network"},
+  "hostapd.phy0-ap0.get_clients": {"freq":5180,"clients":{"02:aa:bb:cc:dd:ee":{"auth":true,"assoc":true,"authorized":true,"signal":-52},"02:aa:bb:cc:dd:ef":{"auth":true,"assoc":true,"authorized":true}}},
+  "iwinfo.assoclist": {"results":[{"mac":"02:AA:BB:CC:DD:EE","signal":-51,"noise":-95,"connected_time":99,"inactive":0,"rx":{"rate":144400,"bytes":333,"packets":9,"mcs":7,"40mhz":true},"tx":{"rate":866700,"bytes":444,"packets":10}}]},
+  "session.access": {"access":true},
+  "list": {"hostapd.phy0-ap0":{"get_status":{},"get_clients":{},"del_client":{"addr":"String","reason":"Integer","deauth":"Boolean","ban_time":"Integer"}}},
+  "hostapd.phy0-ap0.del_client": {}
+}

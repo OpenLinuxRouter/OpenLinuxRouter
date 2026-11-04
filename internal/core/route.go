@@ -61,6 +61,9 @@ type QueryParam struct {
 	// Summary says what the parameter does, and reaches an agent as the
 	// property description.
 	Summary string `json:"summary"`
+
+	// Required reports whether callers must supply this query parameter.
+	Required bool `json:"required,omitempty"`
 }
 
 // Route is one route a module serves.

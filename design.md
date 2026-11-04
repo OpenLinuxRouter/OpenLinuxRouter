@@ -43,7 +43,9 @@ five-category assessment, measurement catalog, data model and staged delivery.
   dnsmasq has no lease synchronisation, so two boxes can never share DHCP state.
   The same choice caps us at hundreds of clients per network, not thousands.
   Both ceilings are accepted deliberately; neither is a gap to be closed later.
-- Managing third-party APs/switches as a fleet controller. Maybe later; not v1.
+- Fleet-wide provisioning and arbitrary vendor configuration remain outside v1.
+  Network equipment inventory and observation support Mercury SE109 Pro and
+  OpenWrt, with capability-gated operations; see [network equipment](docs/network-equipment.md).
 - A plugin API or third-party module ecosystem — see the extension surface
   above. Programmatic access is the HTTP API and MCP.
 - Reimplementing what the distro already does well (supervision, logging,

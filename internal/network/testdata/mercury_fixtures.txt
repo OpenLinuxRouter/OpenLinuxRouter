@@ -1,0 +1,10 @@
+Mercury fixtures retain the first data script from the SE109 Pro pages captured
+on 2026-11-02 (firmware 1.0.0 Build 20240914 Rel.40108) in the supplied Mercury
+research directory. Management addresses and device MAC are documentation-only
+values. The UI token is synthetic. The crypto script contains public firmware
+constants, with no password, encoded password, or session cookie.
+
+The HTML UI and its mutation forms are omitted. All tests run against httptest;
+no live device is contacted. Successful nonempty MAC search responses are
+synthetic schema fixtures, since the research only captured the empty search
+page and form rather than executing the CGI against a live switch.

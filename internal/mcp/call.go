@@ -88,7 +88,10 @@ func (s *Server) request(ctx context.Context, t tool, args map[string]json.RawMe
 		}
 	}
 
-	target := t.route.Path
+	target, err := requestPath(t.route.Path, args)
+	if err != nil {
+		return nil, err
+	}
 	if encoded := query.Encode(); encoded != "" {
 		target += "?" + encoded
 	}
