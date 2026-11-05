@@ -126,7 +126,7 @@ export function IptvPage() {
         <label className="block space-y-2 text-sm font-medium" htmlFor="iptv-sources">{t('Additional source IPv4 prefixes')}<span className="font-normal text-muted-foreground">(optional, one per line)</span>
           <Textarea id="iptv-sources" rows={3} value={sources} onChange={(event) => { setSourceEdit(event.target.value); setPreview(null) }} placeholder="10.0.0.0/8" className="font-mono" />
         </label>
-        <p className="text-sm text-muted-foreground">Missing your IPTV interface? Set up its VLAN and IPv4 address on the router first, then <Link className="underline underline-offset-4" to="/gateway#interfaces">adopt it under Interfaces <ArrowRight className="inline size-3" /></Link>.</p>
+        <p className="text-sm text-muted-foreground">Missing your IPTV interface? Set up its VLAN and IPv4 address on the router first, then <Link className="underline underline-offset-4" to="/gateway/interfaces">adopt it under Interfaces <ArrowRight className="inline size-3" /></Link>.</p>
         <div className="flex flex-wrap gap-2 border-t pt-4">
           <Button variant="secondary" disabled={!ready || plan.isPending || apply.isPending} onClick={() => void review({ ...next, enabled: true })}>Preview changes</Button>
           {draft.enabled && <Button variant="secondary" disabled={plan.isPending || apply.isPending} onClick={() => void review({ ...next, enabled: false })}>{t('Turn off')}</Button>}

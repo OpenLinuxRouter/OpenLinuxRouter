@@ -416,42 +416,23 @@ scope, replacement behavior and the priority enforcement caveat beside the
 explicit apply actions; selected values are batch choices, not observed shared
 settings. List member devices below the summary.
 
-Gateway answers one question — does this router get its networks online — in two
-layers, and has no status strip and no switches. The interfaces are the objects:
-physical cards carry name, role, link state, address and current rates without
-history charts, and open that interface's own page rather than a dialog, where
-link speed, MAC, every address, live rates, totals and the served address range
-live beside the switches that change them.
+Gateway's landing page is a directory of choices, not a status report. It has
+five groups, each naming a part of the router and each holding the ways of
+building that part: Internet (DHCP, PPPoE, a static address), Interfaces &
+routing (the interfaces, the route table, external rules), DHCP (dnsmasq, and
+Kea when it lands), DNS (unbound, and the resolvers OLR will offer beside it)
+and Firewall (nftables, port forwarding, external filtering). The order runs
+from the two parts an operator sets up once to the three whose shipped defaults
+most installs keep.
 
-Below them are two stacks, IPv4 and IPv6, each naming the same stages in the
-order traffic takes them: Upstream (address, next hop, and for IPv6 whether it
-is native, delegated or tunnelled), LAN (the subnets and how much of the pool
-is in use), the clients stage, Forwarding (whether this family's traffic gets
-out, and on IPv4 what it carries: NAT and the port forwards), Exit (direct, or
-which exit carries it — and for IPv6 whether an exit drops it, since there is
-no NAT to translate it), DNS (the resolvers, and for IPv6 whether IPv6 name
-resolution is enabled) and Routes (the routing table, closing the stack). The
-reading order is shared; the card labels are not required to match. A card is
-named for what an operator came to change: DHCP on IPv4, because that is the
-module's name and the word they arrive with; on IPv6, the protocol that is
-running — SLAAC, DHCPv6, or both when networks differ. Those are the operator's
-own words, so the card does not coin a name for the family. Each card states
-its stage's answer and links to the one page that changes it; a missing stage
-is named in its card rather than hidden. The stacks are a view cut across the
-modules and hold no configuration of their own, so the same module appearing
-under both families is one object seen twice. Drift and every routing and
-forwarding switch remain at interfaces#forwarding; Overview reports a gateway
-fault. Usage has no separate page; traffic counting lives in routing details.
-
-Each stack ends with the routing table itself, in a seventh card of the same
-kind: the route count, whether that family has a default route, and whether any
-of its tables belongs to somebody else. It is not a stage like the six above —
-every module in the stack writes into this table, and the kernel consults it
-after all of them — and it is per family, so it closes that family's stack
-rather than getting a block of its own that would name the two families again.
-Its page is read-only and groups every route by table: the box's main table,
-each exit's own table, and any table a rule outside OLR points at. A table is
-not a setting, so the rows live there and the card carries only the counts.
+A tile names a choice, never a module and never a mechanism: the word on it is
+the one an operator would use to pick it, and the sentence that explains it is
+the tooltip. A choice OLR cannot configure yet keeps its tile, muted and inert,
+so a group shows what it will contain instead of growing a tile at a time; it is
+not an external setup and the tooltip says so plainly. A tile that is a link
+opens the one page that configures the choice, where the switches and the live
+answer both live — the directory itself holds no switch, no status strip and no
+draft, and no tile opens a dialog.
 
 Open newly navigated pages at the top so their title and primary information are
 visible. Preserve section targeting for hash links and scroll for query-only changes.

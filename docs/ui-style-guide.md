@@ -183,41 +183,25 @@ clear of both bars and scroll the navigation locally on narrow screens. The
 page title is accessible but visually hidden; avoid a repeated introductory
 heading above the step navigation.
 
-Gateway has no status strip: its objects are the page. Physical interface cards
-wrap three across from 1024px, two from 640px and one on phones. Interface cards
-show name, role, link state, address and current rates without traffic charts,
-with wrapping addresses and 16px padding, and link to the interface's own page
-instead of opening a dialog; link speed, MAC, every address, live rates and
-totals live on that page, beside the switches that change them.
+Gateway's landing page is a directory, in the launcher Access and Advanced
+already use: five groups in the order an operator arrives at them — Internet,
+Interfaces & routing, DHCP, DNS and Firewall — each holding one tile per way of
+building that part. Use three columns on phones, five from 640px, seven from
+1024px and eight from 1280px, with the group's 24px/32px heading above it and
+each tile a letter in the group's hue, so the tint groups the tiles without a
+legend. Names stay on one line and nothing prints under them.
 
-Below the interfaces the page is two stacks, IPv4 and IPv6, so a family's whole
-path is readable without knowing which module owns which half. Each stack is a
-24px heading and one grid of cards in the order a packet meets them — Upstream,
-LAN, DHCP, Forwarding, Exit, DNS, with the clients card reading SLAAC or DHCPv6
-on the IPv6 stack, and the family's route table last — three across from 1024px,
-two from 640px and one on phones. The stacks share the reading order, not a
-card-for-card naming: a card is named for what its family actually runs — the
-protocol on the clients card — so the labels may differ where the families do,
-and a status word reports the outcome rather than the mechanism behind it. A
-card shows the stage's answer for its family: a tone dot, a status word and one
-detail line, with the whole card linking to the one page that changes it. The
-same stage therefore appears once per family as a second view of the same
-object, never as a second editor: a stack card holds no configuration and no
-draft. A stage that is missing says so in its card instead of disappearing.
-Drift and every routing and forwarding switch live at `interfaces#forwarding`,
-beside the sentences that say what turning them off closes; the stacks only
-report what those switches wrote, and Overview is where a gateway fault is
-reported.
+A choice OLR cannot configure yet keeps its tile at 55% opacity, with no pointer
+and no destination: a group states what it will contain instead of growing a
+tile at a time. It is not an external setup, so it never borrows that state's
+language, and its tooltip says plainly that nothing opens. A tile that is a link
+opens the one page that configures the choice; the directory has no status
+strip, no switch, no draft, and no tile that opens a dialog.
 
-The Routes card is the route table's answer for that family, and it is drawn
-like the six stage cards above it without being one of them: every module writes
-into the table and the kernel consults it after all of them, so it comes last,
-where they all land. A route table is per family, so it belongs to the family's
-stack rather than to a block of its own that would name IPv4 and IPv6 a second
-time. It carries the route count, whether that family has a default route, and
-how many of its tables belong to exits or to somebody else — counts, not rows,
-because a card is not a table. Its page is read-only and groups every route by
-table, so a count never has to stand in for the rows.
+The interface cards and the two stacks, IPv4 and IPv6, that used to be this
+page are not on it any more: a stack card's answer and the switch that changes
+it were always one page away, and links that used to target
+`gateway#interfaces` now target `gateway/interfaces`.
 
 The shell has a 1280px maximum width, a 64px header and horizontal gutters of
 16px on phones, 24px from 640px, and 32px from 1280px. Content starts with

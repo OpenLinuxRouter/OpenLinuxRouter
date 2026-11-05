@@ -71,6 +71,7 @@ export function LauncherTile({
   notes,
   to,
   href,
+  planned,
 }: {
   name: string
   /** One sentence for the tooltip; never the only place a function is stated. */
@@ -80,19 +81,32 @@ export function LauncherTile({
   notes?: LauncherState[]
   to?: string
   href?: string
+  /**
+   * A choice the directory will carry but cannot configure yet. It keeps its
+   * place and its name so a group states what it is going to contain, and says
+   * plainly that nothing opens — an inert tile is not an external one.
+   */
+  planned?: boolean
 }) {
   useLocale()
   const summary = notes?.[0]
   // A tile with an OLR page is integrated even when it has nothing live to
   // report; only a tile that leaves the app is an external setup.
-  const external = !to
-  const label = summary ? `${name} · ${summary.text}` : external ? `${name} · Not integrated` : name
+  const external = !to && !planned
+  const label = summary
+    ? `${name} · ${summary.text}`
+    : planned ? `${name} · ${t('Not available yet')}` : external ? `${name} · Not integrated` : name
   return (
     <Tooltip>
       <TooltipTrigger
         render={to ? <Link to={to} /> : href ? <a href={href} target="_blank" rel="noopener noreferrer" /> : <span />}
         aria-label={label}
-        className="group flex min-w-0 flex-col items-center gap-2 rounded-xl px-0 py-2 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+        className={cn(
+          'group flex min-w-0 flex-col items-center gap-2 rounded-xl px-0 py-2 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background',
+          // Nothing opens, so the tile loses the pointer and reads as a
+          // statement of intent rather than a link that happens to be broken.
+          planned && 'cursor-default opacity-55',
+        )}
       >
         <span
           className={cn('flex size-16 shrink-0 items-center justify-center rounded-2xl transition duration-150', MARK_BACKING[mark.kind])}
@@ -116,7 +130,8 @@ export function LauncherTile({
         <p>{description}</p>
         {notes?.length
           ? notes.map((note, index) => <p key={index}>{note.text}</p>)
-          : external ? <p>{t('Not integrated · External setup')}</p> : null}
+          : planned ? <p>{t('Not available yet. This router does not configure it, and nothing opens here.')}</p>
+            : external ? <p>{t('Not integrated · External setup')}</p> : null}
       </TooltipContent>
     </Tooltip>
   )

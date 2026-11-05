@@ -137,9 +137,8 @@ peerState({ unknown, online, lastHandshake }) // Unknown · Connected · Never c
 ```
 
 They replace `describeStatus()` in `routes/dhcp/index.tsx` and
-`routes/dns/index.tsx`, `moduleState()` in `routes/overview.tsx`, `dhcpHealth()` /
-`dnsHealth()` in `features/gateway/stacks.tsx`, `stateTone()` /
-`connectionState()` in `features/gateway/summary.tsx`, `describeState()` in
+`routes/dns/index.tsx`, `moduleState()` in `routes/overview.tsx`,
+`describeState()` in
 `features/link/interface-visual.tsx` and the seven-branch `dot={…}` expressions in
 `routes/advanced/*`.
 

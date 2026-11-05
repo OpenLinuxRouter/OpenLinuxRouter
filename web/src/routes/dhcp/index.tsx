@@ -41,7 +41,7 @@ export function DhcpContent() {
     <div className="space-y-4">
       <ApplyOutcome applier={applier} />
       {nothingAdopted && (
-        <Alert><AlertTriangle /><AlertTitle>{t('Choose an interface first')}</AlertTitle><AlertDescription>{t('DHCP needs an adopted interface.')}<Link to="/gateway#interfaces" className="underline underline-offset-4">{t('Go to Interfaces')}</Link></AlertDescription></Alert>
+        <Alert><AlertTriangle /><AlertTitle>{t('Choose an interface first')}</AlertTitle><AlertDescription>{t('DHCP needs an adopted interface.')}<Link to="/gateway/interfaces" className="underline underline-offset-4">{t('Go to Interfaces')}</Link></AlertDescription></Alert>
       )}
       <div className="rounded-xl border bg-card p-5 space-y-4">
         <StatusStrip
@@ -102,7 +102,7 @@ export function DhcpDetailsContent() {
               address is set and no service is started.
             </p>
             <Link
-              to="/gateway#interfaces"
+              to="/gateway/interfaces"
               className="inline-flex items-center gap-1 text-sm font-medium underline underline-offset-4"
             >{t('Choose an interface')}<ChevronRight className="size-3.5" aria-hidden />
             </Link>

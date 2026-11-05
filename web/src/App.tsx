@@ -153,7 +153,7 @@ export function App() {
           <Route path="ingress" element={<RedirectWithState to="/advanced/caddy" />} />
           <Route path="advanced/ingress" element={<RedirectWithState to="/advanced/caddy" />} />
           <Route path="devices" element={<Navigate to="/" replace />} />
-          <Route path="dhcp/interfaces" element={<Navigate to="/gateway#interfaces" replace />} />
+          <Route path="dhcp/interfaces" element={<Navigate to="/gateway/interfaces" replace />} />
           <Route path="dhcp/*" element={<LegacySectionRedirect />} />
           <Route path="dns/*" element={<LegacySectionRedirect />} />
 
