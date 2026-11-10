@@ -18,10 +18,17 @@ import (
 type testAdapter struct {
 	calls int
 	fail  bool
+	scan  ScanResult
 }
 
 func (a *testAdapter) Read(_ context.Context, d Device) (Snapshot, error) {
 	return Snapshot{DeviceID: d.ID, ObservedAt: time.Now(), Collections: map[string]Collection{"ports": {State: "ok"}}}, nil
+}
+func (a *testAdapter) Scan(_ context.Context, d Device, radioID string) (ScanResult, error) {
+	result := a.scan
+	result.DeviceID = d.ID
+	result.RadioID = radioID
+	return result, nil
 }
 func (a *testAdapter) Plan(_ context.Context, d Device, op Operation) (OperationPlan, error) {
 	return OperationPlan{DeviceID: d.ID, Operation: op, Supported: true, Impact: "Disconnect the selected client."}, nil
@@ -149,6 +156,9 @@ func TestNetworkHTTPStrictInputsAndPublishedContract(t *testing.T) {
 		{"POST", "/devices/ap/operations/plan", `{"kind":"device.reboot","target":"x","client_mac":"aa:bb:cc:dd:ee:ff"}`, 422},
 		{"POST", "/devices/ap/operations/plan", `{"kind":"client.disconnect","target":"wlan0","client_mac":"aa:bb:cc:dd:ee:ff","extra":true}`, 400},
 		{"POST", "/devices/ap/operations/execute", `{"operation":{"kind":"client.disconnect","target":"wlan0","client_mac":"aa:bb:cc:dd:ee:ff"},"confirmation":"bogus"}`, 409},
+		{"POST", "/devices/ap/scan", `{}`, 400},
+		{"POST", "/devices/ap/scan", `{"radio_id":"phy1-ap0","extra":true}`, 400},
+		{"POST", "/devices/ap/scan", `{"radio_id":"phy1-ap0"}`, 200},
 		{"GET", "/contract", "", 200},
 	}
 	for _, tt := range tests {
@@ -168,7 +178,7 @@ func TestNetworkHTTPStrictInputsAndPublishedContract(t *testing.T) {
 		Version int                        `json:"version"`
 		Schemas map[string]json.RawMessage `json:"schemas"`
 	}
-	if err := json.Unmarshal(w.Body.Bytes(), &contract); err != nil || contract.Version != 1 || len(contract.Schemas) != 8 {
+	if err := json.Unmarshal(w.Body.Bytes(), &contract); err != nil || contract.Version != 1 || len(contract.Schemas) != 10 {
 		t.Fatalf("contract=%s err=%v", w.Body, err)
 	}
 	if !bytes.Contains(contract.Schemas["device"], []byte(`"ap"`)) {
@@ -235,5 +245,25 @@ func TestInventoryWriteHasNoRemoteEffectsAndRejectsStaleETag(t *testing.T) {
 	}
 	if a.calls != 0 {
 		t.Fatal("inventory changed remote device")
+	}
+}
+
+type readOnlyAdapter struct{}
+
+func (readOnlyAdapter) Read(_ context.Context, d Device) (Snapshot, error) {
+	return Snapshot{DeviceID: d.ID}, nil
+}
+
+func TestScanNeedsARadioAndAnAdapterThatCanScan(t *testing.T) {
+	s, _ := testService(t)
+	if _, err := s.Scan(context.Background(), "ap", ""); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("empty radio = %v", err)
+	}
+	if _, err := s.Scan(context.Background(), "missing", "phy1-ap0"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown device = %v", err)
+	}
+	s.Adapters["openwrt"] = readOnlyAdapter{}
+	if _, err := s.Scan(context.Background(), "ap", "phy1-ap0"); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("read-only adapter = %v", err)
 	}
 }

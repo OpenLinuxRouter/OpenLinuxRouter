@@ -35,6 +35,9 @@ type openwrtSession struct {
 	token     string
 	id        uint64
 	refreshed bool
+	// timeout overrides the 8s per-call bound for methods a radio answers
+	// slowly, notably a scan that has to visit every channel.
+	timeout time.Duration
 }
 type openwrtStatusError struct{ code int }
 
@@ -76,7 +79,11 @@ func (s *openwrtSession) rpc(ctx context.Context, method string, params []any, o
 	if err != nil {
 		return errors.New("OpenWrt request encoding failed")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	limit := 8 * time.Second
+	if s.timeout > 0 {
+		limit = s.timeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.endpoint, bytes.NewReader(body))
 	if err != nil {
@@ -990,5 +997,187 @@ func (o *OpenWrt) Execute(ctx context.Context, d Device, op Operation) (Operatio
 	return result, nil
 }
 
+// A scan leaves the channel for a few seconds, so callers ask for it
+// deliberately and the answer is reported as a dated sample. On the tested
+// firmware iwinfo grants scan but denies survey, the per-channel utilisation
+// table, so overlap is inferred from channel, width and signal instead.
+func (o *OpenWrt) Scan(ctx context.Context, d Device, radioID string) (ScanResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	s, err := o.session(ctx, d)
+	if err != nil {
+		return ScanResult{}, err
+	}
+	device := s.scanDevice(ctx, radioID)
+	if device == "" {
+		return ScanResult{}, fmt.Errorf("%w: unknown radio", ErrInvalid)
+	}
+	s.timeout = 25 * time.Second
+	var answer struct {
+		Results *[]openwrtScanSample `json:"results"`
+	}
+	now := time.Now().UTC()
+	if err := s.call(ctx, "iwinfo", "scan", map[string]any{"device": device}, &answer, true); err != nil {
+		return ScanResult{}, err
+	}
+	if answer.Results == nil {
+		return ScanResult{}, errors.New("OpenWrt malformed scan result")
+	}
+	result := ScanResult{DeviceID: d.ID, RadioID: radioID, ObservedAt: now, Neighbours: []Neighbour{}}
+	seen := make(map[string]bool, len(*answer.Results))
+	for _, sample := range *answer.Results {
+		n, ok := sample.neighbour()
+		// A BSS can answer on several channels in one scan; the first hearing
+		// describes it well enough for a channel view.
+		if !ok || seen[n.BSSID] {
+			continue
+		}
+		seen[n.BSSID] = true
+		result.Neighbours = append(result.Neighbours, n)
+	}
+	sort.SliceStable(result.Neighbours, func(i, j int) bool {
+		a, b := result.Neighbours[i], result.Neighbours[j]
+		if ca, cb := openwrtScanChannel(a.Channel), openwrtScanChannel(b.Channel); ca != cb {
+			return ca < cb
+		}
+		if sa, sb := openwrtScanSignal(a.SignalDBm), openwrtScanSignal(b.SignalDBm); sa != sb {
+			return sa > sb
+		}
+		return a.BSSID < b.BSSID
+	})
+	return result, nil
+}
+
+type openwrtScanSample struct {
+	BSSID        string                  `json:"bssid"`
+	SSID         string                  `json:"ssid"`
+	Channel      *int                    `json:"channel"`
+	Signal       *int                    `json:"signal"`
+	HTOperation  *openwrtScanHTOperation `json:"ht_operation"`
+	VHTOperation *struct {
+		ChannelWidth *int `json:"channel_width"`
+	} `json:"vht_operation"`
+	Encryption *struct {
+		Enabled *bool `json:"enabled"`
+		WEP     *bool `json:"wep"`
+		WPA     []int `json:"wpa"`
+	} `json:"encryption"`
+}
+type openwrtScanHTOperation struct {
+	ChannelWidth *int   `json:"channel_width"`
+	Secondary    string `json:"secondary_channel_offset"`
+}
+
+func (s openwrtScanSample) neighbour() (Neighbour, bool) {
+	mac, err := net.ParseMAC(s.BSSID)
+	if err != nil || len(mac) != 6 {
+		return Neighbour{}, false
+	}
+	n := Neighbour{BSSID: mac.String(), SSID: strings.TrimSpace(s.SSID), Channel: s.Channel, SignalDBm: s.Signal}
+	// iwinfo reports the HT width as 2040 when the beacon leaves 20 versus 40
+	// to the secondary-channel offset. VHT is only meaningful above channel 14;
+	// on 2.4 GHz some drivers still echo a VHT block, so it is ignored there.
+	channel := openwrtScanChannel(s.Channel)
+	if s.HTOperation != nil && s.HTOperation.ChannelWidth != nil {
+		switch width := *s.HTOperation.ChannelWidth; {
+		case width == 2040:
+			if strings.HasPrefix(strings.ToLower(s.HTOperation.Secondary), "no") {
+				n.WidthMHz = Ptr(20)
+			} else {
+				n.WidthMHz = Ptr(40)
+			}
+		case width == 20 || width == 40:
+			n.WidthMHz = Ptr(width)
+		}
+	}
+	if channel > 14 && s.VHTOperation != nil && s.VHTOperation.ChannelWidth != nil && *s.VHTOperation.ChannelWidth > 0 {
+		n.WidthMHz = s.VHTOperation.ChannelWidth
+	}
+	switch {
+	case s.VHTOperation != nil:
+		n.Transport = "ac"
+	case s.HTOperation != nil:
+		n.Transport = "n"
+	}
+	// An absent privacy block is unknown, not open. Only a beacon that states
+	// whether it is encrypted answers the question.
+	if s.Encryption != nil && s.Encryption.Enabled != nil {
+		if *s.Encryption.Enabled {
+			n.Open = Ptr(false)
+			n.Encryption = openwrtScanEncryption(s.Encryption.WEP, s.Encryption.WPA)
+		} else {
+			n.Open = Ptr(true)
+		}
+	}
+	return n, true
+}
+func openwrtScanChannel(channel *int) int {
+	if channel == nil {
+		return 0
+	}
+	return *channel
+}
+func openwrtScanSignal(signal *int) int {
+	if signal == nil {
+		return -999
+	}
+	return *signal
+}
+func openwrtScanEncryption(wep *bool, wpa []int) string {
+	var parts []string
+	if wep != nil && *wep {
+		parts = append(parts, "WEP")
+	}
+	seen := map[string]bool{}
+	for _, version := range wpa {
+		name := ""
+		switch version {
+		case 1:
+			name = "WPA"
+		case 2:
+			name = "WPA2"
+		case 3:
+			name = "WPA3"
+		}
+		if name != "" && !seen[name] {
+			seen[name] = true
+			parts = append(parts, name)
+		}
+	}
+	return strings.Join(parts, "+")
+}
+
 var _ Adapter = (*OpenWrt)(nil)
 var _ Operator = (*OpenWrt)(nil)
+var _ Scanner = (*OpenWrt)(nil)
+
+var _ Adapter = (*OpenWrt)(nil)
+var _ Operator = (*OpenWrt)(nil)
+var _ Scanner = (*OpenWrt)(nil)
+
+// The snapshot names radios the way netifd does ("radio0"); iwinfo wants the
+// AP interface ("phy0-ap0"). Accept either, preferring the snapshot's radio ID
+// because that is what a caller read and what the contract documents.
+func (s *openwrtSession) scanDevice(ctx context.Context, radioID string) string {
+	if _, networks, err := s.wireless(ctx); err == nil {
+		for _, n := range networks {
+			if n.RadioID == radioID && n.InterfaceID != "" && (n.Mode == "ap" || n.Mode == "ap-wds") {
+				return n.InterfaceID
+			}
+		}
+	}
+	// A caller may already hold the interface name. Verify it when the firmware
+	// lets us list devices; otherwise let the scan itself be the judge.
+	var devices struct {
+		Devices []string `json:"devices"`
+	}
+	if s.call(ctx, "iwinfo", "devices", map[string]any{}, &devices, true) != nil {
+		return radioID
+	}
+	for _, device := range devices.Devices {
+		if device == radioID {
+			return radioID
+		}
+	}
+	return ""
+}

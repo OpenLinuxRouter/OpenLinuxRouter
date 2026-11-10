@@ -782,3 +782,112 @@ func TestOpenWrtAssociationsFallBackToIWinfo(t *testing.T) {
 		t.Fatalf("fallback association metrics: %+v", snap.Associations[0])
 	}
 }
+
+func TestOpenWrtScanReportsNeighbours(t *testing.T) {
+	f := newOpenwrtTestServer(t)
+	result, err := f.adapter().Scan(context.Background(), f.device(), "phy1-ap0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.DeviceID != "ap" || result.RadioID != "phy1-ap0" || len(result.Neighbours) != 5 {
+		t.Fatalf("scan result: %+v", result)
+	}
+	var order []string
+	for _, n := range result.Neighbours {
+		order = append(order, n.BSSID)
+	}
+	// Channel order first, strongest first within a channel; the repeat hearing
+	// and the unparseable BSSID in the fixture are dropped.
+	want := []string{"00:11:22:33:44:59", "00:11:22:33:44:58", "00:11:22:33:44:55", "00:11:22:33:44:56", "00:11:22:33:44:57"}
+	if !reflect.DeepEqual(order, want) {
+		t.Fatalf("order %v", order)
+	}
+	byBSSID := map[string]Neighbour{}
+	for _, n := range result.Neighbours {
+		byBSSID[n.BSSID] = n
+	}
+	check := func(mac string, width int, transport, encryption string, open bool, signal int) {
+		t.Helper()
+		n := byBSSID[mac]
+		if n.WidthMHz == nil || *n.WidthMHz != width || n.Transport != transport || n.Encryption != encryption || n.Open == nil || *n.Open != open || n.SignalDBm == nil || *n.SignalDBm != signal {
+			t.Fatalf("%s = %+v", mac, n)
+		}
+	}
+	check("00:11:22:33:44:55", 80, "ac", "WPA2", false, -62)
+	check("00:11:22:33:44:56", 40, "n", "WPA+WPA2", false, -70)
+	check("00:11:22:33:44:57", 20, "n", "", true, -80)
+	check("00:11:22:33:44:58", 160, "ac", "WPA3", false, -88)
+	// No channel, no width, no SSID and no privacy block: every one of those
+	// stays absent rather than being reported as zero or "open".
+	if bare := byBSSID["00:11:22:33:44:59"]; bare.WidthMHz != nil || bare.Channel != nil || bare.SSID != "" || bare.Transport != "" || bare.Encryption != "" || bare.Open != nil {
+		t.Fatalf("unknown neighbour filled in: %+v", bare)
+	}
+	f.mu.Lock()
+	last := f.calls[len(f.calls)-1]
+	f.mu.Unlock()
+	if last.Object != "iwinfo" || last.Method != "scan" || last.Args["device"] != "phy1-ap0" {
+		t.Fatalf("scan call: %+v", last)
+	}
+}
+
+func TestOpenWrtScanPermissionAndMalformedAnswer(t *testing.T) {
+	t.Run("denied", func(t *testing.T) {
+		f := newOpenwrtTestServer(t)
+		f.override = func(w http.ResponseWriter, r *http.Request, req openwrtTestRequest, c openwrtTestCall) bool {
+			if c.Object == "iwinfo" && c.Method == "scan" {
+				openwrtTestReply(w, req, 6, nil)
+				return true
+			}
+			return false
+		}
+		if _, err := f.adapter().Scan(context.Background(), f.device(), "phy1-ap0"); !errors.Is(err, ErrUnsupported) {
+			t.Fatalf("denied scan = %v", err)
+		}
+	})
+	t.Run("malformed", func(t *testing.T) {
+		f := newOpenwrtTestServer(t)
+		f.override = func(w http.ResponseWriter, r *http.Request, req openwrtTestRequest, c openwrtTestCall) bool {
+			if c.Object == "iwinfo" && c.Method == "scan" {
+				_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":`+fmt.Sprint(req.ID)+`,"result":[0,{"neighbours":[]}]}`)
+				return true
+			}
+			return false
+		}
+		if _, err := f.adapter().Scan(context.Background(), f.device(), "phy1-ap0"); err == nil || errors.Is(err, ErrUnsupported) {
+			t.Fatalf("malformed scan = %v", err)
+		}
+	})
+}
+
+func TestOpenWrtScanAcceptsTheSnapshotRadioID(t *testing.T) {
+	f := newOpenwrtTestServer(t)
+	result, err := f.adapter().Scan(context.Background(), f.device(), "radio0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.RadioID != "radio0" || len(result.Neighbours) != 5 {
+		t.Fatalf("scan: %+v", result)
+	}
+	f.mu.Lock()
+	last := f.calls[len(f.calls)-1]
+	f.mu.Unlock()
+	// radio0 is phy0-ap0 in the inventory fixture; iwinfo must be asked for the
+	// interface, not for netifd's radio name.
+	if last.Method != "scan" || last.Args["device"] != "phy0-ap0" {
+		t.Fatalf("scan call: %+v", last)
+	}
+}
+
+func TestOpenWrtScanRejectsAnUnknownRadio(t *testing.T) {
+	f := newOpenwrtTestServer(t)
+	f.override = func(w http.ResponseWriter, r *http.Request, req openwrtTestRequest, c openwrtTestCall) bool {
+		if c.Object == "iwinfo" && c.Method == "devices" {
+			openwrtTestReply(w, req, 0, map[string]any{"devices": []string{"phy0-ap0"}})
+			return true
+		}
+		return false
+	}
+	if _, err := f.adapter().Scan(context.Background(), f.device(), "radio9"); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("unknown radio = %v", err)
+	}
+}

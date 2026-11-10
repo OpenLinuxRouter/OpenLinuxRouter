@@ -155,6 +155,31 @@ type Association struct {
 	MFP              *bool    `json:"mfp,omitempty"`
 	WMM              *bool    `json:"wmm,omitempty"`
 }
+
+// A Neighbour is another BSS heard during an explicit scan, not a live view.
+// Scanning moves the radio off its channel for a few seconds, so every answer
+// is a dated sample and the page says so.
+type Neighbour struct {
+	BSSID      string `json:"bssid,omitempty"`
+	SSID       string `json:"ssid,omitempty"`
+	Channel    *int   `json:"channel,omitempty"`
+	WidthMHz   *int   `json:"width_mhz,omitempty"`
+	SignalDBm  *int   `json:"signal_dbm,omitempty"`
+	Encryption string `json:"encryption,omitempty"`
+	// Open is nil when the beacon carried no usable privacy information, which
+	// is not the same as an open network.
+	Open      *bool  `json:"open,omitempty"`
+	Transport string `json:"transport,omitempty"`
+}
+type ScanRequest struct {
+	RadioID string `json:"radio_id"`
+}
+type ScanResult struct {
+	DeviceID   string      `json:"device_id"`
+	RadioID    string      `json:"radio_id"`
+	ObservedAt time.Time   `json:"observed_at"`
+	Neighbours []Neighbour `json:"neighbours"`
+}
 type Snapshot struct {
 	DeviceID     string                `json:"device_id"`
 	ObservedAt   time.Time             `json:"observed_at"`
@@ -207,6 +232,12 @@ var ErrInvalid = errors.New("invalid network device request")
 // Adapter has one mandatory read contract and optional narrow abilities.
 type Adapter interface {
 	Read(context.Context, Device) (Snapshot, error)
+}
+
+// Scanner hears neighbouring BSS on one radio. It disturbs the radio while it
+// runs, so callers trigger it deliberately and never as part of a snapshot.
+type Scanner interface {
+	Scan(context.Context, Device, string) (ScanResult, error)
 }
 type FDBLookup interface {
 	LookupFDB(context.Context, Device, FDBQuery) (FDBResult, error)

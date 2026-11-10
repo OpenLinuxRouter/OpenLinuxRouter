@@ -161,6 +161,11 @@ func TestEveryReadRouteIsPublishedAsATool(t *testing.T) {
 		// The page's Test all, with the same reasoning: it starts probes and
 		// changes no configuration.
 		"gateway POST /latency/measure": true,
+		// A scan takes the radio off its channel for a few seconds and stalls
+		// every client on that band. The page offers it as a deliberate
+		// per-band action; an agent must not interrupt the Wi-Fi merely to
+		// fill in a diagram.
+		"network POST /devices/{id}/scan": true,
 	}
 
 	for module, routes := range moduleRoutes() {

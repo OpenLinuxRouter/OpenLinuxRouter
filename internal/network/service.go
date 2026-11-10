@@ -87,6 +87,26 @@ func (s *Service) Read(ctx context.Context, id string) (Snapshot, error) {
 	})
 	return snapshot, err
 }
+
+// Scan asks one radio what else it can hear. It is separate from Read because
+// a scan interrupts the radio; a page that only wanted a snapshot must not pay
+// for it.
+func (s *Service) Scan(ctx context.Context, id, radioID string) (ScanResult, error) {
+	if radioID == "" || len(radioID) > 128 {
+		return ScanResult{}, fmt.Errorf("%w: a radio ID is required", ErrInvalid)
+	}
+	var result ScanResult
+	err := s.withDevice(ctx, id, func(ctx context.Context, d Device, a Adapter) error {
+		scanner, ok := a.(Scanner)
+		if !ok {
+			return ErrUnsupported
+		}
+		var err error
+		result, err = scanner.Scan(ctx, d, radioID)
+		return err
+	})
+	return result, err
+}
 func (s *Service) Lookup(ctx context.Context, id string, q FDBQuery) (FDBResult, error) {
 	mac, err := core.NormalizeMAC(q.MAC)
 	if err != nil {

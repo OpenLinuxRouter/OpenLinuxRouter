@@ -3,14 +3,20 @@ import { test } from 'node:test'
 
 import {
   bandLabel,
+  channelFrequency,
+  channelOverlap,
+  channelsFor,
   findingsFor,
   formatDuration,
   isPrivateAddress,
   linkTech,
+  occupancyByChannel,
+  scanSummary,
   signalBars,
   signalLevel,
   snr,
   sortClients,
+  sortNeighbours,
   standardLabel,
 } from './wireless.ts'
 
@@ -91,4 +97,50 @@ test('clients sort by band first, then by signal', () => {
     client({ mac: '02:AA:BB:CC:DD:03', radio_id: 'r5', signal_dbm: -60 }),
   ], snapshot({ radios }))
   assert.deepEqual(sorted.map(item => item.mac), ['02:AA:BB:CC:DD:03', '02:AA:BB:CC:DD:02', '02:AA:BB:CC:DD:01'])
+})
+
+test('each band lists the channels a reader would name', () => {
+  assert.deepEqual(channelsFor('2g'), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+  assert.equal(channelsFor('5g')[0], 36)
+  assert.equal(channelsFor('5g').at(-1), 165)
+  assert.deepEqual(channelsFor('6g'), [])
+  assert.equal(channelFrequency(6, '2g'), 2437)
+  assert.equal(channelFrequency(14, '2g'), 2484)
+  assert.equal(channelFrequency(149, '5g'), 5745)
+})
+
+test('overlap is judged on occupied air, not on equal channel numbers', () => {
+  // 80 MHz at 149 reaches 153, so a 40 MHz neighbour at 153 shares the air.
+  assert.equal(channelOverlap({ channel: 149, width_mhz: 80 }, { channel: 153, width_mhz: 40 }, '5g'), true)
+  assert.equal(channelOverlap({ channel: 149, width_mhz: 80 }, { channel: 165, width_mhz: 20 }, '5g'), false)
+  // 2.4 GHz channels six apart are 30 MHz apart: 20 MHz each, no overlap.
+  assert.equal(channelOverlap({ channel: 1, width_mhz: 20 }, { channel: 7, width_mhz: 20 }, '2g'), false)
+  assert.equal(channelOverlap({ channel: 1, width_mhz: 40 }, { channel: 4, width_mhz: 20 }, '2g'), true)
+  // Unknown positions are not evidence of overlap.
+  assert.equal(channelOverlap({ width_mhz: 20 }, { channel: 6 }, '2g'), false)
+})
+
+test('a scan summary separates co-channel from wider overlap', () => {
+  const summary = scanSummary([
+    { bssid: 'A', channel: 36, width_mhz: 80, signal_dbm: -70 },
+    { bssid: 'B', channel: 40, width_mhz: 40, signal_dbm: -55 },
+    { bssid: 'C', channel: 149, width_mhz: 80, signal_dbm: -80 },
+  ], radio({ band: '5g', channel: 36, width_mhz: 80 }))
+  assert.equal(summary.heard, 3)
+  assert.equal(summary.coChannel, 1)
+  assert.equal(summary.overlapping, 2)
+  assert.equal(summary.strongest.bssid, 'B')
+})
+
+test('neighbours sort by signal and occupy the strip by primary channel', () => {
+  const neighbours = [
+    { bssid: 'A', channel: 1, signal_dbm: -80 },
+    { bssid: 'B', channel: 11, signal_dbm: -50 },
+    { bssid: 'C', channel: 1, signal_dbm: -60 },
+    { bssid: 'D', signal_dbm: -40 },
+  ]
+  assert.deepEqual(sortNeighbours(neighbours).map(item => item.bssid), ['D', 'B', 'C', 'A'])
+  const strip = occupancyByChannel(neighbours, '2g')
+  assert.equal(strip.length, 13)
+  assert.deepEqual(strip.filter(item => item.count > 0), [{ channel: 1, count: 2 }, { channel: 11, count: 1 }])
 })

@@ -1,0 +1,13 @@
+Listen for neighbouring access points on one radio
+
+Usage:
+  olr network show scan <id> [flags]
+
+Flags:
+  -h, --help           help for scan
+      --radio string   Radio ID from the device snapshot
+
+Global Flags:
+      --dry-run         show what would change and exit without applying it
+  -o, --output string   output format: text|json (default "text")
+      --socket string   olrd control socket (default "/run/olr/olrd.sock")

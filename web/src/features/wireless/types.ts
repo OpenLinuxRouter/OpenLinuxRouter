@@ -100,3 +100,27 @@ export interface Snapshot {
   wireless?: WirelessNetwork[]
   associations?: Association[]
 }
+
+/**
+ * One BSS another radio heard during an explicit scan. `open` is absent when
+ * the beacon carried no usable privacy information, which is not the same as
+ * an open network; `encryption` names the protocol family, never a key.
+ */
+export interface Neighbour {
+  bssid?: string
+  ssid?: string
+  channel?: number
+  width_mhz?: number
+  signal_dbm?: number
+  encryption?: string
+  open?: boolean
+  transport?: string
+}
+
+/** A scan is a dated sample: the radio left its channel while it ran. */
+export interface ScanResult {
+  device_id: string
+  radio_id: string
+  observed_at: string
+  neighbours: Neighbour[]
+}

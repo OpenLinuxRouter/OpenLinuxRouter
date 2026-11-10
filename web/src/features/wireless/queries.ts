@@ -1,8 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
 
-import type { NetworkConfig, Snapshot } from './types'
+import type { NetworkConfig, ScanResult, Snapshot } from './types'
 
 export const wirelessKeys = {
   config: ['network', 'config'] as const,
@@ -28,5 +28,16 @@ export function useNetworkSnapshot(id?: string) {
     queryFn: () => api.get<Snapshot>(`/api/network/devices/${encodeURIComponent(id ?? '')}/snapshot`),
     enabled: Boolean(id),
     staleTime: 10_000,
+  })
+}
+
+/**
+ * A scan is a decision, not a read: it takes the radio off its channel for a
+ * few seconds. Nothing runs it on a timer, and the answer is never cached as
+ * if it were the current neighbourhood.
+ */
+export function useRadioScan(id?: string) {
+  return useMutation({
+    mutationFn: (radioID: string) => api.post<ScanResult>(`/api/network/devices/${encodeURIComponent(id ?? '')}/scan`, { radio_id: radioID }),
   })
 }

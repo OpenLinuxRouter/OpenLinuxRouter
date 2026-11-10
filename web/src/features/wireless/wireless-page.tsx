@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import {
   CircleHelp,
+  Radar,
   RefreshCw,
   TriangleAlert,
   WifiOff,
@@ -21,8 +22,8 @@ import { useDeviceList } from '@/features/devices/queries'
 import type { DeviceRow } from '@/lib/api-types'
 import { cn, formatBytes } from '@/lib/utils'
 
-import { useNetworkConfig, useNetworkSnapshot } from './queries'
-import type { Association, NetworkDevice, Radio, Snapshot } from './types'
+import { useNetworkConfig, useNetworkSnapshot, useRadioScan } from './queries'
+import type { Association, Neighbour, NetworkDevice, Radio, ScanResult, Snapshot } from './types'
 import {
   bandLabel,
   findingsFor,
@@ -31,15 +32,18 @@ import {
   isPrivateAddress,
   linkTech,
   networkFor,
+  occupancyByChannel,
   radioFor,
+  scanSummary,
   signalBars,
   signalLevel,
   snr,
   sortClients,
+  sortNeighbours,
   standardLabel,
 } from './wireless'
 
-type Tab = 'overview' | 'clients'
+type Tab = 'overview' | 'clients' | 'channels'
 
 /**
  * The page a person opens when the Wi-Fi is the suspect.
@@ -61,12 +65,12 @@ export function WirelessPage() {
   const requested = params.get('device')
   const selected = devices.find(device => device.id === requested) ?? preferred
   const snapshot = useNetworkSnapshot(selected?.id)
-  const [tab, setTabState] = useState<Tab>(params.get('tab') === 'clients' ? 'clients' : 'overview')
+  const [tab, setTabState] = useState<Tab>(tabFrom(params.get('tab')))
   const setTab = (next: Tab) => {
     setTabState(next)
     const nextParams: Record<string, string> = {}
     if (selected) nextParams.device = selected.id
-    if (next === 'clients') nextParams.tab = 'clients'
+    if (next !== 'overview') nextParams.tab = next
     setParams(nextParams, { replace: true })
   }
 
@@ -88,7 +92,7 @@ export function WirelessPage() {
               <select
                 aria-label={t('Access point')}
                 value={selected.id}
-                onChange={event => setParams({ device: event.target.value, ...(tab === 'clients' ? { tab: 'clients' } : {}) }, { replace: true })}
+                onChange={event => setParams({ device: event.target.value, ...(tab !== 'overview' ? { tab } : {}) }, { replace: true })}
                 className="h-8 rounded-lg border border-border bg-card px-2 text-sm font-medium text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
               >
                 {devices.map(device => <option key={device.id} value={device.id}>{device.name || device.id}</option>)}
@@ -123,6 +127,7 @@ function WirelessTabs({ tab, onChange, clients }: { tab: Tab; onChange: (tab: Ta
   const items: { id: Tab; label: string; count?: number }[] = [
     { id: 'overview', label: t('Overview') },
     { id: 'clients', label: t('Clients'), count: clients },
+    { id: 'channels', label: t('Channels') },
   ]
   return (
     <div role="tablist" aria-label={t('Wireless views')} className="flex gap-1 border-b border-border">
@@ -206,8 +211,10 @@ function WirelessBody({ tab, snapshot, devices, onChangeTab }: {
           <FindingsCard findings={findings} />
           <ClientPreview snapshot={snapshot} clients={sorted} devices={devices} onOpen={mac => { setExpanded(mac); onChangeTab('clients') }} onChangeTab={onChangeTab} />
         </>
-      ) : (
+      ) : tab === 'clients' ? (
         <ClientsCard snapshot={snapshot} clients={sorted} devices={devices} expanded={expanded} onToggle={mac => setExpanded(current => current === mac ? null : mac)} />
+      ) : (
+        <ChannelsTab snapshot={snapshot} />
       )}
     </div>
   )
@@ -316,6 +323,228 @@ function FindingsCard({ findings }: { findings: ReturnType<typeof findingsFor> }
         )}
       </div>
     </Card>
+  )
+}
+
+/**
+ * What a scan adds to a snapshot: which other access points share the air.
+ *
+ * Nothing runs on its own. A scan moves the radio off its channel for a few
+ * seconds, so a person asks for it band by band, and every answer keeps the
+ * moment it was heard.
+ */
+function ChannelsTab({ snapshot }: { snapshot: Snapshot }) {
+  const radios = snapshot.radios ?? []
+  const scan = useRadioScan(snapshot.device_id)
+  const [states, setStates] = useState<Record<string, ScanState>>({})
+  const [busy, setBusy] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
+
+  const run = async (radio: Radio) => {
+    setBusy(radio.id)
+    setStates(current => ({ ...current, [radio.id]: {} }))
+    try {
+      const result = await scan.mutateAsync(radio.id)
+      setStates(current => ({ ...current, [radio.id]: { result } }))
+    } catch (error) {
+      setStates(current => ({ ...current, [radio.id]: { error: error instanceof Error ? error.message : '' } }))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  // A scan belongs to the device it was taken from; switching devices must not
+  // dress another access point's neighbours as this one's.
+  const stateFor = (radio: Radio): ScanState | undefined => {
+    const state = states[radio.id]
+    return state?.result && state.result.device_id !== snapshot.device_id ? undefined : state
+  }
+  const heard = sortNeighbours(radios.flatMap(radio => {
+    const result = stateFor(radio)?.result
+    if (!result) return []
+    return (result.neighbours ?? []).map(neighbour => ({ ...neighbour, band: radio.band }))
+  }))
+  const visible = showAll ? heard : heard.slice(0, 12)
+
+  return (
+    <div className="space-y-4">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        {radios.map(radio => (
+          <ChannelCard
+            key={radio.id}
+            radio={radio}
+            state={stateFor(radio)}
+            busy={busy === radio.id}
+            onScan={() => run(radio)}
+          />
+        ))}
+      </div>
+      {heard.length > 0 && (
+        <Card className="gap-0 py-0">
+          <div className="space-y-3 p-5">
+            <div className="flex items-center justify-between gap-3">
+              <Heading as="h2" size="sm">{t('Nearby networks')}</Heading>
+              <span className="text-xs text-muted-foreground">
+                {showAll ? t('{count} in total', { count: heard.length }) : t('Strongest {shown} of {total}', { shown: visible.length, total: heard.length })}
+              </span>
+            </div>
+            <NeighbourTable rows={visible} />
+            {heard.length > visible.length && (
+              <Button variant="quiet" size="sm" onClick={() => setShowAll(true)}>{t('Show all')}</Button>
+            )}
+          </div>
+        </Card>
+      )}
+    </div>
+  )
+}
+
+interface ScanState {
+  result?: ScanResult
+  error?: string
+}
+
+function ChannelCard({ radio, state, busy, onScan }: { radio: Radio; state?: ScanState; busy: boolean; onScan: () => void }) {
+  const result = state?.result
+  const summary = scanSummary(result?.neighbours ?? [], radio)
+  const occupancy = useMemo(() => occupancyByChannel(result?.neighbours ?? [], radio.band), [result, radio.band])
+  const peak = Math.max(1, ...occupancy.map(item => item.count))
+
+  return (
+    <Card className="gap-0 py-0">
+      <div className="space-y-4 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Heading as="h2" size="sm">{bandLabel(radio.band)}</Heading>
+              {result && (
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="size-2 rounded-[2px] bg-primary" aria-hidden />
+                  {t('Your channel')}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {[radio.channel != null ? t('Channel {channel}', { channel: radio.channel }) : t('Channel unknown'), radio.width_mhz != null ? t('{width} MHz', { width: radio.width_mhz }) : ''].filter(Boolean).join(' · ')}
+            </p>
+          </div>
+          <Button variant="secondary" size="sm" onClick={onScan} disabled={busy}>
+            <Radar className={cn('size-4', busy && 'animate-pulse')} />
+            {busy ? t('Scanning…') : result ? t('Scan again') : t('Scan for neighbours')}
+          </Button>
+        </div>
+
+        {!result && !busy && !state?.error && (
+          <p className="max-w-prose text-sm leading-5 text-muted-foreground">
+            {t('A scan listens on every channel of this band, so the radio leaves its own channel for a few seconds. It runs only when you ask, and the result is a snapshot of that moment.')}
+          </p>
+        )}
+        {busy && (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <RefreshCw className="size-3.5 animate-spin" />
+            {t('Listening on every channel. Clients on this band wait until the scan finishes.')}
+          </p>
+        )}
+        {state?.error && (
+          <Alert variant="destructive">
+            <TriangleAlert />
+            <AlertTitle>{t('The scan failed')}</AlertTitle>
+            <AlertDescription>{state.error || t('The radio did not answer.')}</AlertDescription>
+          </Alert>
+        )}
+
+        {result && !busy && (
+          <>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              <span className="text-muted-foreground">{t('Scanned {time}', { time: clock(result.observed_at) })}</span>
+              <span className="tabular-nums">{t('Heard {count} access points', { count: summary.heard })}</span>
+              {summary.overlapping > 0 && <StatusInline tone="warn">{t('{count} overlap this channel', { count: summary.overlapping })}</StatusInline>}
+            </div>
+            {summary.heard ? (
+              <>
+                <OccupancyStrip items={occupancy} own={radio.channel} peak={peak} />
+                <p className="text-xs text-muted-foreground">{t('Bar height counts nearby access points per primary channel, not interference.')}</p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t('No other access point answered on this band.')}</p>
+            )}
+          </>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+/** A column per channel, so a busy stretch of the band is visible before any table. */
+function OccupancyStrip({ items, own, peak }: { items: { channel: number; count: number }[]; own?: number; peak: number }) {
+  return (
+    <div role="img" aria-label={t('Access points per channel')}>
+      <div className="flex h-24 items-end gap-0.5 border-b border-border">
+        {items.map(item => (
+          <div
+            key={item.channel}
+            title={t('Channel {channel}: {count}', { channel: item.channel, count: item.count })}
+            className="flex h-full min-w-0 flex-1 items-end"
+          >
+            <span
+              className={cn('w-full rounded-t-[2px]', item.channel === own ? 'bg-primary' : item.count ? 'bg-primary/30' : 'bg-muted')}
+              style={{ height: item.count ? `${Math.max(6, (item.count / peak) * 100)}%` : '2px' }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-0.5 pt-1 text-[10px] leading-4 text-muted-foreground tabular-nums">
+        {items.map((item, index) => (
+          <span key={item.channel} className="min-w-0 flex-1 text-center">
+            {item.channel === own || index % 2 === 0 ? item.channel : ''}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function NeighbourTable({ rows }: { rows: (Neighbour & { band?: string })[] }) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="h-9">{t('Network')}</TableHead>
+            <TableHead className="hidden h-9 sm:table-cell">{t('Band')}</TableHead>
+            <TableHead className="h-9">{t('Channel')}</TableHead>
+            <TableHead className="h-9">{t('Signal')}</TableHead>
+            <TableHead className="h-9">{t('Security')}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map(row => (
+            <TableRow key={`${row.band ?? ''}-${row.bssid ?? row.ssid ?? ''}-${row.channel ?? 0}`}>
+              <TableCell>
+                <div className="max-w-48 truncate text-sm font-medium">{row.ssid || t('Hidden network')}</div>
+                <div className="font-mono text-[11px] text-muted-foreground">{row.bssid ?? '—'}</div>
+              </TableCell>
+              <TableCell className="hidden sm:table-cell">
+                <Badge variant="secondary" className="font-normal">{bandLabel(row.band)}</Badge>
+              </TableCell>
+              <TableCell>
+                <div className="text-sm tabular-nums">{row.channel ?? '—'}</div>
+                <div className="text-[11px] text-muted-foreground">{row.width_mhz != null ? t('{width} MHz', { width: row.width_mhz }) : '—'}</div>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <SignalBars signal={row.signal_dbm} />
+                  <span className="text-sm tabular-nums">{signalText(row.signal_dbm)}</span>
+                </div>
+              </TableCell>
+              <TableCell className="text-sm">
+                {row.open === true ? t('Open') : row.encryption || '—'}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   )
 }
 
@@ -542,6 +771,10 @@ function SignalBars({ signal }: { signal?: number }) {
       ))}
     </span>
   )
+}
+
+function tabFrom(value: string | null): Tab {
+  return value === 'clients' || value === 'channels' ? value : 'overview'
 }
 
 function preferredDevice(devices: NetworkDevice[]): NetworkDevice | undefined {

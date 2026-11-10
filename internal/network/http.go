@@ -29,6 +29,9 @@ func (h HTTP) Routes() []core.Route {
 		{Method: "GET", Path: "/contract", Tool: "show contract", Summary: "Show versioned network equipment data and operation schemas.", Handler: h.getContract},
 		{Method: "GET", Path: "/devices/{id}/snapshot", Tool: "show snapshot", Summary: "Read one network device with per-section collection status and capabilities.", Handler: h.getSnapshot},
 		{Method: "GET", Path: "/devices/{id}/capabilities", Tool: "show capabilities", Summary: "Inspect current read and operation capabilities of one network device.", Handler: h.getCapabilities},
+		// Deliberately not a published tool: a scan moves the radio off its
+		// channel, so an agent must not start one while reading.
+		{Method: "POST", Path: "/devices/{id}/scan", Summary: "Ask one radio which neighbouring BSS it can hear; the scan interrupts that radio for a few seconds.", Handler: h.scan},
 		{Method: "GET", Path: "/devices/{id}/fdb", Tool: "show fdb", Summary: "Look up a known MAC and optional VLAN on a network device without claiming physical adjacency.", Query: []core.QueryParam{{Name: "mac", Type: "string", Required: true, Summary: "MAC address to look up."}, {Name: "vlan", Type: "integer", Summary: "Optional VLAN ID between 1 and 4094."}}, Handler: h.getFDB},
 		{Method: "POST", Path: "/devices/{id}/operations/plan", Tool: "show operation", Summary: "Preview a typed device operation and issue an expiring one-use confirmation without executing it.", Query: []core.QueryParam{{Name: "kind", Type: "string", Required: true, Summary: "Operation kind: client.disconnect."}, {Name: "target", Type: "string", Required: true, Summary: "Observed wireless network interface ID."}, {Name: "mac", Type: "string", Required: true, Summary: "Wireless client MAC address."}}, Handler: h.planOperation},
 		{Method: "POST", Path: "/devices/{id}/operations/execute", Mutating: true, Summary: "Execute a previewed device operation once using its confirmation.", Handler: h.executeOperation},
@@ -153,6 +156,25 @@ func (h HTTP) getCapabilities(w http.ResponseWriter, r *http.Request) {
 		Capabilities Capabilities `json:"capabilities"`
 	}{s.DeviceID, s.Capabilities})
 }
+func (h HTTP) scan(w http.ResponseWriter, r *http.Request) {
+	var request ScanRequest
+	if err := core.DecodeJSON(w, r, &request); err != nil {
+		core.WriteError(w, 400, err.Error())
+		return
+	}
+	result, err := h.Service.Scan(r.Context(), r.PathValue("id"), request.RadioID)
+	if err != nil {
+		// writeError's 504 text speaks of an executed operation; a scan never
+		// changes anything and should not borrow that warning.
+		if errors.Is(err, context.DeadlineExceeded) {
+			core.WriteError(w, 504, "The radio did not finish scanning before the timeout. Nothing was changed; try again later.")
+			return
+		}
+		writeError(w, err)
+		return
+	}
+	core.WriteJSON(w, 200, result)
+}
 func (h HTTP) getFDB(w http.ResponseWriter, r *http.Request) {
 	q := FDBQuery{MAC: r.URL.Query().Get("mac")}
 	if value := r.URL.Query().Get("vlan"); value != "" {
@@ -219,7 +241,7 @@ func (h HTTP) executeOperation(w http.ResponseWriter, r *http.Request) {
 }
 func (h HTTP) getContract(w http.ResponseWriter, r *http.Request) {
 	schemas := map[string]any{}
-	for name, value := range map[string]any{"device": Device{}, "snapshot": Snapshot{}, "fdb_query": FDBQuery{}, "fdb_result": FDBResult{}, "operation": Operation{}, "operation_plan": OperationPlan{}, "execute_request": ExecuteRequest{}, "operation_result": OperationResult{}} {
+	for name, value := range map[string]any{"device": Device{}, "snapshot": Snapshot{}, "scan_request": ScanRequest{}, "scan_result": ScanResult{}, "fdb_query": FDBQuery{}, "fdb_result": FDBResult{}, "operation": Operation{}, "operation_plan": OperationPlan{}, "execute_request": ExecuteRequest{}, "operation_result": OperationResult{}} {
 		p, err := core.Reflect("network_"+name, value)
 		if err != nil {
 			writeError(w, err)

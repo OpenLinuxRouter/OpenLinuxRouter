@@ -1,4 +1,4 @@
-import type { Association, Radio, Snapshot, WirelessNetwork } from './types'
+import type { Association, Neighbour, Radio, Snapshot, WirelessNetwork } from './types'
 
 /** A finding is a sentence plus the values that fill it, so it can be translated. */
 export interface Finding {
@@ -155,4 +155,64 @@ export function findingsFor(snapshot: Snapshot): Finding[] {
     })
   }
   return findings
+}
+
+/** The 20 MHz channels a band can carry, as people name them. */
+export function channelsFor(band?: string): number[] {
+  if (band === '2g') return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+  if (band === '5g') return [36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165]
+  return []
+}
+
+/** Centre frequency in MHz, so bandwidths can be compared as intervals. */
+export function channelFrequency(channel: number, band?: string): number {
+  if (band === '2g') return channel === 14 ? 2484 : 2407 + channel * 5
+  if (band === '6g') return 5950 + channel * 5
+  return 5000 + channel * 5
+}
+
+/** Whether two BSS occupy any of the same air, once width is taken into account. */
+export function channelOverlap(
+  a: { channel?: number; width_mhz?: number },
+  b: { channel?: number; width_mhz?: number },
+  band?: string,
+): boolean {
+  if (a.channel == null || b.channel == null) return false
+  const distance = Math.abs(channelFrequency(a.channel, band) - channelFrequency(b.channel, band))
+  return distance < ((a.width_mhz ?? 20) + (b.width_mhz ?? 20)) / 2
+}
+
+/** What one scan says about the channel this radio is on. */
+export interface ScanSummary {
+  heard: number
+  coChannel: number
+  overlapping: number
+  strongest?: Neighbour
+}
+
+export function scanSummary(neighbours: Neighbour[], radio: Radio): ScanSummary {
+  let coChannel = 0
+  let overlapping = 0
+  let strongest: Neighbour | undefined
+  for (const neighbour of neighbours) {
+    if (neighbour.channel != null && neighbour.channel === radio.channel) coChannel++
+    if (channelOverlap(neighbour, radio, radio.band)) overlapping++
+    if (neighbour.signal_dbm != null && (strongest?.signal_dbm == null || neighbour.signal_dbm > strongest.signal_dbm)) strongest = neighbour
+  }
+  return { heard: neighbours.length, coChannel, overlapping, strongest }
+}
+
+/** Strongest first; a scan returns rows in channel order, which hides the loudest. */
+export function sortNeighbours(neighbours: Neighbour[]): Neighbour[] {
+  return [...neighbours].sort((a, b) => (b.signal_dbm ?? -999) - (a.signal_dbm ?? -999) || (a.channel ?? 0) - (b.channel ?? 0))
+}
+
+/** How many BSS use each primary channel, for the occupancy strip. */
+export function occupancyByChannel(neighbours: Neighbour[], band?: string): { channel: number; count: number }[] {
+  const counts = new Map<number, number>()
+  for (const neighbour of neighbours) {
+    if (neighbour.channel == null) continue
+    counts.set(neighbour.channel, (counts.get(neighbour.channel) ?? 0) + 1)
+  }
+  return channelsFor(band).map(channel => ({ channel, count: counts.get(channel) ?? 0 }))
 }

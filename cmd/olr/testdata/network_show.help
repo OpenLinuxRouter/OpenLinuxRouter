@@ -9,6 +9,7 @@ Available Commands:
   contract     Show versioned equipment schemas
   fdb          Locate a known MAC on a device
   operation    Preview disconnecting one wireless client
+  scan         Listen for neighbouring access points on one radio
   snapshot     Read one device
 
 Flags:

@@ -63,6 +63,22 @@ func Command() *cobra.Command {
 	fdb.Flags().IntVar(&vlan, "vlan", 0, "VLAN ID to search")
 	fdb.Flags().StringVar(&lookupMAC, "mac", "", "MAC address to locate")
 	show.AddCommand(fdb)
+	var scanRadio string
+	scan := &cobra.Command{Use: "scan <id>", Short: "Listen for neighbouring access points on one radio", Args: cobra.ExactArgs(1), ValidArgsFunction: completeDevice, RunE: func(c *cobra.Command, args []string) error {
+		if err := cli.ValidateOutput(c); err != nil {
+			return err
+		}
+		if scanRadio == "" {
+			return fmt.Errorf("--radio is required: take the ID from olr network show snapshot")
+		}
+		var result ScanResult
+		if err := cli.ClientFor(c).Post(c.Context(), endpoint+"/devices/"+url.PathEscape(args[0])+"/scan", ScanRequest{RadioID: scanRadio}, &result); err != nil {
+			return err
+		}
+		return cli.JSON(c.OutOrStdout(), result)
+	}}
+	scan.Flags().StringVar(&scanRadio, "radio", "", "Radio ID from the device snapshot")
+	show.AddCommand(scan)
 	var target, clientMAC string
 	operation := &cobra.Command{Use: "operation <id>", Short: "Preview disconnecting one wireless client", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
 		if err := cli.ValidateOutput(c); err != nil {
