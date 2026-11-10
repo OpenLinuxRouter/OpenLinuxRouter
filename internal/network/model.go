@@ -10,17 +10,53 @@ import (
 
 const ModuleName = "network"
 
-// Device identity survives address changes. PasswordEnv names an environment
-// variable containing the password; secrets never enter inventory responses.
+// Device identity survives address changes. A credential is either stored here
+// or named by PasswordEnv, which points at an environment variable in the
+// daemon; a stored Password wins when both are set. Reads replace a stored
+// password with RedactedSecret, and sending that mask back means "unchanged".
 type Device struct {
-	ID          string `json:"id"`
-	Name        string `json:"name,omitempty"`
-	Adapter     string `json:"adapter" jsonschema:"enum=mercury,enum=openwrt"`
-	Address     string `json:"address"`
-	Username    string `json:"username,omitempty"`
+	ID       string `json:"id"`
+	Name     string `json:"name,omitempty"`
+	Adapter  string `json:"adapter" jsonschema:"enum=mercury,enum=openwrt"`
+	Address  string `json:"address"`
+	Username string `json:"username,omitempty"`
+	// Password is the management credential stored in the inventory. Every read
+	// surface redacts it; it never appears in responses, events or errors.
+	Password    string `json:"password,omitempty" jsonschema:"description=Stored management password, redacted on every read. Sending the mask back means unchanged."`
 	PasswordEnv string `json:"password_env,omitempty"`
 	Roles       []Role `json:"roles,omitempty"`
 }
+
+// RedactedSecret stands in for a stored credential on a read surface. A fixed
+// string rather than a length-preserving mask: it gives nothing away and cannot
+// be mistaken for the real value.
+const RedactedSecret = "********"
+
+// Redacted is the inventory as a reader may see it: stored passwords replaced by
+// the mask, everything else untouched. The revision still describes the stored
+// document, so a concurrent credential change is still detected.
+func (c Config) Redacted() Config {
+	out := Config{Devices: append([]Device(nil), c.Devices...)}
+	for i := range out.Devices {
+		if out.Devices[i].Password != "" {
+			out.Devices[i].Password = RedactedSecret
+		}
+	}
+	return out
+}
+
+// Credential prefers a stored password and falls back to the environment
+// variable named by PasswordEnv. A resolver is only needed for the fallback.
+func (d Device) Credential(resolve func(string) (string, error)) (string, error) {
+	if d.Password != "" {
+		return d.Password, nil
+	}
+	if resolve == nil {
+		return "", errors.New("device credential is unavailable")
+	}
+	return resolve(d.PasswordEnv)
+}
+
 type Role string
 
 const (

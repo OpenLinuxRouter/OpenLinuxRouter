@@ -11,6 +11,8 @@ export interface NetworkDevice {
   adapter: 'mercury' | 'openwrt'
   address: string
   username?: string
+  /** Redacted on read; the mask sent back means "unchanged". */
+  password?: string
   password_env?: string
   roles?: ('router' | 'switch' | 'ap')[]
 }

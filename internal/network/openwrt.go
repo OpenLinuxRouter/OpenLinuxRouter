@@ -176,10 +176,7 @@ func (s *openwrtSession) rpc(ctx context.Context, method string, params []any, o
 }
 
 func (s *openwrtSession) login(ctx context.Context) error {
-	if s.adapter.Password == nil {
-		return fmt.Errorf("%w: OpenWrt password resolver is required", ErrInvalid)
-	}
-	password, err := s.adapter.Password(s.device.PasswordEnv)
+	password, err := s.device.Credential(s.adapter.Password)
 	if err != nil {
 		return fmt.Errorf("%w: OpenWrt password resolution failed", ErrInvalid)
 	}

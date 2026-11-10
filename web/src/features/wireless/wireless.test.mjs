@@ -8,6 +8,7 @@ import {
   channelsFor,
   findingsFor,
   formatDuration,
+  idFromAddress,
   isPrivateAddress,
   linkTech,
   occupancyByChannel,
@@ -143,4 +144,12 @@ test('neighbours sort by signal and occupy the strip by primary channel', () => 
   const strip = occupancyByChannel(neighbours, '2g')
   assert.equal(strip.length, 13)
   assert.deepEqual(strip.filter(item => item.count > 0), [{ channel: 1, count: 2 }, { channel: 11, count: 1 }])
+})
+
+test('a device ID comes from the management address without inventing one', () => {
+  assert.equal(idFromAddress('http://192.168.1.2'), '192-168-1-2')
+  assert.equal(idFromAddress('https://ap.lan/'), 'ap-lan')
+  assert.equal(idFromAddress('192.168.1.2'), '192-168-1-2')
+  assert.equal(idFromAddress(''), '')
+  assert.equal(idFromAddress('http://[fd00::1]'), 'fd00-1')
 })

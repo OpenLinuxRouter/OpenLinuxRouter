@@ -72,7 +72,9 @@ OpenWrt protocol fixtures are synthetic, matching the supported stock API shapes
 
 Inventory lives in the `network` subtree of the existing configuration store, with strict decoding, shared apply lock, ETags and preservation of other modules. Configuration backup includes the inventory and validates it on restore, without connecting to equipment.
 
-`password_env` refers to a variable in **the daemon process environment**, not the shell running an API client. Supply variables via the service's protected environment setup or when starting a development daemon. Passwords are resolved at operation time, never placed in CLI arguments, config, responses or events. Backups carry references only; restore requires setting credentials on the new host. A dedicated UI credential vault is outside this increment.
+A device's management credential is either stored in the inventory as `password`, or named by `password_env`, which points at a variable in **the daemon process environment** rather than the shell running an API client. A stored password wins when both are present. The page's add/edit dialog writes the stored form, which is what makes an access point usable without changing the daemon's environment; `password_env` remains for deployments that keep credentials outside the configuration file.
+
+Every read surface replaces a stored password with `********` (`network.RedactedSecret`), and sending that mask back means "unchanged", so a form nobody retyped cannot overwrite the real credential with asterisks. The value never appears in responses, events or error bodies. Like the DNS credentials already in the same document, a stored password travels with a configuration backup: treat a backup file as credential-bearing, and re-enter the password after restoring onto a different host if that is the policy.
 
 HTTP origins can be LAN addresses. HTTPS validates the host's trust chain; the API has no insecure-TLS bypass. Redirects are refused to avoid sending login material elsewhere. HTTP is supported for equipment whose management UI only offers HTTP; choose a trusted management network.
 

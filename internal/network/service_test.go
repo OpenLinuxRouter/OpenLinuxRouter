@@ -121,8 +121,9 @@ func TestInventoryValidationAndOtherModulePreservation(t *testing.T) {
 		`{"devices":[{"id":"a","adapter":"unknown","address":"http://192.0.2.1"}]}`,
 		`{"devices":[{"id":"a","adapter":"openwrt","address":"http://user:password@192.0.2.1"}]}`,
 		`{"devices":[{"id":"a","adapter":"openwrt","address":"http://192.0.2.1/ubus"}]}`,
-		`{"devices":[{"id":"a","adapter":"openwrt","address":"http://192.0.2.1","password":"secret"}]}`,
 		`{"devices":[{"id":"a","adapter":"openwrt","address":"http://192.0.2.1","roles":["printer"]}]}`,
+		`{"devices":[{"id":"a","adapter":"openwrt","address":"http://192.0.2.1","password":"********"}]}`,
+		`{"devices":[{"id":"a","adapter":"openwrt","address":"http://192.0.2.1","password":"` + strings.Repeat("x", 1025) + `"}]}`,
 		`{"devices":[]} {}`,
 	} {
 		if _, err := UnmarshalConfig([]byte(bad)); err == nil {
@@ -265,5 +266,44 @@ func TestScanNeedsARadioAndAnAdapterThatCanScan(t *testing.T) {
 	s.Adapters["openwrt"] = readOnlyAdapter{}
 	if _, err := s.Scan(context.Background(), "ap", "phy1-ap0"); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("read-only adapter = %v", err)
+	}
+}
+
+func TestStoredCredentialIsRedactedAndTheMaskMeansUnchanged(t *testing.T) {
+	s, _ := testService(t)
+	h := core.RouteTable((HTTP{Service: s, Lock: core.NewLock()}).Routes())
+	call := func(method, path, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(method, path, bytes.NewBufferString(body)))
+		return w
+	}
+	save := func(password string) *httptest.ResponseRecorder {
+		return call(http.MethodPut, "/devices/living-room", `{"id":"living-room","adapter":"openwrt","address":"http://192.0.2.2","password":"`+password+`","roles":["ap"]}`)
+	}
+	w := save("AP_SECRET")
+	if w.Code != 200 || strings.Contains(w.Body.String(), "AP_SECRET") || !strings.Contains(w.Body.String(), RedactedSecret) {
+		t.Fatalf("write response %d %s", w.Code, w.Body)
+	}
+	if read := call(http.MethodGet, "/config", ""); strings.Contains(read.Body.String(), "AP_SECRET") || !strings.Contains(read.Body.String(), RedactedSecret) {
+		t.Fatalf("read response %s", read.Body)
+	}
+	// A form that showed the mask and sent it back must keep the real secret.
+	if w = save(RedactedSecret); w.Code != 200 {
+		t.Fatalf("mask write %d %s", w.Code, w.Body)
+	}
+	// The mask is only meaningful where a stored credential exists to keep.
+	fresh := call(http.MethodPut, "/devices/second-ap", `{"id":"second-ap","adapter":"openwrt","address":"http://192.0.2.3","password":"`+RedactedSecret+`"}`)
+	if fresh.Code != 400 {
+		t.Fatalf("mask on a new device %d %s", fresh.Code, fresh.Body)
+	}
+	c, err := Load(s.Store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range c.Devices {
+		if d.ID == "living-room" && d.Password != "AP_SECRET" {
+			t.Fatalf("stored credential changed: %q", d.Password)
+		}
 	}
 }

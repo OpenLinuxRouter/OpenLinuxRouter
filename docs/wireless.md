@@ -12,14 +12,25 @@ configuration editor. A channel change interrupts every client, so it belongs
 behind the same preview-and-recovery contract as the rest of the router rather
 than beside the charts.
 
+## Adding the access point
+
+The page owns its inventory entry. Its empty state and header offer an add/edit
+dialog for the management origin, username and password; removing an entry only
+forgets it here and never touches the access point. A stored password is
+returned masked and is never rendered again, which is why editing an address
+does not require retyping it. `docs/network-equipment.md` describes the
+credential rules and what a backup carries.
+
 ## Where the data comes from
 
 The browser reads the equipment inventory and then one device snapshot:
 
 ```
-GET  /api/network/config
-GET  /api/network/devices/{id}/snapshot
-POST /api/network/devices/{id}/scan     {"radio_id": "radio1"}
+GET    /api/network/config
+PUT    /api/network/devices/{id}        inventory entry only, never the device
+DELETE /api/network/devices/{id}
+GET    /api/network/devices/{id}/snapshot
+POST   /api/network/devices/{id}/scan   {"radio_id": "radio1"}
 ```
 
 The daemon talks to the access point. The browser never reaches it directly and
@@ -70,8 +81,10 @@ MAC. A dash means the access point did not report the value.
   channel is evidence of competition, not proof of the cause of a slow client.
 - **No hostapd-only counters** when the firmware does not expose them.
   Utilization, MFP/WMM and airtime disappear rather than being substituted.
-- **No writes.** Disconnect, steering and channel changes remain operations with
-  their own capability checks and confirmations. The snapshot can report that
+- **No writes to the access point.** Editing the inventory entry is a
+  configuration change on this router, not a change on the device. Disconnect,
+  steering and channel changes remain operations with their own capability
+  checks and confirmations. The snapshot can report that
   `client.disconnect` is supported; the page does not yet offer it.
 - **No history.** A reading is a point in time. Trend lines need a sampler and a
   retention decision; none is implied by this page.

@@ -127,7 +127,7 @@ func (s *mercurySession) login(ctx context.Context) (string, error) {
 	}
 	s.loginAttempted = true
 	s.loginErr = errMercuryAuth
-	if s.device.Username == "" || s.device.PasswordEnv == "" {
+	if s.device.Username == "" || (s.device.Password == "" && s.device.PasswordEnv == "") {
 		return "", errMercuryAuth
 	}
 	password := s.adapter.Password
@@ -140,7 +140,7 @@ func (s *mercurySession) login(ctx context.Context) (string, error) {
 			return v, nil
 		}
 	}
-	secret, e := password(s.device.PasswordEnv)
+	secret, e := s.device.Credential(password)
 	if e != nil || secret == "" {
 		return "", errMercuryAuth
 	}

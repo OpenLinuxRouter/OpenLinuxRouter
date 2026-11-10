@@ -67,6 +67,12 @@ func (c Config) Validate() error {
 		if d.PasswordEnv != "" && !envName.MatchString(d.PasswordEnv) {
 			return fmt.Errorf("%w: device %s has an invalid password environment reference", ErrInvalid, d.ID)
 		}
+		if d.Password == RedactedSecret {
+			return fmt.Errorf("%w: device %s stored the redacted mask as its password", ErrInvalid, d.ID)
+		}
+		if len(d.Password) > 1024 {
+			return fmt.Errorf("%w: device %s credential is too long", ErrInvalid, d.ID)
+		}
 		for _, r := range d.Roles {
 			if r != Router && r != Switch && r != AP {
 				return fmt.Errorf("%w: unknown role for device %s", ErrInvalid, d.ID)
@@ -104,4 +110,25 @@ func Save(store *core.Store, c Config) (Config, error) {
 	}
 	doc.Set(ModuleName, data)
 	return c, store.Save(doc)
+}
+
+// restoreSecrets turns the read-surface mask back into the stored credential.
+// A form that showed the mask and sent it back must not overwrite the real
+// password with eight asterisks.
+func restoreSecrets(next, previous Config) Config {
+	stored := make(map[string]string, len(previous.Devices))
+	for _, d := range previous.Devices {
+		stored[d.ID] = d.Password
+	}
+	for i := range next.Devices {
+		if next.Devices[i].Password != RedactedSecret {
+			continue
+		}
+		// A mask for a device that was not there to mask is not "unchanged"; it
+		// stays a literal and fails validation rather than storing no credential.
+		if password, ok := stored[next.Devices[i].ID]; ok {
+			next.Devices[i].Password = password
+		}
+	}
+	return next
 }

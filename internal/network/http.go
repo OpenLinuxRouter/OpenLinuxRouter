@@ -43,7 +43,7 @@ func (h HTTP) getConfig(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	core.WriteConfig(w, c)
+	core.WriteConfig(w, c, c.Redacted())
 }
 func (h HTTP) mutate(w http.ResponseWriter, r *http.Request, edit func(*Config) error) {
 	var stored Config
@@ -57,9 +57,11 @@ func (h HTTP) mutate(w http.ResponseWriter, r *http.Request, edit func(*Config) 
 			stale = true
 			return nil
 		}
+		previous := Config{Devices: append([]Device(nil), c.Devices...)}
 		if err = edit(&c); err != nil {
 			return err
 		}
+		c = restoreSecrets(c, previous)
 		stored, err = Save(h.Service.Store, c)
 		return err
 	})
@@ -73,7 +75,7 @@ func (h HTTP) mutate(w http.ResponseWriter, r *http.Request, edit func(*Config) 
 	if h.Events != nil {
 		h.Events.Publish(core.Event{Type: core.EventApplied, Module: ModuleName})
 	}
-	core.WriteConfig(w, stored)
+	core.WriteConfig(w, stored, stored.Redacted())
 }
 func (h HTTP) putConfig(w http.ResponseWriter, r *http.Request) {
 	data, err := core.ReadBody(w, r)

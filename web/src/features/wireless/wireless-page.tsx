@@ -3,6 +3,8 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import {
   CircleHelp,
+  Pencil,
+  Plus,
   Radar,
   RefreshCw,
   TriangleAlert,
@@ -13,6 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Disclosure } from '@/components/ui/disclosure'
 import { Heading } from '@/components/ui/heading'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusDot, StatusInline, StatusPill } from '@/components/ui/status'
@@ -22,7 +25,8 @@ import { useDeviceList } from '@/features/devices/queries'
 import type { DeviceRow } from '@/lib/api-types'
 import { cn, formatBytes } from '@/lib/utils'
 
-import { useNetworkConfig, useNetworkSnapshot, useRadioScan } from './queries'
+import { AccessPointDialog, type AccessPointDraft } from './access-point-dialog'
+import { useAccessPointEditor, useNetworkConfig, useNetworkSnapshot, useRadioScan } from './queries'
 import type { Association, Neighbour, NetworkDevice, Radio, ScanResult, Snapshot } from './types'
 import {
   bandLabel,
@@ -65,6 +69,8 @@ export function WirelessPage() {
   const requested = params.get('device')
   const selected = devices.find(device => device.id === requested) ?? preferred
   const snapshot = useNetworkSnapshot(selected?.id)
+  const editor = useAccessPointEditor()
+  const [dialog, setDialog] = useState<'add' | 'edit' | null>(null)
   const [tab, setTabState] = useState<Tab>(tabFrom(params.get('tab')))
   const setTab = (next: Tab) => {
     setTabState(next)
@@ -74,9 +80,43 @@ export function WirelessPage() {
     setParams(nextParams, { replace: true })
   }
 
+  const submit = async (draft: AccessPointDraft) => {
+    // An edit keeps the adapter and roles the entry already had: this dialog
+    // only knows how to fill in an access point's address and credential.
+    const existing = dialog === 'edit' ? selected : undefined
+    const device: NetworkDevice = {
+      id: draft.id,
+      name: draft.name || undefined,
+      adapter: existing?.adapter ?? 'openwrt',
+      address: draft.address,
+      username: draft.username || undefined,
+      password: draft.password,
+      roles: existing?.roles ?? ['ap'],
+    }
+    if (!(await editor.save(device))) return
+    setDialog(null)
+    setParams({ ...(tab !== 'overview' ? { tab } : {}), device: device.id }, { replace: true })
+  }
+  const forget = async (id: string) => {
+    if (!(await editor.remove(id))) return
+    setDialog(null)
+    setParams(tab !== 'overview' ? { tab } : {}, { replace: true })
+  }
+  const dialogElement = dialog === null ? null : (
+    <AccessPointDialog
+      open
+      onOpenChange={open => { if (!open) setDialog(null) }}
+      initial={dialog === 'edit' ? selected : undefined}
+      existing={devices.map(device => device.id)}
+      busy={editor.busy}
+      onSubmit={submit}
+      onRemove={dialog === 'edit' && selected ? () => forget(selected.id) : undefined}
+    />
+  )
+
   if (config.isPending) return <Loading />
   if (config.isError) return <PageError error={config.error} title={t('Could not read network equipment')} />
-  if (!devices.length || !selected) return <NoEquipment />
+  if (!devices.length || !selected) return <><NoEquipment onAdd={() => setDialog('add')} />{dialogElement}</>
 
   const identity = snapshot.data?.identity
   const clients = snapshot.data?.associations ?? []
@@ -108,10 +148,20 @@ export function WirelessPage() {
             {[identity?.firmware, t('Clients: {count}', { count: clients.length }), observed && t('Updated {time}', { time: clock(observed) })].filter(Boolean).join(' · ')}
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={() => snapshot.refetch()} disabled={snapshot.isFetching}>
-          <RefreshCw className={cn('size-4', snapshot.isFetching && 'animate-spin')} />
-          {t('Refresh')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setDialog('add')}>
+            <Plus className="size-4" />
+            {t('Add')}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setDialog('edit')}>
+            <Pencil className="size-4" />
+            {t('Edit')}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => snapshot.refetch()} disabled={snapshot.isFetching}>
+            <RefreshCw className={cn('size-4', snapshot.isFetching && 'animate-spin')} />
+            {t('Refresh')}
+          </Button>
+        </div>
       </div>
 
       <WirelessTabs tab={tab} onChange={setTab} clients={clients.length} />
@@ -119,6 +169,7 @@ export function WirelessPage() {
       {snapshot.isPending ? <Loading /> : snapshot.isError ? <PageError error={snapshot.error} title={t('Could not read this access point')} /> : snapshot.data ? (
         <WirelessBody tab={tab} snapshot={snapshot.data} devices={byMAC} onChangeTab={setTab} />
       ) : null}
+      {dialogElement}
     </div>
   )
 }
@@ -862,7 +913,7 @@ function PageError({ error, title }: { error: unknown; title: string }) {
   )
 }
 
-function NoEquipment() {
+function NoEquipment({ onAdd }: { onAdd: () => void }) {
   return (
     <Card className="gap-0 py-0">
       <div className="space-y-3 p-6">
@@ -871,13 +922,19 @@ function NoEquipment() {
           <Heading as="h2" size="sm">{t('No access point is connected')}</Heading>
         </div>
         <p className="max-w-prose text-sm leading-6 text-muted-foreground">
-          {t('Wireless reads a managed access point through the network equipment inventory. Add one from the router shell, then set its password variable in the daemon environment.')}
+          {t('Wireless reads a managed access point through the network equipment inventory. Add its management address and password here; olr stores it in this router\'s configuration.')}
         </p>
-        <pre className="overflow-x-auto rounded-lg border border-border bg-muted/50 p-3 text-xs leading-5">
+        <Button onClick={onAdd}>
+          <Plus className="size-4" />
+          {t('Add an access point')}
+        </Button>
+        <Disclosure summary={t('Add it from the router shell instead')}>
+          <pre className="overflow-x-auto rounded-lg border border-border bg-muted/50 p-3 text-xs leading-5">
 {`olr network add device living-room \\
   --adapter openwrt --address http://192.168.1.2 \\
   --username root --password-env OLR_AP_PASSWORD`}
-        </pre>
+          </pre>
+        </Disclosure>
       </div>
     </Card>
   )

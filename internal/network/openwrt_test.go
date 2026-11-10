@@ -891,3 +891,16 @@ func TestOpenWrtScanRejectsAnUnknownRadio(t *testing.T) {
 		t.Fatalf("unknown radio = %v", err)
 	}
 }
+
+func TestOpenWrtUsesAStoredCredential(t *testing.T) {
+	f := newOpenwrtTestServer(t)
+	d := f.device()
+	d.Password = "LOGIN_SECRET"
+	d.PasswordEnv = ""
+	// No resolver at all: the inventory's own secret is the only source.
+	o := &OpenWrt{Client: f.server.Client()}
+	snap, err := o.Read(context.Background(), d)
+	if err != nil || snap.Identity.Model == "" {
+		t.Fatalf("read with stored credential: %+v %v", snap.Identity, err)
+	}
+}
