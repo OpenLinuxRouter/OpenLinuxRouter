@@ -107,12 +107,17 @@ type Neighbor struct {
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 type Radio struct {
-	ID                 string `json:"id"`
-	Enabled            *bool  `json:"enabled,omitempty"`
-	Band               string `json:"band,omitempty"`
-	Channel            *int   `json:"channel,omitempty"`
-	WidthMHz           *int   `json:"width_mhz,omitempty"`
-	ConfiguredWidthMHz *int   `json:"configured_width_mhz,omitempty"`
+	ID                 string   `json:"id"`
+	Enabled            *bool    `json:"enabled,omitempty"`
+	Band               string   `json:"band,omitempty"`
+	Channel            *int     `json:"channel,omitempty"`
+	WidthMHz           *int     `json:"width_mhz,omitempty"`
+	ConfiguredWidthMHz *int     `json:"configured_width_mhz,omitempty"`
+	Protocols          []string `json:"protocols,omitempty"`
+	NoiseDBm           *int     `json:"noise_dbm,omitempty"`
+	TxPowerDBm         *int     `json:"txpower_dbm,omitempty"`
+	Country            string   `json:"country,omitempty"`
+	UtilizationPercent *float64 `json:"utilization_percent,omitempty"`
 }
 type WirelessNetwork struct {
 	ID           string   `json:"id"`
@@ -127,12 +132,28 @@ type WirelessNetwork struct {
 type Association struct {
 	MAC              string   `json:"mac"`
 	NetworkID        string   `json:"network_id"`
+	RadioID          string   `json:"radio_id,omitempty"`
 	SignalDBm        *int     `json:"signal_dbm,omitempty"`
+	SignalAvgDBm     *int     `json:"signal_avg_dbm,omitempty"`
+	NoiseDBm         *int     `json:"noise_dbm,omitempty"`
 	ConnectedSeconds *uint64  `json:"connected_seconds,omitempty"`
+	InactiveMS       *uint64  `json:"inactive_ms,omitempty"`
 	RXRateMbps       *float64 `json:"rx_rate_mbps,omitempty"`
 	TXRateMbps       *float64 `json:"tx_rate_mbps,omitempty"`
+	RXMCS            *int     `json:"rx_mcs,omitempty"`
+	TXMCS            *int     `json:"tx_mcs,omitempty"`
+	RXWidthMHz       *int     `json:"rx_width_mhz,omitempty"`
+	TXWidthMHz       *int     `json:"tx_width_mhz,omitempty"`
+	ExpectedMbps     *float64 `json:"expected_mbps,omitempty"`
+	Retries          *uint64  `json:"retries,omitempty"`
+	Failed           *uint64  `json:"failed,omitempty"`
 	RXBytes          *uint64  `json:"rx_bytes,omitempty"`
 	TXBytes          *uint64  `json:"tx_bytes,omitempty"`
+	RXPackets        *uint64  `json:"rx_packets,omitempty"`
+	TXPackets        *uint64  `json:"tx_packets,omitempty"`
+	TXAirtimeUS      *uint64  `json:"tx_airtime_us,omitempty"`
+	MFP              *bool    `json:"mfp,omitempty"`
+	WMM              *bool    `json:"wmm,omitempty"`
 }
 type Snapshot struct {
 	DeviceID     string                `json:"device_id"`

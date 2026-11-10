@@ -377,6 +377,7 @@ func (o *OpenWrt) Read(ctx context.Context, d Device) (Snapshot, error) {
 	wirelessCollectionErr := wirelessErr
 	disconnectSupported := false
 	disconnectAssessmentErr := wirelessErr
+	infoApplied := map[string]bool{}
 	for i := range snap.Wireless {
 		w := &snap.Wireless[i]
 		if w.Mode != "ap" && w.Mode != "ap-wds" {
@@ -407,61 +408,147 @@ func (o *OpenWrt) Read(ctx context.Context, d Device) (Snapshot, error) {
 					snap.Radios[j].Channel = status.Channel
 				}
 			}
-		} else {
-			wirelessCollectionErr = openwrtMergeError(wirelessCollectionErr, statusErr)
-			disconnectAssessmentErr = openwrtMergeError(disconnectAssessmentErr, statusErr)
 		}
-		var clients struct {
+		if statusErr == nil && status.Airtime != nil && status.Airtime.Utilization != nil {
+			for j := range snap.Radios {
+				if snap.Radios[j].ID == w.RadioID {
+					snap.Radios[j].UtilizationPercent = status.Airtime.Utilization
+				}
+			}
+		}
+		// iwinfo carries what netifd does not: the radio's observed width, noise
+		// floor, transmit power and regulatory country. It is also the fallback
+		// for an SSID and channel when hostapd's status object is not granted.
+		// It is enrichment, so its failure leaves fields unknown.
+		infoOK := infoApplied[w.RadioID]
+		if !infoOK {
+			var info openwrtIWInfo
+			if s.call(ctx, "iwinfo", "info", map[string]any{"device": w.InterfaceID}, &info, true) == nil {
+				openwrtApplyRadioInfo(snap.Radios, w.RadioID, info)
+				infoApplied[w.RadioID] = true
+				infoOK = true
+				if w.SSID == "" {
+					w.SSID = info.SSID
+				}
+				if w.BSSID == "" {
+					if mac, e := openwrtMAC(info.BSSID); e == nil {
+						w.BSSID = mac
+					}
+				}
+				if info.Channel != nil && *info.Channel > 0 {
+					for j := range snap.Radios {
+						if snap.Radios[j].ID == w.RadioID && (snap.Radios[j].Channel == nil || *snap.Radios[j].Channel <= 0) {
+							snap.Radios[j].Channel = info.Channel
+						}
+					}
+				}
+			}
+		}
+		if statusErr != nil {
+			// A hostapd status failure does not make the radio unreadable when
+			// iwinfo supplied the observation, but it still leaves disconnect
+			// discovery incomplete rather than proving the method absent.
+			disconnectAssessmentErr = openwrtMergeError(disconnectAssessmentErr, statusErr)
+			if !infoOK {
+				wirelessCollectionErr = openwrtMergeError(wirelessCollectionErr, statusErr)
+			}
+		}
+		var hostapd struct {
 			Clients map[string]openwrtClient `json:"clients"`
 		}
-		clientsErr := s.call(ctx, object, "get_clients", map[string]any{}, &clients, true)
-		if clientsErr == nil && clients.Clients == nil {
-			clientsErr = errors.New("OpenWrt malformed hostapd client list")
+		hostapdErr := s.call(ctx, object, "get_clients", map[string]any{}, &hostapd, true)
+		if hostapdErr == nil && hostapd.Clients == nil {
+			hostapdErr = errors.New("OpenWrt malformed hostapd client list")
 		}
-		if clientsErr != nil {
-			associationErr = openwrtMergeError(associationErr, clientsErr)
-			disconnectAssessmentErr = openwrtMergeError(disconnectAssessmentErr, clientsErr)
+		if hostapdErr != nil {
+			hostapd.Clients = nil
+		}
+		var iw struct {
+			Results []openwrtIWClient `json:"results"`
+		}
+		iwErr := s.call(ctx, "iwinfo", "assoclist", map[string]any{"device": w.InterfaceID}, &iw, true)
+		if iwErr != nil {
+			iw.Results = nil
+		}
+		if hostapdErr != nil && iwErr != nil {
+			associationErr = openwrtMergeError(openwrtMergeError(associationErr, hostapdErr), iwErr)
+			disconnectAssessmentErr = openwrtMergeError(disconnectAssessmentErr, hostapdErr)
 			continue
 		}
-		start := len(snap.Associations)
-		for _, mac := range openwrtKeys(clients.Clients) {
-			normalized, e := openwrtMAC(mac)
+		// Either source can enumerate an association. hostapd contributes MFP,
+		// WMM and airtime; iwinfo contributes signal, rates, retries and traffic.
+		type observation struct {
+			hostapd *openwrtClient
+			iwinfo  *openwrtIWClient
+		}
+		observed := map[string]*observation{}
+		for key, value := range hostapd.Clients {
+			c := value
+			if c.Associated != nil && !*c.Associated {
+				continue
+			}
+			normalized, e := openwrtMAC(key)
 			if e != nil {
 				associationErr = openwrtMergeError(associationErr, errors.New("OpenWrt malformed client MAC"))
 				continue
 			}
-			c := clients.Clients[mac]
 			if c.Associated == nil {
 				associationErr = openwrtMergeError(associationErr, errors.New("OpenWrt malformed hostapd client entry"))
 				continue
 			}
-			if !*c.Associated {
+			observed[normalized] = &observation{hostapd: &c}
+		}
+		for index := range iw.Results {
+			c := &iw.Results[index]
+			normalized, e := openwrtMAC(c.MAC)
+			if e != nil {
+				associationErr = openwrtMergeError(associationErr, errors.New("OpenWrt malformed client MAC"))
 				continue
 			}
-			snap.Associations = append(snap.Associations, Association{MAC: normalized, NetworkID: w.ID, SignalDBm: c.Signal})
+			if observed[normalized] == nil {
+				observed[normalized] = &observation{}
+			}
+			observed[normalized].iwinfo = c
 		}
-		// iwinfo is optional enrichment: hostapd remains the authoritative association
-		// inventory, and absent counters/rates remain unknown rather than zero.
-		var iw struct {
-			Results []openwrtIWClient `json:"results"`
+		macs := make([]string, 0, len(observed))
+		for mac := range observed {
+			macs = append(macs, mac)
 		}
-		if s.call(ctx, "iwinfo", "assoclist", map[string]any{"device": w.InterfaceID}, &iw, true) == nil {
-			for j := start; j < len(snap.Associations); j++ {
-				a := &snap.Associations[j]
-				for _, c := range iw.Results {
-					mac, e := openwrtMAC(c.MAC)
-					if e == nil && mac == a.MAC {
-						if c.Signal != nil {
-							a.SignalDBm = c.Signal
-						}
-						a.ConnectedSeconds = c.Connected
-						a.RXBytes = c.RX.Bytes
-						a.TXBytes = c.TX.Bytes
-						a.RXRateMbps = openwrtRate(c.RX.Rate)
-						a.TXRateMbps = openwrtRate(c.TX.Rate)
-					}
+		sort.Strings(macs)
+		for _, mac := range macs {
+			o := observed[mac]
+			association := Association{MAC: mac, NetworkID: w.ID, RadioID: w.RadioID}
+			if o.hostapd != nil {
+				association.SignalDBm = o.hostapd.Signal
+				association.MFP = o.hostapd.MFP
+				association.WMM = o.hostapd.WMM
+				if o.hostapd.Airtime != nil {
+					association.TXAirtimeUS = o.hostapd.Airtime.TX
 				}
 			}
+			if c := o.iwinfo; c != nil {
+				if c.Signal != nil {
+					association.SignalDBm = c.Signal
+				}
+				association.SignalAvgDBm = c.SignalAvg
+				association.NoiseDBm = c.Noise
+				association.InactiveMS = c.Inactive
+				association.ConnectedSeconds = c.Connected
+				association.ExpectedMbps = openwrtKbps(c.Thr)
+				association.RXBytes = c.RX.Bytes
+				association.TXBytes = c.TX.Bytes
+				association.RXPackets = c.RX.Packets
+				association.TXPackets = c.TX.Packets
+				association.RXRateMbps = openwrtRate(c.RX.Rate)
+				association.TXRateMbps = openwrtRate(c.TX.Rate)
+				association.RXMCS = c.RX.MCS
+				association.TXMCS = c.TX.MCS
+				association.RXWidthMHz = c.RX.MHz
+				association.TXWidthMHz = c.TX.MHz
+				association.Retries = c.TX.Retries
+				association.Failed = c.TX.Failed
+			}
+			snap.Associations = append(snap.Associations, association)
 		}
 		if statusErr == nil {
 			allowedErr := s.disconnectAllowed(ctx, w.InterfaceID)
@@ -607,12 +694,21 @@ type openwrtWirelessRadio struct {
 	Interfaces []struct {
 		Ifname string                `json:"ifname"`
 		Config openwrtWirelessConfig `json:"config"`
+		IWInfo *openwrtIWInfo        `json:"iwinfo"`
 	} `json:"interfaces"`
 }
 
 func (s *openwrtSession) wireless(ctx context.Context) ([]Radio, []WirelessNetwork, error) {
 	var raw map[string]openwrtWirelessRadio
 	err := s.call(ctx, "network.wireless", "status", map[string]any{}, &raw, true)
+	if err != nil {
+		// Some builds do not grant netifd's wireless object to the management
+		// account. LuCI's own read model exposes the same radios and interfaces,
+		// including each interface's iwinfo, through a method those builds do
+		// grant; use it rather than reporting the radio as unreadable.
+		raw = nil
+		err = s.call(ctx, "luci-rpc", "getWirelessDevices", map[string]any{}, &raw, true)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -636,26 +732,24 @@ func (s *openwrtSession) wireless(ctx context.Context) ([]Radio, []WirelessNetwo
 		}
 		// Config.channel can be a preference (including auto); only get_status
 		// later supplies the radio's observed runtime channel.
-		radio := Radio{ID: id, Enabled: enabled, Band: r.Config.Band}
-		mode := r.Config.HTMode
-		for _, prefix := range []string{"EHT", "HE", "VHT", "HT"} {
-			if strings.HasPrefix(mode, prefix) {
-				mode = strings.TrimPrefix(mode, prefix)
-				break
-			}
-		}
-		for _, width := range []int{320, 160, 80, 40, 20} {
-			if mode == strconv.Itoa(width) {
-				radio.ConfiguredWidthMHz = Ptr(width)
-				break
-			}
-		}
+		radio := Radio{ID: id, Enabled: enabled, Band: r.Config.Band, ConfiguredWidthMHz: openwrtWidth(r.Config.HTMode)}
+		radioIndex := len(radios)
 		radios = append(radios, radio)
 		for _, i := range r.Interfaces {
 			if i.Ifname == "" {
 				continue
 			}
-			networks = append(networks, WirelessNetwork{ID: i.Ifname, RadioID: id, InterfaceID: i.Ifname, SSID: i.Config.SSID, Mode: i.Config.Mode, Encryption: i.Config.Encryption, NetworkNames: i.Config.Networks})
+			network := WirelessNetwork{ID: i.Ifname, RadioID: id, InterfaceID: i.Ifname, SSID: i.Config.SSID, Mode: i.Config.Mode, Encryption: i.Config.Encryption, NetworkNames: i.Config.Networks}
+			if i.IWInfo != nil {
+				openwrtApplyRadioInfo(radios[radioIndex:], id, *i.IWInfo)
+				if network.SSID == "" {
+					network.SSID = i.IWInfo.SSID
+				}
+				if network.BSSID == "" {
+					network.BSSID = i.IWInfo.BSSID
+				}
+			}
+			networks = append(networks, network)
 		}
 	}
 	return radios, networks, shapeErr
@@ -665,6 +759,10 @@ type openwrtHostStatus struct {
 	BSSID   string `json:"bssid"`
 	SSID    string `json:"ssid"`
 	Channel *int   `json:"channel"`
+	Freq    *int   `json:"freq"`
+	Airtime *struct {
+		Utilization *float64 `json:"utilization"`
+	} `json:"airtime"`
 }
 
 func (s *openwrtSession) hostStatus(ctx context.Context, iface string) (openwrtHostStatus, error) {
@@ -681,17 +779,48 @@ func (s *openwrtSession) hostStatus(ctx context.Context, iface string) (openwrtH
 type openwrtClient struct {
 	Signal     *int  `json:"signal"`
 	Associated *bool `json:"assoc"`
+	MFP        *bool `json:"mfp"`
+	WMM        *bool `json:"wmm"`
+	Airtime    *struct {
+		TX *uint64 `json:"tx"`
+	} `json:"airtime"`
 }
 type openwrtIWRate struct {
-	Rate  *uint64 `json:"rate"`
-	Bytes *uint64 `json:"bytes"`
+	Rate    *uint64 `json:"rate"`
+	Bytes   *uint64 `json:"bytes"`
+	Packets *uint64 `json:"packets"`
+	Retries *uint64 `json:"retries"`
+	Failed  *uint64 `json:"failed"`
+	MCS     *int    `json:"mcs"`
+	MHz     *int    `json:"mhz"`
+	HT      *bool   `json:"ht"`
+	VHT     *bool   `json:"vht"`
+	HE      *bool   `json:"he"`
+	EHT     *bool   `json:"eht"`
+	ShortGI *bool   `json:"short_gi"`
 }
 type openwrtIWClient struct {
 	MAC       string        `json:"mac"`
 	Signal    *int          `json:"signal"`
+	SignalAvg *int          `json:"signal_avg"`
+	Noise     *int          `json:"noise"`
+	Inactive  *uint64       `json:"inactive"`
 	Connected *uint64       `json:"connected_time"`
+	Thr       *uint64       `json:"thr"`
 	RX        openwrtIWRate `json:"rx"`
 	TX        openwrtIWRate `json:"tx"`
+}
+type openwrtIWInfo struct {
+	SSID      string   `json:"ssid"`
+	BSSID     string   `json:"bssid"`
+	Channel   *int     `json:"channel"`
+	Frequency *int     `json:"frequency"`
+	TxPower   *int     `json:"txpower"`
+	Noise     *int     `json:"noise"`
+	Country   string   `json:"country"`
+	HTMode    string   `json:"htmode"`
+	HWMode    string   `json:"hwmode"`
+	HWMods    []string `json:"hwmodes"`
 }
 
 func openwrtRate(rate *uint64) *float64 {
@@ -699,6 +828,44 @@ func openwrtRate(rate *uint64) *float64 {
 		return nil
 	}
 	return Ptr(float64(*rate) / 1000)
+}
+func openwrtKbps(value *uint64) *float64 {
+	if value == nil {
+		return nil
+	}
+	return Ptr(float64(*value) / 1000)
+}
+func openwrtWidth(htmode string) *int {
+	mode := strings.ToUpper(strings.TrimSpace(htmode))
+	for _, prefix := range []string{"EHT", "HE", "VHT", "HT"} {
+		if strings.HasPrefix(mode, prefix) {
+			mode = strings.TrimPrefix(mode, prefix)
+			break
+		}
+	}
+	for _, width := range []int{320, 160, 80, 40, 20} {
+		if mode == strconv.Itoa(width) {
+			return Ptr(width)
+		}
+	}
+	return nil
+}
+func openwrtApplyRadioInfo(radios []Radio, radioID string, info openwrtIWInfo) {
+	for i := range radios {
+		if radios[i].ID != radioID {
+			continue
+		}
+		radios[i].NoiseDBm = info.Noise
+		radios[i].TxPowerDBm = info.TxPower
+		radios[i].Country = info.Country
+		if width := openwrtWidth(info.HTMode); width != nil {
+			radios[i].WidthMHz = width
+		}
+		if len(info.HWMods) > 0 {
+			radios[i].Protocols = append([]string(nil), info.HWMods...)
+		}
+		return
+	}
 }
 func openwrtMAC(value string) (string, error) {
 	mac, err := net.ParseMAC(value)

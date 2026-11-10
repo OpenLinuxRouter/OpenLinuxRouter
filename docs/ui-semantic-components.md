@@ -11,8 +11,8 @@ core roles. The inventory distinguishes these from future extractions.
 Reviewed the route registry, global theme, shared UI/layout components and
 presentation patterns across Overview, device/group details, Gateway/interfaces,
 DNS/DHCP, Firewall, Access services, Tools/results, Advanced settings,
-authentication/setup and system feedback. On current main, Wireless is a
-placeholder; it needs the same empty-state contract when developed.
+authentication/setup and system feedback. Wireless reads one managed access
+point and uses the same empty-state contract; it has no configuration editor.
 
 The project already has good foundations: Geist, semantic theme colors, shared
 controls, PageHeading/SubPage, Card, ListRow, Dialog and tabular traffic values.

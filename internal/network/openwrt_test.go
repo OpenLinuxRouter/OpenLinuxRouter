@@ -201,8 +201,12 @@ func TestOpenWrtRead(t *testing.T) {
 	if ports["lan2"].RXBytes != nil || ports["lan2"].SpeedMbps != nil || ports["lan2"].LinkUp == nil || *ports["lan2"].LinkUp {
 		t.Fatal("missing metrics must remain unknown, explicit carrier false preserved")
 	}
-	if len(snap.Radios) != 1 || snap.Radios[0].WidthMHz != nil || snap.Radios[0].ConfiguredWidthMHz == nil || *snap.Radios[0].ConfiguredWidthMHz != 80 || snap.Radios[0].Channel == nil || *snap.Radios[0].Channel != 36 {
+	if len(snap.Radios) != 1 || snap.Radios[0].WidthMHz == nil || *snap.Radios[0].WidthMHz != 80 || snap.Radios[0].ConfiguredWidthMHz == nil || *snap.Radios[0].ConfiguredWidthMHz != 80 || snap.Radios[0].Channel == nil || *snap.Radios[0].Channel != 36 {
 		t.Fatalf("radios: %+v", snap.Radios)
+	}
+	radio := snap.Radios[0]
+	if radio.NoiseDBm == nil || *radio.NoiseDBm != -95 || radio.TxPowerDBm == nil || *radio.TxPowerDBm != 20 || radio.Country != "US" || radio.UtilizationPercent == nil || *radio.UtilizationPercent != 17.5 || !reflect.DeepEqual(radio.Protocols, []string{"n", "ac", "ax"}) {
+		t.Fatalf("radio observations: %+v", radio)
 	}
 	if len(snap.Wireless) != 1 || snap.Wireless[0].BSSID != "02:11:22:33:44:60" || snap.Wireless[0].SSID != "Test network" {
 		t.Fatalf("wireless: %+v", snap.Wireless)
@@ -211,8 +215,11 @@ func TestOpenWrtRead(t *testing.T) {
 		t.Fatalf("associations: %+v", snap.Associations)
 	}
 	a := snap.Associations[0]
-	if a.RXRateMbps == nil || *a.RXRateMbps != 144.4 || a.TXRateMbps == nil || *a.TXRateMbps != 866.7 || a.RXBytes == nil || *a.RXBytes != 333 || a.ConnectedSeconds == nil || *a.ConnectedSeconds != 99 {
+	if a.RadioID != "radio0" || a.RXRateMbps == nil || *a.RXRateMbps != 144.4 || a.TXRateMbps == nil || *a.TXRateMbps != 866.7 || a.RXBytes == nil || *a.RXBytes != 333 || a.ConnectedSeconds == nil || *a.ConnectedSeconds != 99 {
 		t.Fatalf("association: %+v", a)
+	}
+	if a.SignalAvgDBm == nil || *a.SignalAvgDBm != -53 || a.NoiseDBm == nil || *a.NoiseDBm != -95 || a.ExpectedMbps == nil || *a.ExpectedMbps != 866.7 || a.RXMCS == nil || *a.RXMCS != 7 || a.TXMCS == nil || *a.TXMCS != 9 || a.RXWidthMHz == nil || *a.RXWidthMHz != 40 || a.TXWidthMHz == nil || *a.TXWidthMHz != 80 || a.Retries == nil || *a.Retries != 3 || a.Failed == nil || *a.Failed != 4 || a.RXPackets == nil || *a.RXPackets != 9 || a.TXPackets == nil || *a.TXPackets != 10 || a.TXAirtimeUS == nil || *a.TXAirtimeUS != 1234 || a.MFP == nil || *a.MFP || a.WMM == nil || !*a.WMM {
+		t.Fatalf("association enrichment: %+v", a)
 	}
 	if snap.Associations[1].SignalDBm != nil || snap.Associations[1].RXBytes != nil {
 		t.Fatal("missing client metrics must remain unknown")
@@ -239,6 +246,10 @@ func TestOpenWrtPartialFailures(t *testing.T) {
 		}
 		if c.Object == "hostapd.phy0-ap0" && c.Method == "get_clients" {
 			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":`+fmt.Sprint(req.ID)+`,"result":[0,{"clients":null,"key":"SECRET"}]}`)
+			return true
+		}
+		if c.Object == "iwinfo" && c.Method == "assoclist" {
+			openwrtTestReply(w, req, 6, nil)
 			return true
 		}
 		return false
@@ -471,9 +482,6 @@ func TestOpenWrtMalformedCollectionsDoNotReportEmptySuccess(t *testing.T) {
 		{"network.device.status", `{"eth0":null}`, "ports"},
 		{"network.interface.dump", `{}`, "ports"},
 		{"network.wireless.status", `{"radio0":null}`, "wireless"},
-		{"hostapd.phy0-ap0.get_status", `{}`, "wireless"},
-		{"hostapd.phy0-ap0.get_clients", `{}`, "associations"},
-		{"hostapd.phy0-ap0.get_clients", `{"clients":{"02:aa:bb:cc:dd:ee":null}}`, "associations"},
 	} {
 		t.Run(tc.key+tc.payload, func(t *testing.T) {
 			f := newOpenwrtTestServer(t)
@@ -605,16 +613,18 @@ func TestOpenWrtRolesUseDeclaredAndObservedAP(t *testing.T) {
 
 func TestOpenWrtRadioChannelRequiresRuntimeObservation(t *testing.T) {
 	for _, tc := range []struct {
-		name, status string
-		want         *int
+		name, status, info string
+		want               *int
 	}{
-		{name: "configured channel is not runtime", status: `{"bssid":"02:11:22:33:44:60","ssid":"Test network"}`},
-		{name: "zero runtime channel unknown", status: `{"bssid":"02:11:22:33:44:60","channel":0}`},
-		{name: "runtime overrides configuration", status: `{"bssid":"02:11:22:33:44:60","channel":149}`, want: Ptr(149)},
+		{name: "configured channel is not runtime", status: `{"bssid":"02:11:22:33:44:60","ssid":"Test network"}`, info: `{"noise":-95}`},
+		{name: "zero runtime channel unknown", status: `{"bssid":"02:11:22:33:44:60","channel":0}`, info: `{"noise":-95}`},
+		{name: "iwinfo supplies runtime channel", status: `{"bssid":"02:11:22:33:44:60","ssid":"Test network"}`, info: `{"channel":36}`, want: Ptr(36)},
+		{name: "runtime overrides configuration", status: `{"bssid":"02:11:22:33:44:60","channel":149}`, info: `{"channel":36}`, want: Ptr(149)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newOpenwrtTestServer(t)
 			f.fixtures["hostapd.phy0-ap0.get_status"] = json.RawMessage(tc.status)
+			f.fixtures["iwinfo.info"] = json.RawMessage(tc.info)
 			snap, err := f.adapter().Read(context.Background(), f.device())
 			if err != nil || len(snap.Radios) != 1 || !reflect.DeepEqual(snap.Radios[0].Channel, tc.want) {
 				t.Fatalf("radio channel %+v; err %v", snap.Radios, err)
@@ -650,7 +660,18 @@ type openwrtTestRoundTrip func(*http.Request) (*http.Response, error)
 func (f openwrtTestRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestOpenWrtDisconnectDiscoveryFailuresStayUnknown(t *testing.T) {
-	for _, scenario := range []string{"list-invalid-json", "list-http-error", "access-missing", "access-invalid-json", "status-invalid-json", "clients-invalid-json", "access-deadline"} {
+	for _, tc := range []struct {
+		scenario, want string
+	}{
+		{"list-invalid-json", "unknown"},
+		{"list-http-error", "unknown"},
+		{"access-missing", "unknown"},
+		{"access-invalid-json", "unknown"},
+		{"status-invalid-json", "unknown"},
+		{"clients-invalid-json", "supported"},
+		{"access-deadline", "unknown"},
+	} {
+		scenario := tc.scenario
 		t.Run(scenario, func(t *testing.T) {
 			f := newOpenwrtTestServer(t)
 			if scenario == "access-missing" {
@@ -696,8 +717,8 @@ func TestOpenWrtDisconnectDiscoveryFailuresStayUnknown(t *testing.T) {
 				})
 			}
 			snap, err := o.Read(context.Background(), f.device())
-			if err != nil || snap.Capabilities["client.disconnect"].State != "unknown" {
-				t.Fatalf("capability %+v, read error %v", snap.Capabilities["client.disconnect"], err)
+			if err != nil || snap.Capabilities["client.disconnect"].State != tc.want {
+				t.Fatalf("capability %+v, want %s, read error %v", snap.Capabilities["client.disconnect"], tc.want, err)
 			}
 			// get_clients is not a planning prerequisite; its read failure still
 			// must not prove that the independent del_client method is absent.
@@ -718,5 +739,46 @@ func TestOpenWrtDisconnectDiscoveryFailuresStayUnknown(t *testing.T) {
 				t.Fatal("failed discovery performed a mutation")
 			}
 		})
+	}
+}
+
+func TestOpenWrtWirelessFallsBackToLuciRPC(t *testing.T) {
+	f := newOpenwrtTestServer(t)
+	var radios map[string]any
+	if err := json.Unmarshal(f.fixtures["network.wireless.status"], &radios); err != nil {
+		t.Fatal(err)
+	}
+	delete(f.fixtures, "network.wireless.status")
+	radio := radios["radio0"].(map[string]any)
+	for _, raw := range radio["interfaces"].([]any) {
+		intf := raw.(map[string]any)
+		intf["iwinfo"] = map[string]any{"ssid": "Test network", "bssid": "02:11:22:33:44:60", "channel": 36, "htmode": "VHT80", "hwmodes": []string{"n", "ac", "ax"}, "noise": -95, "txpower": 20, "country": "US"}
+	}
+	data, _ := json.Marshal(map[string]any{"radio0": radio})
+	f.fixtures["luci-rpc.getWirelessDevices"] = data
+	snap, err := f.adapter().Read(context.Background(), f.device())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.Collections["wireless"].State != "ok" || len(snap.Radios) != 1 || len(snap.Wireless) != 1 || snap.Wireless[0].BSSID != "02:11:22:33:44:60" {
+		t.Fatalf("fallback wireless: %+v %+v", snap.Radios, snap.Wireless)
+	}
+	if snap.Radios[0].WidthMHz == nil || *snap.Radios[0].WidthMHz != 80 || snap.Radios[0].NoiseDBm == nil || *snap.Radios[0].NoiseDBm != -95 {
+		t.Fatalf("fallback radio observations: %+v", snap.Radios[0])
+	}
+}
+
+func TestOpenWrtAssociationsFallBackToIWinfo(t *testing.T) {
+	f := newOpenwrtTestServer(t)
+	f.fixtures["hostapd.phy0-ap0.get_clients"] = json.RawMessage(`{"clients":null}`)
+	snap, err := f.adapter().Read(context.Background(), f.device())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.Collections["associations"].State != "ok" || len(snap.Associations) != 1 {
+		t.Fatalf("iwinfo fallback associations: %+v", snap.Associations)
+	}
+	if snap.Associations[0].TXRateMbps == nil || *snap.Associations[0].TXRateMbps != 866.7 {
+		t.Fatalf("fallback association metrics: %+v", snap.Associations[0])
 	}
 }

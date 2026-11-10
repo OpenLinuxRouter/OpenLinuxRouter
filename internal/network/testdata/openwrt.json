@@ -15,9 +15,10 @@
   "network.wireless.status": {
     "radio0": {"up":true,"pending":false,"autostart":true,"disabled":false,"config":{"path":"platform/radio","band":"5g","channel":"36","htmode":"HE80"},"interfaces":[{"section":"default_radio0","ifname":"phy0-ap0","config":{"mode":"ap","ssid":"Test network","encryption":"sae","key":"WIFI_SECRET_MUST_NOT_ESCAPE","network":["lan"]}}]}
   },
-  "hostapd.phy0-ap0.get_status": {"iface":"phy0-ap0","phy":"phy0","freq":5180,"channel":36,"bssid":"02:11:22:33:44:60","ssid":"Test network"},
-  "hostapd.phy0-ap0.get_clients": {"freq":5180,"clients":{"02:aa:bb:cc:dd:ee":{"auth":true,"assoc":true,"authorized":true,"signal":-52},"02:aa:bb:cc:dd:ef":{"auth":true,"assoc":true,"authorized":true}}},
-  "iwinfo.assoclist": {"results":[{"mac":"02:AA:BB:CC:DD:EE","signal":-51,"noise":-95,"connected_time":99,"inactive":0,"rx":{"rate":144400,"bytes":333,"packets":9,"mcs":7,"40mhz":true},"tx":{"rate":866700,"bytes":444,"packets":10}}]},
+  "hostapd.phy0-ap0.get_status": {"iface":"phy0-ap0","phy":"phy0","freq":5180,"channel":36,"bssid":"02:11:22:33:44:60","ssid":"Test network","airtime":{"time":1000,"time_busy":175,"utilization":17.5}},
+  "hostapd.phy0-ap0.get_clients": {"freq":5180,"clients":{"02:aa:bb:cc:dd:ee":{"auth":true,"assoc":true,"authorized":true,"signal":-52,"mfp":false,"wmm":true,"airtime":{"rx":0,"tx":1234}},"02:aa:bb:cc:dd:ef":{"auth":true,"assoc":true,"authorized":true}}},
+  "iwinfo.assoclist": {"results":[{"mac":"02:AA:BB:CC:DD:EE","signal":-51,"noise":-95,"connected_time":99,"inactive":0,"signal_avg":-53,"thr":866700,"rx":{"rate":144400,"bytes":333,"packets":9,"mcs":7,"40mhz":true,"retries":0,"failed":0,"mhz":40,"ht":true,"vht":true,"he":false,"short_gi":true},"tx":{"rate":866700,"bytes":444,"packets":10,"mcs":9,"mhz":80,"ht":true,"vht":true,"he":true,"eht":false,"short_gi":true,"retries":3,"failed":4}}]},
+  "iwinfo.info": {"phy":"phy0","ssid":"Test network","bssid":"02:11:22:33:44:60","channel":36,"frequency":5180,"txpower":20,"noise":-95,"country":"US","htmode":"VHT80","hwmodes":["n","ac","ax"],"hwmode":"ax"},
   "session.access": {"access":true},
   "list": {"hostapd.phy0-ap0":{"get_status":{},"get_clients":{},"del_client":{"addr":"String","reason":"Integer","deauth":"Boolean","ban_time":"Integer"}}},
   "hostapd.phy0-ap0.del_client": {}

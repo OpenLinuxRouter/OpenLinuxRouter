@@ -106,7 +106,8 @@ use 16px and shadow-md. Card spacing and title size are independent variants.
 ## Layout and hierarchy
 
 Desktop and mobile navigation use Overview, Gateway, Wireless, Access and
-Advanced, in that order. Wireless currently shows an under-construction placeholder.
+Advanced, in that order. Wireless shows a managed access point's radios,
+findings and associated clients; it is read-only in this increment.
 Firewall, port forwarding, administrator access and the five diagnostic pages
 are reached through Advanced and highlight Advanced in navigation, including on
 their detail pages. Firewall and the tool pages keep their addresses; port

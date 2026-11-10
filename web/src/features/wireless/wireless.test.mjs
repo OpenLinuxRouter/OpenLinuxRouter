@@ -1,0 +1,94 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+
+import {
+  bandLabel,
+  findingsFor,
+  formatDuration,
+  isPrivateAddress,
+  linkTech,
+  signalBars,
+  signalLevel,
+  snr,
+  sortClients,
+  standardLabel,
+} from './wireless.ts'
+
+const radio = (over = {}) => ({ id: 'radio0', band: '2g', protocols: ['n', 'ax'], ...over })
+const client = (over = {}) => ({ mac: '02:AA:BB:CC:DD:EE', network_id: 'phy0-ap0', radio_id: 'radio0', ...over })
+const snapshot = (over = {}) => ({ device_id: 'ap', observed_at: '2026-01-01T00:00:00Z', identity: {}, capabilities: {}, collections: {}, radios: [radio()], wireless: [], associations: [], ...over })
+
+test('bands and standards are named the way people ask for them', () => {
+  assert.equal(bandLabel('2g'), '2.4 GHz')
+  assert.equal(bandLabel('5g'), '5 GHz')
+  assert.equal(bandLabel(undefined), 'Unknown band')
+  assert.equal(standardLabel(['n', 'ac', 'ax']), 'Wi-Fi 6')
+  assert.equal(standardLabel(['n', 'ac', 'ax', 'be']), 'Wi-Fi 7')
+  assert.equal(standardLabel(['n']), 'Wi-Fi 4')
+  assert.equal(standardLabel([]), '')
+})
+
+test('signal thresholds and bars follow one scale', () => {
+  assert.equal(signalLevel(-50), 'good')
+  assert.equal(signalLevel(-70), 'fair')
+  assert.equal(signalLevel(-80), 'weak')
+  assert.equal(signalLevel(undefined), 'unknown')
+  assert.deepEqual([-50, -60, -70, -80, undefined].map(signalBars), [4, 3, 2, 1, 0])
+})
+
+test('the negotiated link names its MCS family and width', () => {
+  assert.equal(linkTech(client({ tx_mcs: 9, tx_width_mhz: 80 }), radio({ band: '5g', protocols: ['ax'] })), 'HE-MCS 9 · 80 MHz')
+  assert.equal(linkTech(client({ tx_mcs: 7, tx_width_mhz: 20 }), radio({ protocols: ['n'] })), 'MCS 7 · 20 MHz')
+  assert.equal(linkTech(client({}), radio()), '')
+  assert.equal(snr(client({ signal_dbm: -60, noise_dbm: -95 })), 35)
+  assert.equal(snr(client({ signal_dbm: -60 })), undefined)
+})
+
+test('duration compresses to hours, minutes and seconds', () => {
+  assert.equal(formatDuration(45), '45s')
+  assert.equal(formatDuration(90), '2m')
+  assert.equal(formatDuration(5400), '1h 30m')
+  assert.equal(formatDuration(7200), '2h')
+  assert.equal(formatDuration(3599), '1h')
+  assert.equal(formatDuration(3599 * 2), '2h')
+  assert.equal(formatDuration(undefined), '—')
+})
+
+test('a locally administered address is not a vendor identity', () => {
+  assert.equal(isPrivateAddress('02:AA:BB:CC:DD:EE'), true)
+  assert.equal(isPrivateAddress('00:11:22:33:44:55'), false)
+})
+
+test('a width the driver did not honour is the first finding', () => {
+  const findings = findingsFor(snapshot({ radios: [radio({ configured_width_mhz: 40, width_mhz: 20 })] }))
+  assert.equal(findings.length, 1)
+  assert.equal(findings[0].id, 'width-radio0')
+  assert.equal(findings[0].tone, 'warning')
+  assert.deepEqual(findings[0].values, { band: '2.4 GHz', configured: 40, actual: 20 })
+})
+
+test('weak clients are listed with their addresses, and strong ones are not', () => {
+  const weak = findingsFor(snapshot({ associations: [client({ signal_dbm: -80 }), client({ mac: '02:AA:BB:CC:DD:EF', signal_dbm: -55 })] }))
+  assert.equal(weak.length, 1)
+  assert.equal(weak[0].id, 'weak-clients')
+  assert.equal(weak[0].values.clients, '02:AA:BB:CC:DD:EE')
+  assert.equal(findingsFor(snapshot({ associations: [client({ signal_dbm: -55 })] })).length, 0)
+})
+
+test('high utilization is a notice, not a fault', () => {
+  const findings = findingsFor(snapshot({ radios: [radio({ utilization_percent: 72 })] }))
+  assert.equal(findings[0].id, 'utilization-radio0')
+  assert.equal(findings[0].tone, 'notice')
+  assert.equal(findingsFor(snapshot({ radios: [radio({ utilization_percent: 30 })] })).length, 0)
+  assert.equal(findingsFor(snapshot({ radios: [radio()] })).length, 0)
+})
+
+test('clients sort by band first, then by signal', () => {
+  const radios = [radio({ id: 'r24', band: '2g' }), radio({ id: 'r5', band: '5g' })]
+  const sorted = sortClients([
+    client({ mac: '02:AA:BB:CC:DD:01', radio_id: 'r24', signal_dbm: -50 }),
+    client({ mac: '02:AA:BB:CC:DD:02', radio_id: 'r5', signal_dbm: -70 }),
+    client({ mac: '02:AA:BB:CC:DD:03', radio_id: 'r5', signal_dbm: -60 }),
+  ], snapshot({ radios }))
+  assert.deepEqual(sorted.map(item => item.mac), ['02:AA:BB:CC:DD:03', '02:AA:BB:CC:DD:02', '02:AA:BB:CC:DD:01'])
+})
