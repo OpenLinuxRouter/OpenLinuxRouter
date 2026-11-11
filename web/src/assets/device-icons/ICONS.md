@@ -21,7 +21,7 @@ model is — and by nothing else.
 
 **Tier 1.5 — vendor icon.** One per `<vendor>/<category>`, e.g. `apple/laptop`,
 overriding the plain category icon. Named by the closed `VendorKey` vocabulary
-in `internal/devices/vendor.go`, and registered under exactly that path in
+in `internal/clients/vendor.go`, and registered under exactly that path in
 `IMAGES`, where a template literal type checks both halves at compile time.
 
 This is the one tier that **relaxes a shared rule**: brand-signature silhouette
@@ -44,7 +44,7 @@ different to share a picture: an eight-bay NAS is not the two-bay box, and a
 Mac mini is not the iMac that `apple/desktop` draws. A variant is keyed under
 what it is a shape *of* — `server/tower`, `apple/desktop/mini`,
 `synology/nas/8bay` — and the list is closed, in `variants` in
-`internal/devices/icon.go` and hand-mirrored as `VariantKey` in
+`internal/clients/icon.go` and hand-mirrored as `VariantKey` in
 `features/devices/icons.ts`. The brandless pair matter most at home, because
 they are what a home runs: `server/tower` is the PC under a desk that is really
 a server, and `desktop/mini` is the small box on a shelf that is really a
@@ -127,7 +127,7 @@ box square.
 
 Adding a count is the usual three steps: optimise the master into this
 directory, add its line to `IMAGES` and its name to `variants` in
-`internal/devices/icon.go` if it is a new count, and nothing else moves.
+`internal/clients/icon.go` if it is a new count, and nothing else moves.
 
 **How the picker arranges them.** The picker is a search box over two
 catalogues, and below it two blocks in this order:
@@ -203,7 +203,7 @@ tier 1 alone.
 
 ## Resolution order
 
-First match wins — `internal/devices/list.go`, and `deviceIcon()` in `icons.ts`:
+First match wins — `internal/clients/list.go`, and `deviceIcon()` in `icons.ts`:
 
 1. **Model** — operator-set, or detected and then confirmed. *Not wired in yet.*
 2. **Vendor + category** — `apple/laptop`
@@ -268,7 +268,7 @@ laptops apart is the row's job — its title and vendor — not the icon's.
 ## Operating-system marks
 
 A device can wear an OS's logo instead of a picture — `os/debian`, stored as
-the device's `icon` (see `internal/devices/icon.go`). This is the one place
+the device's `icon` (see `internal/clients/icon.go`). This is the one place
 logos are allowed, and deliberately: a picture of "a computer running Debian"
 is a generic box, and the mark is the only thing that says Debian.
 
@@ -297,7 +297,7 @@ Two substitutions, both because the real mark fails at 32 px:
 
 Adding one is an SVG in `../os-marks/`, a line in `OS_MARKS` in
 `features/devices/icons.ts`, and the same key in `operatingSystems` in
-`internal/devices/icon.go`, which is what the stored value is validated
+`internal/clients/icon.go`, which is what the stored value is validated
 against.
 
 ## Protocol marks
@@ -392,7 +392,7 @@ someone else's logo.
    A vendor icon is registered under its slash form, `'apple/laptop': appleLaptop`,
    which is what the `IconKey` type checks; the file itself cannot contain a
    slash, hence the hyphen on disk. A
-   variant also needs its name in `variants` in `internal/devices/icon.go`
+   variant also needs its name in `variants` in `internal/clients/icon.go`
    and in `VariantKey`, or the stored value is rejected.
 
 Nothing here is required. A category with no image falls back to its line glyph

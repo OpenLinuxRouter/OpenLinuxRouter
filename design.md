@@ -510,7 +510,8 @@ Bounded list. Not expected to grow much. The object they all key off is the
 |---|---|---|---|
 | **Foundation** | `link` | NICs, bridges, VLANs, bonds, addresses (netlink); **networks** (§4.4) | ✅ |
 | | `dial` | WAN: DHCP client, PPPoE, static, LTE; IPv6 PD. **Part built:** the static uplink — interface, address, default route in the main table — IPv6 by prefix delegation or a 6in4 tunnel, and dynamic DNS; no DHCP client, PPPoE or LTE (docs/dial.md) | ✅ |
-| | `devices` | **device identity** (§4.4); joins presence from leases + ARP | ✅ |
+| | `clients` | **client identity** (§4.4); joins presence from leases + ARP | ✅ |
+| | `devices` | **managed network equipment**: switches, access points and routers olr reads but never configures; brand adapters, capability-gated observations (docs/network-equipment.md) | ✅ |
 | **Services** | `dhcp` | dnsmasq — DHCPv4, DHCPv6 **and RA** (§4.2) | ✅ |
 | | `dns` | unbound — **DNS only** | ✅ |
 | | `qos` | tc — per-device priority and upload/download limits; see docs/qos.md | |
@@ -535,7 +536,7 @@ link ──┬─→ dial ──┬─→ dns      (upstream resolvers)
        │          ├─→ qos      (WAN iface + rate)
        │          └─→ gateway  (default route, PD prefix, NAT egress iface)
        ├─→ dhcp ──┬─→ dns      (lease hostnames, one-way publish)
-       │          ├─→ devices  (leases as presence; identity flows the other way)
+       │          ├─→ clients  (leases as presence; identity flows the other way)
        │          └─→ qos
        ├─→ gateway
        └─→ wifi
@@ -701,7 +702,7 @@ deletable — rather than a write-only recipe whose output is scattered across
 four modules. §6.3 composite operations compose *over* networks; they are not a
 substitute for having them.
 
-**A device is a client on the network,** keyed by MAC. It is a **join of two
+**A client is a thing on the network,** keyed by MAC. It is a **join of two
 halves**, and keeping them distinct is the whole trick:
 
 | Half | Example | Owned how |
@@ -709,13 +710,13 @@ halves**, and keeping them distinct is the whole trick:
 | **Identity** — intent | user-given name, fixed address, blocked | ours, stored, revisioned |
 | **Presence** — observed | online, current address, last seen | read-through, never stored as truth |
 
-The exception is what no source remembers once the device has gone: *when it
+The exception is what no source remembers once the client has gone: *when it
 was last heard* and *the name it last called itself*. Both are sampled in the
 background — the time from the neighbour table (REACHABLE entries only), the
 name from the DHCP lease — and kept per MAC in the runtime database's
 `device_seen` table, apart from olr.json because it is history, not intent. It
 can be deleted at any time and costs only that history. See
-internal/devices/seen.go.
+internal/clients/seen.go.
 
 The remembered name is why a phone left in a bag for two days keeps its name
 instead of becoming a MAC: a client's hostname arrives with its lease, and the
@@ -726,8 +727,8 @@ from the client's claim, and the client's current claim distinguishable from
 its history. Detection reads it too, so the picture does not fall back to a
 vendor default merely because the lease lapsed.
 
-Devices are a *foundation* object, not an operational one: `dhcp` references
-them for fixed addresses, `gateway` for per-device routing and forwards, `qos`
+Clients are a *foundation* object, not an operational one: `dhcp` references
+them for fixed addresses, `gateway` for per-client routing and forwards, `qos`
 for shaping, `dns` for names. `gateway` must not have to depend on `dhcp` to
 write a rule about a laptop. The apparent cycle — `dhcp` needs identity, the inventory needs
 lease data — resolves with §4.1's own rule: identity flows one way as config,
@@ -741,9 +742,9 @@ UI, with *network* as the label on the common path — and a word the operator
 never sees is still a word every reader of the schema, the API and the code has
 to translate. One object, one owner, one word.
 
-**"Group" is reserved for *device groups*** — operator-named sets of devices
+**"Group" is reserved for *client groups*** — operator-named sets of clients
 ("Serving", "Personal", "IoT") that carry policy: the exit they leave by, and
-later parental controls and QoS classes. A group is **exclusive**: every device
+later parental controls and QoS classes. A group is **exclusive**: every client
 is in exactly one, so a policy set on a group never has to be reconciled against
 another group's. Groups cut across networks and are a different concept
 entirely. They need their own word: using one word for both forecloses the
@@ -752,12 +753,12 @@ a rule about a network. This word used to be "tag", and exclusive membership is
 what "group" says that "tag" did not.
 
 Groups **nest**: a group may sit inside one other group ("VMs" inside
-"Serving"), up to four levels, and a device may sit in a group that also holds
-subgroups. Nesting is cheap *because* membership is exclusive — a device has
-one group and a group one parent, so from any device there is exactly one chain
+"Serving"), up to four levels, and a client may sit in a group that also holds
+subgroups. Nesting is cheap *because* membership is exclusive — a client has
+one group and a group one parent, so from any client there is exactly one chain
 upward, and a policy resolves by walking it. Overlapping sets would have needed
-a tie-break at every level; a chain needs none. Built in `devices` as a name
-and a parent on each group and a group name on each device; no group carries a
+a tie-break at every level; a chain needs none. Built in `clients` as a name
+and a parent on each group and a group name on each client; no group carries a
 policy yet.
 
 ### 4.5 Own the model, never the state

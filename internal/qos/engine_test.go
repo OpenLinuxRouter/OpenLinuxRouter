@@ -8,14 +8,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/core"
-	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/link"
 )
 
-type deviceFixture []devices.Resolved
+type deviceFixture []clients.Resolved
 
-func (d deviceFixture) List(context.Context) ([]devices.Resolved, []devices.Problem, error) {
+func (d deviceFixture) List(context.Context) ([]clients.Resolved, []clients.Problem, error) {
 	return d, nil, nil
 }
 

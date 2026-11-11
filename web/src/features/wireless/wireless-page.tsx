@@ -20,12 +20,12 @@ import { Heading } from '@/components/ui/heading'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusDot, StatusInline, StatusPill } from '@/components/ui/status'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { DeviceIcon } from '@/features/devices/device-icon'
-import { useDeviceList } from '@/features/devices/queries'
-import { DeviceDialog, type DeviceDraft } from '@/features/equipment/device-dialog'
-import { useEquipmentEditor, useNetworkConfig, useNetworkSnapshot } from '@/features/equipment/queries'
-import type { Association, Neighbour, NetworkDevice, Radio, ScanResult, Snapshot } from '@/features/equipment/types'
-import type { DeviceRow } from '@/lib/api-types'
+import { DeviceIcon } from '@/features/clients/client-icon'
+import { useClientList } from '@/features/clients/queries'
+import { DeviceDialog, type DeviceDraft } from '@/features/devices/device-dialog'
+import { useDeviceEditor, useDevicesConfig, useNetworkSnapshot } from '@/features/devices/queries'
+import type { Association, Neighbour, Device, Radio, ScanResult, Snapshot } from '@/features/devices/types'
+import type { ClientRow } from '@/lib/api-types'
 import { cn, formatBytes } from '@/lib/utils'
 
 import { useRadioScan } from './queries'
@@ -61,16 +61,16 @@ type Tab = 'overview' | 'clients' | 'channels'
  */
 export function WirelessPage() {
   useLocale()
-  const config = useNetworkConfig()
+  const config = useDevicesConfig()
   const devices = config.data?.devices ?? []
-  const directory = useDeviceList().data?.devices
+  const directory = useClientList().data?.clients
   const byMAC = useMemo(() => new Map((directory ?? []).map(device => [device.mac.toUpperCase(), device])), [directory])
   const [params, setParams] = useSearchParams()
   const preferred = preferredDevice(devices)
-  const requested = params.get('device')
+  const requested = params.get('client')
   const selected = devices.find(device => device.id === requested) ?? preferred
   const snapshot = useNetworkSnapshot(selected?.id)
-  const editor = useEquipmentEditor()
+  const editor = useDeviceEditor()
   const [dialog, setDialog] = useState<'add' | 'edit' | null>(null)
   const [tab, setTabState] = useState<Tab>(tabFrom(params.get('tab')))
   const setTab = (next: Tab) => {
@@ -84,7 +84,7 @@ export function WirelessPage() {
   const submit = async (draft: DeviceDraft) => {
     // The shared dialog keeps an entry's adapter and roles on an edit, so this
     // page only says what shape a new one should have: an access point.
-    const device: NetworkDevice = { ...draft, name: draft.name || undefined, username: draft.username || undefined }
+    const device: Device = { ...draft, name: draft.name || undefined, username: draft.username || undefined }
     if (!(await editor.save(device))) return
     setDialog(null)
     setParams({ ...(tab !== 'overview' ? { tab } : {}), device: device.id }, { replace: true })
@@ -109,8 +109,8 @@ export function WirelessPage() {
   )
 
   if (config.isPending) return <Loading />
-  if (config.isError) return <PageError error={config.error} title={t('Could not read network equipment')} />
-  if (!devices.length || !selected) return <><NoEquipment onAdd={() => setDialog('add')} />{dialogElement}</>
+  if (config.isError) return <PageError error={config.error} title={t('Could not read the device inventory')} />
+  if (!devices.length || !selected) return <><NoDevices onAdd={() => setDialog('add')} />{dialogElement}</>
 
   const identity = snapshot.data?.identity
   const clients = snapshot.data?.associations ?? []
@@ -203,7 +203,7 @@ function WirelessTabs({ tab, onChange, clients }: { tab: Tab; onChange: (tab: Ta
 function WirelessBody({ tab, snapshot, devices, onChangeTab }: {
   tab: Tab
   snapshot: Snapshot
-  devices: Map<string, DeviceRow>
+  devices: Map<string, ClientRow>
   onChangeTab: (tab: Tab) => void
 }) {
   const radios = snapshot.radios ?? []
@@ -596,7 +596,7 @@ function NeighbourTable({ rows }: { rows: (Neighbour & { band?: string })[] }) {
 function ClientPreview({ snapshot, clients, devices, onOpen, onChangeTab }: {
   snapshot: Snapshot
   clients: Association[]
-  devices: Map<string, DeviceRow>
+  devices: Map<string, ClientRow>
   onOpen: (mac: string) => void
   onChangeTab: (tab: Tab) => void
 }) {
@@ -620,7 +620,7 @@ function ClientPreview({ snapshot, clients, devices, onOpen, onChangeTab }: {
 function ClientsCard({ snapshot, clients, devices, expanded, onToggle }: {
   snapshot: Snapshot
   clients: Association[]
-  devices: Map<string, DeviceRow>
+  devices: Map<string, ClientRow>
   expanded: string | null
   onToggle: (mac: string) => void
 }) {
@@ -650,7 +650,7 @@ function ClientsCard({ snapshot, clients, devices, expanded, onToggle }: {
 function ClientTable({ snapshot, clients, devices, expanded, onSelect, onToggle }: {
   snapshot: Snapshot
   clients: Association[]
-  devices: Map<string, DeviceRow>
+  devices: Map<string, ClientRow>
   expanded?: string | null
   onSelect?: (mac: string) => void
   onToggle?: (mac: string) => void
@@ -662,7 +662,7 @@ function ClientTable({ snapshot, clients, devices, expanded, onSelect, onToggle 
     <Table>
       <TableHeader>
         <TableRow className="hover:bg-transparent">
-          <TableHead className="h-9">{t('Device')}</TableHead>
+          <TableHead className="h-9">{t('Client')}</TableHead>
           <TableHead className="hidden h-9 sm:table-cell">{t('Band')}</TableHead>
           <TableHead className="h-9">{t('Signal')}</TableHead>
           <TableHead className="h-9">{t('Rate (Mbps)')}</TableHead>
@@ -822,7 +822,7 @@ function tabFrom(value: string | null): Tab {
   return value === 'clients' || value === 'channels' ? value : 'overview'
 }
 
-function preferredDevice(devices: NetworkDevice[]): NetworkDevice | undefined {
+function preferredDevice(devices: Device[]): Device | undefined {
   return devices.find(device => device.roles?.includes('ap')) ?? devices.find(device => device.adapter === 'openwrt') ?? devices[0]
 }
 
@@ -831,7 +831,7 @@ function networkForRadio(radio: Radio, snapshot: Snapshot) {
   return networks.find(network => network.radio_id === radio.id && network.mode === 'ap') ?? networks.find(network => network.radio_id === radio.id)
 }
 
-function clientName(client: Association, device?: DeviceRow): string {
+function clientName(client: Association, device?: ClientRow): string {
   if (device?.name) return device.name
   return isPrivateAddress(client.mac) ? t('Private address') : client.mac.toUpperCase()
 }
@@ -907,7 +907,7 @@ function PageError({ error, title }: { error: unknown; title: string }) {
   )
 }
 
-function NoEquipment({ onAdd }: { onAdd: () => void }) {
+function NoDevices({ onAdd }: { onAdd: () => void }) {
   return (
     <Card className="gap-0 py-0">
       <div className="space-y-3 p-6">
@@ -916,7 +916,7 @@ function NoEquipment({ onAdd }: { onAdd: () => void }) {
           <Heading as="h2" size="sm">{t('No access point is connected')}</Heading>
         </div>
         <p className="max-w-prose text-sm leading-6 text-muted-foreground">
-          {t('Wireless reads a managed access point through the network equipment inventory. Add its management address and password here; olr stores it in this router\'s configuration.')}
+          {t('Wireless reads a managed access point through the network device inventory. Add its management address and password here; olr stores it in this router\'s configuration.')}
         </p>
         <Button onClick={onAdd}>
           <Plus className="size-4" />

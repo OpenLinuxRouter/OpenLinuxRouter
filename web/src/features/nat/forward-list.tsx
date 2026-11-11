@@ -17,7 +17,7 @@ export function ForwardList({
   useLocale()
   if (forwards.length === 0) {
     return (
-      <ListEmpty> {t('No port forwards yet. Add a rule to publish a device port.')} </ListEmpty>
+      <ListEmpty> {t('No port forwards yet. Add a rule to publish a client port.')} </ListEmpty>
     )
   }
 

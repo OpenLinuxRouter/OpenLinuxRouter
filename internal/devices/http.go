@@ -1,455 +1,277 @@
 package devices
 
 import (
-	"bytes"
+	"context"
 	"errors"
-	"fmt"
 	"net/http"
-	"strings"
-	"time"
+	"strconv"
 
 	"github.com/open-linux-router/open-linux-router/internal/core"
 )
 
-// The module's REST surface (design.md §3.2 rule 2, §6.2).
-//
-// Thin, like internal/dhcp/http.go: every decision was already made and tested
-// in config.go, validate.go, list.go and apply.go, and this file only translates
-// between those and HTTP. A rule that appears here and nowhere else is in the
-// wrong place, because the CLI would not get it.
-
-// HTTP serves the module. Its fields are what the module needs from core
-// (design.md §3.1 — modules call core, not the reverse).
 type HTTP struct {
-	Applier Applier
-
-	// Lock is core's one global apply lock (§3.6). Writes take it; reads never
-	// do.
-	Lock *core.Lock
-
-	// Events is where a change is announced so other clients re-read.
-	Events *core.Events
+	Service *Service
+	Lock    *core.Lock
+	Events  *core.Events
+}
+type ExecuteRequest struct {
+	Operation    Operation `json:"operation"`
+	Confirmation string    `json:"confirmation"`
 }
 
-// Routes is the module's surface, declared as data so that it can be
-// enumerated rather than only served (core.Route).
-//
-// Core mounts these with the /api/devices prefix stripped.
 func (h HTTP) Routes() []core.Route {
 	return []core.Route{
-		// Intent.
-		{
-			Method: "GET", Path: "/config", Tool: "show config",
-			Summary: "Show the stored device inventory: names, categories and owners.",
-			Handler: h.getConfig,
-		},
-		{
-			Method: "PUT", Path: "/config",
-			Summary:  "Replace the whole device inventory.",
-			Body:     core.BodyFull,
-			Mutating: true,
-			Handler:  h.putConfig,
-		},
-		{
-			Method: "PATCH", Path: "/config",
-			Summary:  "Change named device fields and leave the rest alone.",
-			Body:     core.BodyRelaxed,
-			Mutating: true,
-			Handler:  h.patchConfig,
-		},
-
-		// Intent, one item at a time, for the reason internal/gateway/http.go
-		// gives: a merge patch replaces an array wholesale, so without these
-		// every client would load the document, splice it and send it back —
-		// two requests with the lock covering only the second, and the rename
-		// cascade reimplemented once per client. Here each is one request under
-		// the lock, calling config.go.
-		{
-			Method: "PUT", Path: "/groups/{name}",
-			Summary:  "Create a device group; rename it by sending a different name, or move it inside another by sending a parent.",
-			Mutating: true,
-			Handler:  h.putGroup,
-		},
-		{
-			Method: "DELETE", Path: "/groups/{name}",
-			Summary:  "Remove a device group; its devices and subgroups move up to its parent.",
-			Mutating: true,
-			Handler:  h.deleteGroup,
-		},
-		{
-			Method: "PUT", Path: "/devices/{mac}",
-			Summary:  "Create or replace one device's stored identity, preserving all other devices and groups.",
-			Mutating: true, Handler: h.putDevice,
-		},
-		{
-			Method: "DELETE", Path: "/devices/{mac}",
-			Summary:  "Forget one device's stored identity; observed presence and other modules' policies are kept.",
-			Mutating: true, Handler: h.deleteDevice,
-		},
-		{
-			Method: "PUT", Path: "/devices/{mac}/group",
-			Summary:  "Put one device in a group, or take it out of its group with an empty name.",
-			Mutating: true,
-			Handler:  h.putDeviceGroup,
-		},
-
-		// Dry run. A POST because it takes a body, not because it changes
-		// anything.
-		{
-			Method: "POST", Path: "/plan", Tool: "show plan",
-			Summary: "Show what a change to the device inventory would do without doing it.",
-			Body:    core.BodyRelaxed,
-			Handler: h.postPlan,
-		},
-
-		// The join. Observed half never stored, always stamped (§4.5).
-		//
-		// There is deliberately no /categories route: the vocabulary already
-		// reaches every client through the published schema (schema.go), and a
-		// second endpoint serving the same list would be the second source that
-		// eventually disagrees with the first.
-		{
-			Method: "GET", Path: "/list", Tool: "show list",
-			Summary: "List every device known on the network, joining stored identity to observed presence: " +
-				"who is here now, what address they hold, and when they were last seen.",
-			Handler: h.getList,
-		},
+		{Method: "GET", Path: "/config", Tool: "show config", Summary: "Show configured network equipment and credential references, without connecting to devices.", Handler: h.getConfig},
+		{Method: "PUT", Path: "/config", Body: core.BodyFull, Mutating: true, Summary: "Replace network equipment inventory without modifying remote equipment.", Handler: h.putConfig},
+		{Method: "PATCH", Path: "/config", Body: core.BodyRelaxed, Mutating: true, Summary: "Update network equipment inventory without modifying remote equipment.", Handler: h.patchConfig},
+		{Method: "PUT", Path: "/{id}", Mutating: true, Summary: "Add or replace one managed network device without modifying remote equipment.", Handler: h.putDevice},
+		{Method: "DELETE", Path: "/{id}", Mutating: true, Summary: "Forget managed network equipment without modifying it.", Handler: h.deleteDevice},
+		{Method: "GET", Path: "/contract", Tool: "show contract", Summary: "Show versioned network equipment data and operation schemas.", Handler: h.getContract},
+		{Method: "GET", Path: "/{id}/snapshot", Tool: "show snapshot", Summary: "Read one network device with per-section collection status and capabilities.", Handler: h.getSnapshot},
+		{Method: "GET", Path: "/{id}/capabilities", Tool: "show capabilities", Summary: "Inspect current read and operation capabilities of one network device.", Handler: h.getCapabilities},
+		// Deliberately not a published tool: a scan moves the radio off its
+		// channel, so an agent must not start one while reading.
+		{Method: "POST", Path: "/{id}/scan", Summary: "Ask one radio which neighbouring BSS it can hear; the scan interrupts that radio for a few seconds.", Handler: h.scan},
+		{Method: "GET", Path: "/{id}/fdb", Tool: "show fdb", Summary: "Look up a known MAC and optional VLAN on a network device without claiming physical adjacency.", Query: []core.QueryParam{{Name: "mac", Type: "string", Required: true, Summary: "MAC address to look up."}, {Name: "vlan", Type: "integer", Summary: "Optional VLAN ID between 1 and 4094."}}, Handler: h.getFDB},
+		{Method: "POST", Path: "/{id}/operations/plan", Tool: "show operation", Summary: "Preview a typed device operation and issue an expiring one-use confirmation without executing it.", Query: []core.QueryParam{{Name: "kind", Type: "string", Required: true, Summary: "Operation kind: client.disconnect."}, {Name: "target", Type: "string", Required: true, Summary: "Observed wireless network interface ID."}, {Name: "mac", Type: "string", Required: true, Summary: "Wireless client MAC address."}}, Handler: h.planOperation},
+		{Method: "POST", Path: "/{id}/operations/execute", Mutating: true, Summary: "Execute a previewed device operation once using its confirmation.", Handler: h.executeOperation},
 	}
 }
-
-// Handler returns the module's routes.
-func (h HTTP) Handler() http.Handler { return core.RouteTable(h.Routes()) }
-
-// --- intent ---------------------------------------------------------------
-
 func (h HTTP) getConfig(w http.ResponseWriter, r *http.Request) {
-	cfg, err := h.Applier.Load()
+	c, err := Load(h.Service.Store)
 	if err != nil {
-		core.WriteError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, err)
 		return
 	}
-	core.WriteConfig(w, cfg)
+	core.WriteConfig(w, c, c.Redacted())
 }
-
-// putConfig replaces the whole document.
-func (h HTTP) putConfig(w http.ResponseWriter, r *http.Request) {
-	data, err := core.ReadBody(w, r)
-	if err != nil {
-		core.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	cfg, err := UnmarshalConfig(data)
-	if err != nil {
-		core.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	h.mutate(w, r, func(current *Config) error { *current = cfg; return nil })
-}
-
-// patchConfig changes named fields and leaves the rest alone.
-//
-// Same RFC 7386 array semantics as internal/dhcp: a patch containing "devices"
-// replaces the whole list rather than merging into it, which is why naming one
-// device is a PUT of the new document rather than a PATCH of one entry.
-func (h HTTP) patchConfig(w http.ResponseWriter, r *http.Request) {
-	patch, err := core.ReadBody(w, r)
-	if err != nil {
-		core.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if len(bytes.TrimSpace(patch)) == 0 {
-		core.WriteError(w, http.StatusBadRequest, "empty patch body")
-		return
-	}
-	h.mutate(w, r, func(current *Config) error {
-		next, err := core.PatchConfig(*current, patch, UnmarshalConfig)
-		if err != nil {
-			return badRequest(err)
-		}
-		*current = next
-		return nil
-	})
-}
-
-// applyResponse carries the plan alongside the stored result.
-//
-// There are no Steps, unlike internal/dhcp: storing the document is a single
-// atomic write, so there is no half-finished state to report. Saying that with
-// an absent field rather than an empty array keeps the difference visible.
-type applyResponse struct {
-	Plan   planView        `json:"plan"`
-	Config Config          `json:"config"`
-	Error  *core.ErrorBody `json:"error,omitempty"`
-}
-
-// --- one item at a time ----------------------------------------------------
-
-func (h HTTP) putDevice(w http.ResponseWriter, r *http.Request) {
-	mac, err := core.NormalizeMAC(r.PathValue("mac"))
-	if err != nil {
-		core.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	var device Device
-	if err := core.DecodeJSON(w, r, &device); err != nil {
-		core.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if device.MAC != "" {
-		bodyMAC, err := core.NormalizeMAC(device.MAC)
-		if err != nil || bodyMAC != mac {
-			core.WriteError(w, http.StatusBadRequest, "body MAC must match the device in the URL")
-			return
-		}
-	}
-	device.MAC = mac
-	h.mutate(w, r, func(cfg *Config) error { cfg.Upsert(device); return nil })
-}
-
-func (h HTTP) deleteDevice(w http.ResponseWriter, r *http.Request) {
-	mac, err := core.NormalizeMAC(r.PathValue("mac"))
-	if err != nil {
-		core.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	h.mutate(w, r, func(cfg *Config) error { cfg.Remove(mac); return nil })
-}
-
-// groupBody is the body of PUT /groups/{name}. An omitted name means the one in
-// the path, so creating a group does not have to say it twice.
-//
-// Parent is a pointer because absent and empty mean different things: absent
-// leaves the group where it is, and empty moves it to the top.
-type groupBody struct {
-	Name   string  `json:"name"`
-	Parent *string `json:"parent"`
-}
-
-// putGroup creates a group, renames one when the body names another, and moves
-// one when the body names a parent.
-//
-// Creating one that already exists is a no-op rather than a conflict: the
-// request says "there should be a group called this", and there is. A move
-// that would put a group inside itself is refused by Validate, with the path.
-func (h HTTP) putGroup(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("name")
-
-	var body groupBody
-	if err := core.DecodeJSON(w, r, &body); err != nil {
-		core.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	to := strings.TrimSpace(body.Name)
-	if to == "" {
-		to = name
-	}
-
-	h.mutate(w, r, func(cfg *Config) error {
-		if _, ok := cfg.FindGroup(name); !ok {
-			if to != name {
-				return notFound(fmt.Errorf("there is no group called %q; %s", name, knownGroups(*cfg)))
-			}
-			cfg.UpsertGroup(Group{Name: name})
-		}
-		if to != name {
-			// Changing only the case of a name is a rename too, so the clash
-			// check is on the exact name: "iot" → "IoT" must not collide with
-			// itself.
-			if _, taken := cfg.FindGroup(to); taken {
-				return badRequest(fmt.Errorf(
-					"cannot rename %q to %q: there is already a group called %q", name, to, to))
-			}
-			cfg.RenameGroup(name, to)
-		}
-		if body.Parent != nil {
-			g, _ := cfg.FindGroup(to)
-			g.Parent = strings.TrimSpace(*body.Parent)
-			cfg.UpsertGroup(g)
-		}
-		return nil
-	})
-}
-
-func (h HTTP) deleteGroup(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("name")
-	h.mutate(w, r, func(cfg *Config) error {
-		if !cfg.RemoveGroup(name) {
-			return notFound(fmt.Errorf("there is no group called %q; %s", name, knownGroups(*cfg)))
-		}
-		return nil
-	})
-}
-
-// deviceGroupBody is the body of PUT /devices/{mac}/group. An empty group is a
-// real value: it takes the device out of whatever group it was in.
-type deviceGroupBody struct {
-	Group string `json:"group"`
-}
-
-func (h HTTP) putDeviceGroup(w http.ResponseWriter, r *http.Request) {
-	mac, err := core.NormalizeMAC(r.PathValue("mac"))
-	if err != nil {
-		core.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	var body deviceGroupBody
-	if err := core.DecodeJSON(w, r, &body); err != nil {
-		core.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	h.mutate(w, r, func(cfg *Config) error {
-		// Naming a group that does not exist is caught by Validate, with the
-		// list of the ones that do.
-		cfg.SetDeviceGroup(mac, strings.TrimSpace(body.Group))
-		return nil
-	})
-}
-
-// mutate loads the stored document, edits it and stores the result, all under
-// the apply lock, so that the edit is made against the document it is saved
-// over rather than one a concurrent writer has since replaced.
 func (h HTTP) mutate(w http.ResponseWriter, r *http.Request, edit func(*Config) error) {
-	var (
-		stored   Config
-		plan     planView
-		applyErr error
-		refused  error
-		invalid  Result
-		stale    bool
-	)
-	if err := h.Lock.Do(r.Context(), func() error {
-		current, err := h.Applier.Load()
+	var stored Config
+	stale := false
+	err := h.Lock.Do(r.Context(), func() error {
+		c, err := Load(h.Service.Store)
 		if err != nil {
-			applyErr = err
-			return nil
+			return err
 		}
-		if !core.MatchConfig(w, r, current) {
+		if !core.MatchConfig(w, r, c) {
 			stale = true
 			return nil
 		}
-		desired := current.Clone()
-		if err := edit(&desired); err != nil {
-			refused = err
-			return nil
+		previous := Config{Devices: append([]Device(nil), c.Devices...)}
+		if err = edit(&c); err != nil {
+			return err
 		}
-		desired.Normalize()
-		if res := Validate(desired); !res.OK() {
-			invalid = res
-			return nil
-		}
-		plan = buildPlan(current, desired)
-		stored, applyErr = h.Applier.Save(desired)
-		return nil
-	}); err != nil {
-		core.WriteError(w, http.StatusServiceUnavailable,
-			"timed out waiting for the apply lock: "+err.Error())
-		return
-	}
-
+		c = restoreSecrets(c, previous)
+		stored, err = Save(h.Service.Store, c)
+		return err
+	})
 	if stale {
 		return
 	}
-	switch {
-	case refused != nil:
-		core.WriteError(w, statusFor(refused), refused.Error())
-		return
-	case !invalid.OK():
-		core.WriteError(w, http.StatusUnprocessableEntity,
-			"invalid devices configuration", problems(invalid.Errors)...)
-		return
-	case applyErr != nil:
-		core.WriteJSON(w, http.StatusInternalServerError, applyResponse{
-			Plan:   plan,
-			Config: stored,
-			Error:  &core.ErrorBody{Message: applyErr.Error()},
-		})
+	if err != nil {
+		writeError(w, err)
 		return
 	}
-
-	if !plan.Empty {
+	if h.Events != nil {
 		h.Events.Publish(core.Event{Type: core.EventApplied, Module: ModuleName})
 	}
-	core.WriteJSON(w, http.StatusOK, applyResponse{Plan: plan, Config: stored})
+	core.WriteConfig(w, stored, stored.Redacted())
 }
-
-// editError carries the status an edit's refusal deserves, the way
-// internal/gateway/http.go does.
-type editError struct {
-	status int
-	err    error
-}
-
-func (e editError) Error() string { return e.err.Error() }
-func (e editError) Unwrap() error { return e.err }
-
-func notFound(err error) error   { return editError{http.StatusNotFound, err} }
-func badRequest(err error) error { return editError{http.StatusBadRequest, err} }
-
-func statusFor(err error) int {
-	var e editError
-	if errors.As(err, &e) {
-		return e.status
-	}
-	return http.StatusUnprocessableEntity
-}
-
-// --- dry run --------------------------------------------------------------
-
-// postPlan answers "what would this do?" without doing it. An empty body plans
-// the stored intent, which is the §5.4 drift check — and for this module it is
-// always empty, because the document is the only thing it owns.
-func (h HTTP) postPlan(w http.ResponseWriter, r *http.Request) {
+func (h HTTP) putConfig(w http.ResponseWriter, r *http.Request) {
 	data, err := core.ReadBody(w, r)
 	if err != nil {
-		core.WriteError(w, http.StatusBadRequest, err.Error())
+		core.WriteError(w, 400, err.Error())
 		return
 	}
-
-	current, err := h.Applier.Load()
+	c, err := UnmarshalConfig(data)
 	if err != nil {
-		core.WriteError(w, http.StatusInternalServerError, err.Error())
+		core.WriteError(w, 400, err.Error())
 		return
 	}
-
-	desired := current
-	if len(bytes.TrimSpace(data)) > 0 {
-		desired, err = UnmarshalConfig(data)
+	h.mutate(w, r, func(current *Config) error { *current = c; return nil })
+}
+func (h HTTP) patchConfig(w http.ResponseWriter, r *http.Request) {
+	patch, err := core.ReadBody(w, r)
+	if err != nil {
+		core.WriteError(w, 400, err.Error())
+		return
+	}
+	h.mutate(w, r, func(c *Config) error {
+		next, err := core.PatchConfig(*c, patch, UnmarshalConfig)
 		if err != nil {
-			core.WriteError(w, http.StatusBadRequest, err.Error())
+			return errors.Join(ErrInvalid, err)
+		}
+		*c = next
+		return nil
+	})
+}
+func (h HTTP) putDevice(w http.ResponseWriter, r *http.Request) {
+	var d Device
+	if err := core.DecodeJSON(w, r, &d); err != nil {
+		core.WriteError(w, 400, err.Error())
+		return
+	}
+	id := r.PathValue("id")
+	if d.ID != "" && d.ID != id {
+		core.WriteError(w, 400, "body ID must match URL")
+		return
+	}
+	d.ID = id
+	h.mutate(w, r, func(c *Config) error {
+		for i := range c.Devices {
+			if c.Devices[i].ID == id {
+				c.Devices[i] = d
+				return nil
+			}
+		}
+		c.Devices = append(c.Devices, d)
+		return nil
+	})
+}
+func (h HTTP) deleteDevice(w http.ResponseWriter, r *http.Request) {
+	h.mutate(w, r, func(c *Config) error {
+		for i, d := range c.Devices {
+			if d.ID == r.PathValue("id") {
+				c.Devices = append(c.Devices[:i], c.Devices[i+1:]...)
+				return nil
+			}
+		}
+		return ErrNotFound
+	})
+}
+func (h HTTP) getSnapshot(w http.ResponseWriter, r *http.Request) {
+	s, err := h.Service.Read(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	core.WriteJSON(w, 200, s)
+}
+func (h HTTP) getCapabilities(w http.ResponseWriter, r *http.Request) {
+	s, err := h.Service.Read(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	core.WriteJSON(w, 200, struct {
+		DeviceID     string       `json:"device_id"`
+		Capabilities Capabilities `json:"capabilities"`
+	}{s.DeviceID, s.Capabilities})
+}
+func (h HTTP) scan(w http.ResponseWriter, r *http.Request) {
+	var request ScanRequest
+	if err := core.DecodeJSON(w, r, &request); err != nil {
+		core.WriteError(w, 400, err.Error())
+		return
+	}
+	result, err := h.Service.Scan(r.Context(), r.PathValue("id"), request.RadioID)
+	if err != nil {
+		// writeError's 504 text speaks of an executed operation; a scan never
+		// changes anything and should not borrow that warning.
+		if errors.Is(err, context.DeadlineExceeded) {
+			core.WriteError(w, 504, "The radio did not finish scanning before the timeout. Nothing was changed; try again later.")
 			return
 		}
-	}
-
-	if res := Validate(desired); !res.OK() {
-		core.WriteError(w, http.StatusUnprocessableEntity,
-			"invalid devices configuration", problems(res.Errors)...)
+		writeError(w, err)
 		return
 	}
-
-	core.WriteJSON(w, http.StatusOK, buildPlan(current, desired))
+	core.WriteJSON(w, 200, result)
 }
-
-// --- the list -------------------------------------------------------------
-
-func (h HTTP) getList(w http.ResponseWriter, r *http.Request) {
-	now := time.Now()
-
-	list, probs, err := h.Applier.List(r.Context())
+func (h HTTP) getFDB(w http.ResponseWriter, r *http.Request) {
+	q := FDBQuery{MAC: r.URL.Query().Get("mac")}
+	if value := r.URL.Query().Get("vlan"); value != "" {
+		v, err := strconv.Atoi(value)
+		if err != nil {
+			core.WriteError(w, 400, "invalid VLAN ID")
+			return
+		}
+		q.VLAN = &v
+	}
+	result, err := h.Service.Lookup(r.Context(), r.PathValue("id"), q)
 	if err != nil {
-		core.WriteError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, err)
 		return
 	}
-
-	resp := listResponse{
-		Devices:  make([]deviceView, 0, len(list)),
-		Problems: problems(probs),
-		AsOf:     now,
+	core.WriteJSON(w, 200, result)
+}
+func (h HTTP) planOperation(w http.ResponseWriter, r *http.Request) {
+	var op Operation
+	if len(r.URL.Query()) > 0 {
+		if r.ContentLength != 0 {
+			core.WriteError(w, 400, "provide operation parameters in either query or JSON body")
+			return
+		}
+		op = Operation{Kind: r.URL.Query().Get("kind"), Target: r.URL.Query().Get("target"), ClientMAC: r.URL.Query().Get("mac")}
+	} else if err := core.DecodeJSON(w, r, &op); err != nil {
+		core.WriteError(w, 400, err.Error())
+		return
 	}
-	for _, d := range list {
-		resp.Devices = append(resp.Devices, viewDevice(d))
+	plan, err := h.Service.Plan(r.Context(), r.PathValue("id"), op)
+	if err != nil {
+		writeError(w, err)
+		return
 	}
-
-	core.WriteJSON(w, http.StatusOK, resp)
+	core.WriteJSON(w, 200, plan)
+}
+func (h HTTP) executeOperation(w http.ResponseWriter, r *http.Request) {
+	var request ExecuteRequest
+	if err := core.DecodeJSON(w, r, &request); err != nil {
+		core.WriteError(w, 400, err.Error())
+		return
+	}
+	var result OperationResult
+	err := h.Lock.Do(r.Context(), func() error {
+		var err error
+		result, err = h.Service.Execute(r.Context(), r.PathValue("id"), request.Operation, request.Confirmation)
+		return err
+	})
+	if err != nil {
+		if result.DeviceID != "" && !errors.Is(err, ErrInvalid) && !errors.Is(err, ErrUnsupported) {
+			core.WriteJSON(w, http.StatusBadGateway, struct {
+				Result OperationResult `json:"result"`
+				Error  core.ErrorBody  `json:"error"`
+			}{result, core.ErrorBody{Message: "Device operation failed; outcome may be unknown. Confirmation was consumed; re-read device state before making a new decision."}})
+			return
+		}
+		writeError(w, err)
+		return
+	}
+	if h.Events != nil {
+		h.Events.Publish(core.Event{Type: core.EventApplied, Module: ModuleName})
+	}
+	core.WriteJSON(w, 200, result)
+}
+func (h HTTP) getContract(w http.ResponseWriter, r *http.Request) {
+	schemas := map[string]any{}
+	for name, value := range map[string]any{"device": Device{}, "snapshot": Snapshot{}, "scan_request": ScanRequest{}, "scan_result": ScanResult{}, "fdb_query": FDBQuery{}, "fdb_result": FDBResult{}, "operation": Operation{}, "operation_plan": OperationPlan{}, "execute_request": ExecuteRequest{}, "operation_result": OperationResult{}} {
+		p, err := core.Reflect("network_"+name, value)
+		if err != nil {
+			writeError(w, err)
+			return
+		}
+		schemas[name] = p.Full
+	}
+	core.WriteJSON(w, 200, map[string]any{"version": 1, "schemas": schemas})
+}
+func writeError(w http.ResponseWriter, err error) {
+	code := http.StatusBadGateway
+	message := "Network device request failed; check connectivity, credentials, permissions and firmware."
+	switch {
+	case errors.Is(err, ErrNotFound):
+		code = 404
+		message = ErrNotFound.Error()
+	case errors.Is(err, ErrInvalid):
+		code = 400
+		message = err.Error()
+	case errors.Is(err, ErrUnsupported):
+		code = 422
+		message = ErrUnsupported.Error()
+	case errors.Is(err, ErrConfirmation):
+		code = 409
+		message = ErrConfirmation.Error()
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		code = 504
+		message = "Network device request timed out; an executed operation may have an unknown outcome and will not be replayed."
+	}
+	core.WriteError(w, code, message)
 }

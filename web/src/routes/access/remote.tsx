@@ -20,7 +20,7 @@ import { Disclosure } from '@/components/ui/disclosure'
 import { List, ListEmpty, ListRow } from '@/components/ui/list'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
-import { DeviceIcon } from '@/features/devices/device-icon'
+import { DeviceIcon } from '@/features/clients/client-icon'
 import { ConfirmDialog } from '@/features/remote/apply-dialog'
 import { ClientConfigDialog } from '@/features/remote/client-config'
 import { PeerBadge } from '@/features/remote/peer-badge'
@@ -248,7 +248,7 @@ function ConnectionCard({
           <p> {t('WireGuard is off. The devices below are saved, but none of them can connect.')} </p>
         )}
         {status?.endpoint ? (
-          <p> {t('Devices connect to')} <span className="font-mono">{status.endpoint}</span> on UDP port{' '}
+          <p> {t('Clients connect to')} <span className="font-mono">{status.endpoint}</span> on UDP port{' '}
             {status.listen_port} and get addresses in{' '}
             <span className="font-mono">{status.subnet}</span>.
           </p>
@@ -304,7 +304,7 @@ function PeerList({ peers }: { peers: RemotePeer[] }) {
           key={p.name}
           // The row opens what the tunnel knows about this device; changing it
           // is the pencil, which stays outside the link.
-          to={`/devices/wireguard/${encodeURIComponent(p.name)}`}
+          to={`/clients/wireguard/${encodeURIComponent(p.name)}`}
           leading={<DeviceIcon icon={p.icon} category={p.category ?? ''} online={p.online} size="sm" />}
           title={p.display_name || p.name}
           subtitle={describePeer(p)}

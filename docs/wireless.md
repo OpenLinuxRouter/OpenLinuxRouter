@@ -17,7 +17,7 @@ than beside the charts.
 The page can add and edit its own inventory entry. Its empty state and header
 offer the equipment dialog for the management origin, username and password;
 removing an entry only forgets it here and never touches the access point. The
-same dialog and the same list live on the equipment page (`/equipment`), which
+same dialog and the same list live on the device page (`/devices`), which
 is the canonical inventory; this page keeps its own controls because an access
 point is usually onboarded at the moment somebody is looking at its radios. A stored password is
 returned masked and is never rendered again, which is why editing an address
@@ -29,15 +29,15 @@ credential rules and what a backup carries.
 The browser reads the equipment inventory and then one device snapshot:
 
 ```
-GET    /api/network/config
-PUT    /api/network/devices/{id}        inventory entry only, never the device
+GET    /api/devices/config
+PUT    /api/devices/{id}             inventory entry only, never the device
 DELETE /api/network/devices/{id}
-GET    /api/network/devices/{id}/snapshot
-POST   /api/network/devices/{id}/scan   {"radio_id": "radio1"}
+GET    /api/devices/{id}/snapshot
+POST   /api/devices/{id}/scan   {"radio_id": "radio1"}
 ```
 
 The daemon talks to the access point. The browser never reaches it directly and
-holds no access-point credential. `internal/network` owns the adapter, the
+holds no access-point credential. `internal/devices` owns the adapter, the
 snapshot contract and the per-section collection status; the page treats every
 reading as dated evidence, never as current truth.
 

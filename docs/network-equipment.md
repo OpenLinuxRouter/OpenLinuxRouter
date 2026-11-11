@@ -1,6 +1,6 @@
 # Network equipment contract, version 1
 
-`network` owns managed network equipment, its connection settings and brand adapters. It is distinct from `devices`, the existing MAC-keyed client inventory, and from `link`, which configures interfaces on the local router. This increment supplies the backend contract and two adapters; it does not rename the Gateway UI, draw a physical topology, provision a fleet or change local routing.
+`devices` owns managed network equipment, its connection settings and brand adapters. It is distinct from `clients`, the MAC-keyed inventory of things on the LAN, and from `link`, which configures interfaces on the local router. This increment supplies the backend contract and two adapters; it does not rename the Gateway UI, draw a physical topology, provision a fleet or change local routing.
 
 ## Identity and types
 
@@ -10,7 +10,7 @@ Port, radio and wireless network IDs are scoped to the managed device. Reference
 
 ## Data contract
 
-`GET /api/network/contract` publishes `version: 1` and JSON Schemas derived from the Go structs for devices, snapshots, FDB queries/results and operations. `/api/schema` publishes inventory config; `/api/routes` publishes route metadata. Additive optional fields may extend v1; changes in field meanings need a version change.
+`GET /api/devices/contract` publishes `version: 1` and JSON Schemas derived from the Go structs for devices, snapshots, FDB queries/results and operations. `/api/schema` publishes inventory config; `/api/routes` publishes route metadata. Additive optional fields may extend v1; changes in field meanings need a version change.
 
 A snapshot contains:
 
@@ -70,9 +70,9 @@ OpenWrt protocol fixtures are synthetic, matching the supported stock API shapes
 
 ## Web page
 
-`/equipment` is the inventory in the WebUI: one row per managed box, with its
+`/devices` is the inventory in the WebUI: one row per managed box, with its
 adapter, management origin and roles, and one page per device at
-`/equipment/{id}`. Adding, editing and forgetting happen there, through the same
+`/devices/{id}`. Adding, editing and forgetting happen there, through the same
 dialog the Wireless page uses for its access point; the empty state offers a
 switch or an access point and stores the management password in the
 configuration, so onboarding never requires setting a variable in `olrd`'s
@@ -97,14 +97,14 @@ daemon reads on demand and nothing polls the hardware from the page, so a row
 does not claim liveness it has not observed. A section the adapter cannot read
 renders as unavailable with the adapter's reason, never as an empty table.
 
-The URL is `/equipment`, not `/network`: in this product a network is the subnet
+The URL is `/devices`, not `/network`: in this product a network is the subnet
 object Gateway serves (and `/gateway/networks` already redirects to DHCP), while
-`/api/network` is the module's own route prefix. The page and the API are
+`/api/devices` is the module's own route prefix. The page and the API are
 deliberately not named the same thing, because they are not the same noun.
 
 ## Inventory and secrets
 
-Inventory lives in the `network` subtree of the existing configuration store, with strict decoding, shared apply lock, ETags and preservation of other modules. Configuration backup includes the inventory and validates it on restore, without connecting to equipment.
+Inventory lives in the `devices` subtree of the existing configuration store, with strict decoding, shared apply lock, ETags and preservation of other modules. Configuration backup includes the inventory and validates it on restore, without connecting to equipment.
 
 A device's management credential is either stored in the inventory as `password`, or named by `password_env`, which points at a variable in **the daemon process environment** rather than the shell running an API client. A stored password wins when both are present. The page's add/edit dialog writes the stored form, which is what makes an access point usable without changing the daemon's environment; `password_env` remains for deployments that keep credentials outside the configuration file.
 
@@ -127,33 +127,33 @@ Example inventory:
 
 ## HTTP and CLI
 
-Routes below are relative to `/api/network`:
+Routes below are relative to `/api/devices`:
 
 | Method/path | Meaning |
 | --- | --- |
 | `GET /config` | Stored inventory, no remote reads. |
 | `PUT/PATCH /config` | Replace/merge inventory only. Arrays follow normal merge-patch replacement. |
-| `PUT/DELETE /devices/{id}` | Add/replace/forget one inventory entry. Does not change hardware. |
+| `PUT/DELETE /{id}` | Add/replace/forget one inventory entry. Does not change hardware. |
 | `GET /contract` | Versioned model schemas. |
-| `GET /devices/{id}/snapshot` | Fresh observations with collections/capabilities. |
-| `GET /devices/{id}/capabilities` | Fresh device capability assessment (performs reads). |
-| `GET /devices/{id}/fdb?mac=…&vlan=…` | Known-MAC lookup; VLAN optional. |
-| `POST /devices/{id}/operations/plan` | Read-only preview; JSON `Operation`, or query `kind`, `target`, `mac` for generated MCP clients. |
-| `POST /devices/{id}/operations/execute` | JSON `{operation, confirmation}` from preview. |
+| `GET /{id}/snapshot` | Fresh observations with collections/capabilities. |
+| `GET /{id}/capabilities` | Fresh device capability assessment (performs reads). |
+| `GET /{id}/fdb?mac=…&vlan=…` | Known-MAC lookup; VLAN optional. |
+| `POST /{id}/operations/plan` | Read-only preview; JSON `Operation`, or query `kind`, `target`, `mac` for generated MCP clients. |
+| `POST /{id}/operations/execute` | JSON `{operation, confirmation}` from preview. |
 
 Invalid input returns 400, unknown device 404, unsupported ability 422, stale/used confirmation 409, upstream failure 502, timeout 504. A successful snapshot may contain failed sections; inspect `collections`, not just HTTP status. Error bodies follow the existing core error envelope and omit remote HTML, tokens, passwords and credential-bearing URLs.
 
 ```bash
-olr network add device core-switch --adapter mercury --address https://mercury.example.net --username admin --password-env OLR_MERCURY_PASSWORD
-olr network add device living-room --adapter openwrt --address https://ap.example.net --password-env OLR_AP_PASSWORD
-olr network show config
-olr network show contract
-olr network show snapshot living-room
-olr network show capabilities living-room
-olr network show fdb core-switch --mac 02:11:22:33:44:55 --vlan 1
-olr network show operation living-room --target phy0-ap0 --mac 02:aa:bb:cc:dd:ee
+olr devices add core-switch --adapter mercury --address https://mercury.example.net --username admin --password-env OLR_MERCURY_PASSWORD
+olr devices add living-room --adapter openwrt --address https://ap.example.net --password-env OLR_AP_PASSWORD
+olr devices show config
+olr devices show contract
+olr devices show snapshot living-room
+olr devices show capabilities living-room
+olr devices show fdb core-switch --mac 02:11:22:33:44:55 --vlan 1
+olr devices show operation living-room --target phy0-ap0 --mac 02:aa:bb:cc:dd:ee
 # After reviewing impact, use the same operation and returned confirmation:
-olr network set client living-room phy0-ap0 02:aa:bb:cc:dd:ee --confirmation '<returned confirmation>'
+olr devices set client living-room phy0-ap0 02:aa:bb:cc:dd:ee --confirmation '<returned confirmation>'
 ```
 
 New CLI responses are structured JSON, including when using the default output mode. `--dry-run` on add/remove prints inventory intent without saving; on `set client` it returns a preview without disconnecting.
@@ -164,4 +164,4 @@ MCP projects read routes and operation preview from the same route table. Invent
 
 ## Verification
 
-Run `go test ./internal/network ./internal/mcp ./internal/daemon ./cmd/olr` and `make check`. Tests use httptest for authentication, protocol shape, permission checks, partial failures, numeric precision, malformed input, response limits, redirects, context cancellation and non-replay. No test modifies real network equipment.
+Run `go test ./internal/devices ./internal/mcp ./internal/daemon ./cmd/olr` and `make check`. Tests use httptest for authentication, protocol shape, permission checks, partial failures, numeric precision, malformed input, response limits, redirects, context cancellation and non-replay. No test modifies real network equipment.

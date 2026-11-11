@@ -1,10 +1,10 @@
 import type { RemotePeer, RemoteStatus } from '@/lib/api-types'
-import type { DeviceCategory } from '@/lib/config-types'
+import type { ClientCategory } from '@/lib/config-types'
 
 /**
  * The devices that dialed in over WireGuard, as the map draws them.
  *
- * They are not `DeviceRow`s, and turning them into ones is the thing
+ * They are not `ClientRow`s, and turning them into ones is the thing
  * docs/remote-access.md §3.3 refuses: `devices` is keyed by MAC, a peer is a
  * public key at the end of a tunnel, and inventing a hardware address so one
  * list could hold both would put a made-up NIC in the operator's own device
@@ -51,7 +51,7 @@ export interface DialInPeer {
    * so the map hands a peer the same picture a device on the LAN has instead of
    * a mark for the tunnel it arrived on.
    */
-  category?: DeviceCategory
+  category?: ClientCategory
   icon?: string
   /** Where it was last heard from, which is its address out in the world. */
   endpoint?: string

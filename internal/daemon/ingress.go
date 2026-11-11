@@ -6,8 +6,8 @@ import (
 	"net/netip"
 	"strings"
 
+	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/core"
-	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/dns"
 	"github.com/open-linux-router/open-linux-router/internal/ingress"
 )
@@ -48,7 +48,7 @@ func (d ingressDNS) LocalDomain() string {
 // MACs identify devices across renames. Names remain accepted for legacy
 // configurations and CLI input.
 type ingressDevices struct {
-	applier devices.Applier
+	applier clients.Applier
 }
 
 // Upgrade references against the old inventory before a rename or removal.
@@ -111,7 +111,7 @@ func (d ingressDevices) Device(name string) (ingress.DeviceInfo, error) {
 // still reports whatever it was last seen at, because the validator's refusal
 // reads far better when it can say what the device *is* rather than only that
 // it has no fixed address.
-func deviceInfo(r devices.Resolved) ingress.DeviceInfo {
+func deviceInfo(r clients.Resolved) ingress.DeviceInfo {
 	info := ingress.DeviceInfo{MAC: r.MAC, Name: r.DisplayName()}
 
 	if r.FixedIP != "" {

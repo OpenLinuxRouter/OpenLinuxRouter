@@ -18,14 +18,14 @@ import { Heading } from '@/components/ui/heading'
 import { Input } from '@/components/ui/input'
 import { MetricValue } from '@/components/ui/metric-value'
 import { TechnicalValue } from '@/components/ui/property-row'
-import { ActivityTotal, DeviceActivity } from '@/features/devices/activity'
-import { CategoryPicker, type IconChoice } from '@/features/devices/category-picker'
-import { DeviceHeader } from '@/features/devices/device-header'
-import { DeviceIcon } from '@/features/devices/device-icon'
-import { DeviceSettingRow } from '@/features/devices/device-setting-row'
+import { ActivityTotal, ClientActivity } from '@/features/clients/activity'
+import { CategoryPicker, type IconChoice } from '@/features/clients/category-picker'
+import { ClientHeader } from '@/features/clients/client-header'
+import { DeviceIcon } from '@/features/clients/client-icon'
+import { ClientSettingRow } from '@/features/clients/client-setting-row'
 import { ClientQueries } from '@/features/dns/client-queries'
 import { useGatewayTraffic } from '@/features/gateway/queries'
-import { DeviceServices } from '@/features/ingress/device-services'
+import { ClientServices } from '@/features/ingress/device-services'
 import { ConfirmDialog } from '@/features/remote/apply-dialog'
 import { ClientConfigDialog } from '@/features/remote/client-config'
 import { PeerBadge } from '@/features/remote/peer-badge'
@@ -43,8 +43,8 @@ import type { RemotePeer, RemoteStatus } from '@/lib/api-types'
  * One device that dialed in, at a URL shaped like a device on the LAN.
  *
  * The page is the tunnel's answer about a peer, and it is deliberately **not**
- * the same page as `/devices/:mac` (docs/remote-access.md §3.3). A peer has no
- * MAC, so it is not a `DeviceRow` and is not in the device list: no vendor, no
+ * the same page as `/clients/:mac` (docs/remote-access.md §3.3). A peer has no
+ * MAC, so it is not a `ClientRow` and is not in the device list: no vendor, no
  * group, no address reservation, no per-device priority or speed limit — every
  * one of those is keyed by the hardware address this device does not have.
  *
@@ -80,7 +80,7 @@ export function WireguardPeerPage() {
 
   useEffect(() => {
     if (peer && peer.name !== name) {
-      navigate(`/devices/wireguard/${encodeURIComponent(peer.name)}`, { replace: true })
+      navigate(`/clients/wireguard/${encodeURIComponent(peer.name)}`, { replace: true })
     }
   }, [peer, name, navigate])
 
@@ -143,13 +143,13 @@ export function WireguardPeerPage() {
 
   if (status.isPending) return <p className="py-16 text-sm text-muted-foreground">{t('Loading device…')}</p>
   if (status.isError) return <State title="Could not load the tunnel" detail="Try again when the router is reachable." />
-  if (!peer) return <State title={t('Device not found')} detail="No device by this name may dial in. It may have been renamed or removed on the tunnel page." />
+  if (!peer) return <State title={t('Client not found')} detail="No device by this name may dial in. It may have been renamed or removed on the tunnel page." />
 
   return (
     <div className="space-y-4 pb-12">
       <Card className="gap-0 p-4 sm:p-6">
-        <DeviceHeader
-          activity={peer.address && <DeviceActivity addresses={[peer.address]} downRate={usage?.downRate} upRate={usage?.upRate} />}
+        <ClientHeader
+          activity={peer.address && <ClientActivity addresses={[peer.address]} downRate={usage?.downRate} upRate={usage?.upRate} />}
           picture={
             <span className="relative flex">
               <DeviceIcon icon={peer.icon} category={peer.category ?? ''} online={peer.online} size="lg" />
@@ -198,7 +198,7 @@ export function WireguardPeerPage() {
               // this device that `ingress` has: a peer is not in `devices`, so
               // there is no MAC to reference and no reservation to require
               // (docs/ingress.md §1.2, docs/remote-access.md §3.3).
-              <DeviceServices addresses={peer.address ? [peer.address] : []} add={
+              <ClientServices addresses={peer.address ? [peer.address] : []} add={
                 peer.address ? `/advanced/caddy?host=${encodeURIComponent(peer.address)}` : '/advanced/caddy'
               } />
             }
@@ -271,7 +271,7 @@ export function WireguardPeerPage() {
       <Dialog open={choosing} onOpenChange={setChoosing}>
         <DialogContent className="max-h-[90svh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t('Device icon')}</DialogTitle>
+            <DialogTitle>{t('Client icon')}</DialogTitle>
             <DialogDescription> {t('Choose an icon for')} {peer.name}. It changes nothing about what the device is or how it connects.
             </DialogDescription>
           </DialogHeader>
@@ -316,28 +316,28 @@ function Facts({
 }) {
   useLocale()
   return <dl className="min-w-0 text-sm">
-    <DeviceSettingRow label={t('Name')} title="The name the address bar and every command use">
+    <ClientSettingRow label={t('Name')} title="The name the address bar and every command use">
       <TechnicalValue>{peer.name}</TechnicalValue>
-    </DeviceSettingRow>
-    <DeviceSettingRow label={t('Address')}>
+    </ClientSettingRow>
+    <ClientSettingRow label={t('Address')}>
       {peer.address ? <TechnicalValue>{peer.address}</TechnicalValue> : '—'}
-    </DeviceSettingRow>
-    <DeviceSettingRow label={t('Public key')}>
+    </ClientSettingRow>
+    <ClientSettingRow label={t('Public key')}>
       {peer.public_key ? <TechnicalValue>{peer.public_key}</TechnicalValue> : '—'}
-    </DeviceSettingRow>
-    <DeviceSettingRow label="Sends home">{routesLabel(peer.routes)}</DeviceSettingRow>
-    <DeviceSettingRow label="Last heard" title="The last WireGuard handshake: the tunnel's own record of hearing from this device">
+    </ClientSettingRow>
+    <ClientSettingRow label="Sends home">{routesLabel(peer.routes)}</ClientSettingRow>
+    <ClientSettingRow label="Last heard" title="The last WireGuard handshake: the tunnel's own record of hearing from this device">
       {peer.last_handshake
         ? <time dateTime={peer.last_handshake}>{new Date(peer.last_handshake).toLocaleString()}</time>
         : peer.unknown ? t('Unknown') : t('Never')}
-    </DeviceSettingRow>
+    </ClientSettingRow>
     {peer.endpoint && (
-      <DeviceSettingRow label="Heard from"><TechnicalValue>{peer.endpoint}</TechnicalValue></DeviceSettingRow>
+      <ClientSettingRow label="Heard from"><TechnicalValue>{peer.endpoint}</TechnicalValue></ClientSettingRow>
     )}
-    <DeviceSettingRow label="Way in">
+    <ClientSettingRow label="Way in">
       <TechnicalValue>WireGuard · {status?.interface ?? '—'} · {status?.subnet ?? '—'}</TechnicalValue>
-    </DeviceSettingRow>
-    <DeviceSettingRow label={t('Services')}>{services}</DeviceSettingRow>
+    </ClientSettingRow>
+    <ClientSettingRow label={t('Services')}>{services}</ClientSettingRow>
   </dl>
 }
 
@@ -356,15 +356,15 @@ function Usage({ flow, usage, addresses, trafficFailed }: { flow: TrafficView; u
   useLocale()
   return <div className="min-w-0">
     <dl className="text-sm">
-      <DeviceSettingRow label={t('Download')}>
+      <ClientSettingRow label={t('Download')}>
         <MetricValue value={flow.rated && usage ? formatRate(Math.max(0, usage.downRate ?? 0)) : null} />
-      </DeviceSettingRow>
-      <DeviceSettingRow label={t('Upload')}>
+      </ClientSettingRow>
+      <ClientSettingRow label={t('Upload')}>
         <MetricValue value={flow.rated && usage ? formatRate(Math.max(0, usage.upRate ?? 0)) : null} />
-      </DeviceSettingRow>
-      <DeviceSettingRow label={t('Total')}>
+      </ClientSettingRow>
+      <ClientSettingRow label={t('Total')}>
         <ActivityTotal addresses={addresses} />
-      </DeviceSettingRow>
+      </ClientSettingRow>
     </dl>
     {!flow.counting && (
       <p className="pt-2 text-xs leading-relaxed text-muted-foreground">

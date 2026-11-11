@@ -79,6 +79,13 @@ func (d Document) Raw(module string) ([]byte, bool) {
 	return raw, true
 }
 
+// Delete removes a module's subtree. Migrations use it after moving a subtree
+// to the key the module has since taken; leaving the old key behind would keep
+// a second copy of the same intent, and ParseBackup would reject it as unknown.
+func (d *Document) Delete(module string) {
+	delete(d.keys, module)
+}
+
 // Set replaces a module's subtree.
 func (d *Document) Set(module string, raw []byte) {
 	if d.keys == nil {

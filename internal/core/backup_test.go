@@ -21,7 +21,7 @@ func TestBackupRejectsAmbiguousAndIncompatibleDocuments(t *testing.T) {
 		backupJSON(`"link":{"adopted":[],"adopted":["eth0"]}`),
 		backupJSON(`"dhcp":{"password":"********"}`), backupJSON(`"link":{}`) + `{}`,
 	} {
-		if _, err := s.ParseBackup([]byte(body)); err == nil {
+		if _, err := s.ParseBackup([]byte(body), nil); err == nil {
 			t.Fatalf("accepted unsafe backup: %s", body)
 		}
 	}
@@ -43,7 +43,7 @@ func TestBackupExportPreservesSecretsAndUint64(t *testing.T) {
 	if !strings.Contains(w.Body.String(), "keep-secret") || !strings.Contains(w.Body.String(), "18446744073709551615") {
 		t.Fatal("export lost credentials or integer precision")
 	}
-	parsed, err := r.Store.ParseBackup(w.Body.Bytes())
+	parsed, err := r.Store.ParseBackup(w.Body.Bytes(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -426,7 +426,7 @@ function LibreSpeed() {
 
   // The tool page is the test page: no introduction and no second title above
   // it, so the embedded document is all the operator sees.
-  return <section aria-label={t('Device to router')} className="panel-surface overflow-hidden">
+  return <section aria-label={t('Client to router')} className="panel-surface overflow-hidden">
     {/* The embedded page is a fixed-shape document: 960px holds all of it at
         desktop widths, so the frame needs no scrollbar of its own. Below sm
         the viewport is the honest bound and the frame scrolls instead. */}
@@ -512,7 +512,7 @@ function IPerf3() {
             `iperf3 -c ${testAddress} -P 4 -t 10`,
             `iperf3 -c ${testAddress} -P 4 -t 10 -R`,
           ].map((command, index) => <div key={command} className="space-y-1">
-            <p className="text-xs font-medium">{index === 0 ? t('Device → router') : t('Router → device')}</p>
+            <p className="text-xs font-medium">{index === 0 ? t('Client → router') : t('Router → device')}</p>
             <div className="flex flex-wrap items-center gap-2">
               <code className="min-w-0 flex-1 overflow-x-auto rounded-lg bg-background px-3 py-2 text-sm">{command}</code>
               <Button variant="secondary" size="sm" onClick={() => copyLAN(command)}><Copy aria-hidden />{lanCopied === command ? t('Copied') : t('Copy')}</Button>

@@ -2,7 +2,7 @@ import { t, useLocale } from '@/lib/i18n'
 import { Disclosure } from '@/components/ui/disclosure'
 import { List, ListEmpty, ListRow } from '@/components/ui/list'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { DeviceRow, GatewayTraffic, Usage } from '@/lib/api-types'
+import type { ClientRow, GatewayTraffic, Usage } from '@/lib/api-types'
 import { formatBytes } from '@/lib/utils'
 
 export /**
@@ -14,7 +14,7 @@ export /**
  * number being *smaller* than expected, and the first question a surprising
  * number produces is "is this broken?".
  */
-function TrafficList({ traffic, enabled, devices = [] }: { traffic?: GatewayTraffic; enabled: boolean; devices?: DeviceRow[] }) {
+function TrafficList({ traffic, enabled, devices = [] }: { traffic?: GatewayTraffic; enabled: boolean; devices?: ClientRow[] }) {
   useLocale()
   if (!enabled) {
     return <ListEmpty>{t('Counting is off, so nothing is being recorded.')}</ListEmpty>
@@ -63,7 +63,7 @@ function TrafficList({ traffic, enabled, devices = [] }: { traffic?: GatewayTraf
         // smaller than expected, this explains why a whole device is absent.
         <p className="text-[0.8rem] text-muted-foreground">
           The accounting table is nearly full ({traffic.held} of {traffic.capacity} entries).
-          Devices seen recently may be missing from this list entirely.
+          Clients seen recently may be missing from this list entirely.
         </p>
       ) : null}
       {traffic.limits?.length ? (

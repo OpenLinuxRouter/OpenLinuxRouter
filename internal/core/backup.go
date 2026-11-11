@@ -19,6 +19,13 @@ type Backup struct {
 	Store    *Store
 	Recovery *Recovery
 	Validate func(context.Context, Document) error
+
+	// Prepare rewrites a document between parsing and validation. It exists for
+	// migrations that move a whole subtree from one module key to another:
+	// ParseBackup rejects unknown sections, and a box restored from a backup
+	// written before the move would otherwise be refused rather than upgraded.
+	// The migrated document is what gets validated and stored.
+	Prepare func(Document) (Document, error)
 }
 
 func (b *Backup) Routes() []Route {
@@ -49,7 +56,7 @@ func (b *Backup) export(w http.ResponseWriter, req *http.Request) {
 
 // ParseBackup rejects ambiguous documents, unknown sections and incompatible
 // schema versions before a complete replacement can discard live configuration.
-func (s *Store) ParseBackup(data []byte) (Document, error) {
+func (s *Store) ParseBackup(data []byte, prepare func(Document) (Document, error)) (Document, error) {
 	if len(data) > MaxBodyBytes {
 		return Document{}, errors.New("configuration backup exceeds 4 MiB")
 	}
@@ -67,6 +74,12 @@ func (s *Store) ParseBackup(data []byte) (Document, error) {
 	doc, err := s.decode(data)
 	if err != nil {
 		return Document{}, err
+	}
+	if prepare != nil {
+		doc, err = prepare(doc)
+		if err != nil {
+			return Document{}, err
+		}
 	}
 	if len(doc.Unknown()) > 0 {
 		return Document{}, fmt.Errorf("unsupported configuration sections: %v", doc.Unknown())
@@ -162,7 +175,7 @@ func (b *Backup) restore(w http.ResponseWriter, req *http.Request) {
 		WriteError(w, 400, err.Error())
 		return
 	}
-	doc, err := b.Store.ParseBackup(data)
+	doc, err := b.Store.ParseBackup(data, b.Prepare)
 	if err != nil {
 		WriteError(w, 400, err.Error())
 		return

@@ -9,8 +9,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/core"
-	"github.com/open-linux-router/open-linux-router/internal/devices"
 )
 
 // DefaultInterface is the kernel name of the tunnel olr creates.
@@ -175,8 +175,8 @@ type Peer struct {
 	// well as in the picker. It does not put the peer in the device list:
 	// nothing in `devices` is keyed by anything but a MAC
 	// (docs/remote-access.md §3.3), which is what this borrows nothing of.
-	Category devices.Category `json:"category,omitempty"`
-	Icon     devices.Icon     `json:"icon,omitempty"`
+	Category clients.Category `json:"category,omitempty"`
+	Icon     clients.Icon     `json:"icon,omitempty"`
 }
 
 // RouteScope is what a client sends into the tunnel.
@@ -435,8 +435,8 @@ func (w *WireGuard) Normalize() {
 		// Lower-cased because both vocabularies are, and a form that sent
 		// "Apple/Laptop" would otherwise store a picture the resolver cannot
 		// find — the same argument as the name's, one level down.
-		p.Category = devices.Category(strings.ToLower(strings.TrimSpace(string(p.Category))))
-		p.Icon = devices.Icon(strings.ToLower(strings.TrimSpace(string(p.Icon))))
+		p.Category = clients.Category(strings.ToLower(strings.TrimSpace(string(p.Category))))
+		p.Icon = clients.Icon(strings.ToLower(strings.TrimSpace(string(p.Icon))))
 		if p.Name == "" || seen[p.Name] {
 			continue
 		}

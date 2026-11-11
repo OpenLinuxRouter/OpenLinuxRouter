@@ -15,8 +15,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/core"
-	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/link"
 	"github.com/open-linux-router/open-linux-router/internal/runtimedb"
 )
@@ -28,7 +28,7 @@ const rootHandle = "4f4c:"
 const redirectPref = "20290"
 
 type DeviceView interface {
-	List(context.Context) ([]devices.Resolved, []devices.Problem, error)
+	List(context.Context) ([]clients.Resolved, []clients.Problem, error)
 }
 
 type Engine struct {
@@ -133,7 +133,7 @@ func (e *Engine) desired(ctx context.Context, c Config) ([]queue, []string, erro
 	if len(problems) != 0 {
 		return nil, nil, fmt.Errorf("device presence is incomplete: %s", problems[0].Message)
 	}
-	byMAC := map[string]devices.Resolved{}
+	byMAC := map[string]clients.Resolved{}
 	for _, d := range list {
 		byMAC[d.MAC] = d
 	}

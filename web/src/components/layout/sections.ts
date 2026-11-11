@@ -35,7 +35,7 @@ import type { LucideIcon } from 'lucide-react'
  * Tools keep their URLs; Tools is flattened into the directory, its detail
  * pages remain.
  *
- * Devices is absent because it is not a section: the device list is the body of
+ * Clients is absent because it is not a section: the client list is the body of
  * the overview. Filing it under DHCP was considered and rejected — the
  * statically-addressed printer has never held a lease, and would have lived on
  * a page named for the protocol that has never seen it.
@@ -95,12 +95,12 @@ export const SECTIONS: Section[] = [
       {
         slug: 'dhcp',
         label: 'DHCP',
-        get blurb() { return t('Define served networks, hand out addresses and reserve them for devices that need a fixed one.') },
+        get blurb() { return t('Define served networks, hand out addresses and reserve them for clients that need a fixed one.') },
       },
       {
         slug: 'dns',
         label: 'DNS',
-        get blurb() { return t('Resolve names, manage local names and control what devices can look up.') },
+        get blurb() { return t('Resolve names, manage local names and control what clients can look up.') },
       },
       {
         slug: 'unmanaged',
@@ -128,7 +128,7 @@ export const SECTIONS: Section[] = [
       {
         slug: 'reservations',
         get label() { return t('Reserved addresses') },
-        get blurb() { return t('Fixed DHCP addresses for selected devices.') },
+        get blurb() { return t('Fixed DHCP addresses for selected clients.') },
       },
       // Interface adoption stays under Gateway / Interfaces; served networks are beside DHCP.
       {
@@ -149,7 +149,7 @@ export const SECTIONS: Section[] = [
       {
         slug: 'blocking',
         get label() { return t('Blocking') },
-        get blurb() { return t('DNS blocking rules for selected devices and networks.') },
+        get blurb() { return t('DNS blocking rules for selected clients and networks.') },
       },
       {
         slug: 'names',
@@ -187,11 +187,11 @@ export const SECTIONS: Section[] = [
     groups: [],
   },
   {
-    // The inventory of boxes olr reads but does not configure. Not `/network`:
-    // in this product a network is a subnet Gateway serves, and that is what
-    // `/gateway/networks` already means.
-    to: '/equipment',
-    get label() { return t('Equipment') },
+    // The devices olr reads but does not configure: switches, access points and
+    // routers. Not `/network`: in this product a network is a subnet Gateway
+    // serves, and that is what `/gateway/networks` already means.
+    to: '/devices',
+    get label() { return t('Devices') },
     icon: EthernetPort,
     end: false,
     groups: [],

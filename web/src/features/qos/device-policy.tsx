@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { useQosConfig, useQosDeviceApply, type Priority } from '@/features/qos/queries'
 import { formatRate } from '@/lib/utils'
 
-export function DevicePolicy({ mac, downRate, upRate, children }: { mac: string; downRate?: number; upRate?: number; children?: ReactNode }) {
+export function ClientPolicy({ mac, downRate, upRate, children }: { mac: string; downRate?: number; upRate?: number; children?: ReactNode }) {
   useLocale()
   const config = useQosConfig()
   const apply = useQosDeviceApply(mac)
@@ -28,7 +28,7 @@ export function DevicePolicy({ mac, downRate, upRate, children }: { mac: string;
         upload_mbps: editing === 'upload' ? Number(limit) : current?.upload_mbps ?? 0 })
       setEditing(null)
       const pending = result.status.pending?.includes(mac.toLowerCase())
-      if (pending) toast.warning('Policy saved', { get description() { return t('Waiting for the device’s LAN interface to be identified.') } })
+      if (pending) toast.warning('Policy saved', { get description() { return t('Waiting for the client’s LAN interface to be identified.') } })
       else if (result.status.active) toast.success('Policy applied', { description: result.status.reason })
       else if (!result.config.devices?.some((d) => d.mac === mac.toLowerCase())) toast.success('Priority and limits reset')
       else toast.warning('Policy saved, but not active', { description: result.status.reason })
@@ -45,7 +45,7 @@ export function DevicePolicy({ mac, downRate, upRate, children }: { mac: string;
   return <section aria-label="Priority and traffic" className="space-y-3 lg:contents lg:space-y-0">
     <div className="flex min-h-11 flex-wrap items-center justify-between gap-3 py-1 text-sm sm:min-h-9 lg:col-start-2 lg:row-start-2">
       <span className="text-muted-foreground">{t('Priority')}</span>
-      <div role="group" aria-label={t('Device priority')} className="flex rounded-lg bg-muted p-0.5">
+      <div role="group" aria-label={t('Client priority')} className="flex rounded-lg bg-muted p-0.5">
         {(['high', 'normal', 'low'] as Priority[]).map((value) => <Button key={value} size="sm" className="h-11 px-2 sm:h-7" variant={priority === value ? 'secondary' : 'quiet'} aria-pressed={priority === value} disabled={busy} onClick={() => void save(value)}>{value[0].toUpperCase() + value.slice(1)}</Button>)}
       </div>
     </div>

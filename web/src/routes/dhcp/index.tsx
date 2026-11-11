@@ -274,7 +274,7 @@ function describeStatus(
   if (!config.enabled) {
     return {
       headline: 'Off',
-      detail: 'Devices will not get an address from this router.',
+      detail: 'Clients will not get an address from this router.',
       tone: 'off',
     }
   }

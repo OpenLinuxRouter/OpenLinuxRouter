@@ -7,8 +7,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/core"
-	"github.com/open-linux-router/open-linux-router/internal/devices"
 )
 
 // Validation is the highest-value mechanism in the apply story (design.md
@@ -290,7 +290,7 @@ func validatePeerPicture(r *Result, path string, p Peer) {
 // categoryVocabulary renders the categories for a message, the way the module
 // that owns them does.
 func categoryVocabulary() string {
-	all := devices.Categories()
+	all := clients.Categories()
 	out := make([]string, 0, len(all))
 	for _, c := range all {
 		out = append(out, string(c))

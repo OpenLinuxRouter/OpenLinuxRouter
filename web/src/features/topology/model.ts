@@ -1,8 +1,8 @@
-import { effectiveParents } from '@/features/devices/group-tree'
-import { compareDeviceRanks, type DeviceRank } from '@/features/topology/device-rank'
+import { effectiveParents } from '@/features/clients/group-tree'
+import { compareClientRanks, type ClientRank } from '@/features/topology/device-rank'
 import { magnitude, sumFlows, type Flow, type TrafficView } from '@/features/topology/traffic'
-import type { DeviceRow } from '@/lib/api-types'
-import type { DevicesGroup } from '@/lib/config-types'
+import type { ClientRow } from '@/lib/api-types'
+import type { ClientsGroup } from '@/lib/config-types'
 
 /** The network filter's value for devices on none of this router's networks. */
 export const NO_NETWORK = ' none'
@@ -30,11 +30,11 @@ export interface MapGroup {
   parentKey?: string
   /** 0 at the top. */
   depth: number
-  /** Devices directly in it that survived the filters, active first, then recently heard. */
-  devices: DeviceRow[]
+  /** Clients directly in it that survived the filters, active first, then recently heard. */
+  devices: ClientRow[]
   /** Groups directly inside it that survived the filters, in name order. */
   groups: MapGroup[]
-  /** Devices directly in it, before the filters — what a delete would move. */
+  /** Clients directly in it, before the filters — what a delete would move. */
   directCount: number
   /** Groups directly inside it, before the filters. */
   subgroupCount: number
@@ -56,8 +56,8 @@ export interface MapTree {
   nothing: boolean
   /** Live traffic weights for layout sizing. */
   weights: Map<string, number>
-  /** Device sort keys, to hold the order still while the pointer is over the map. */
-  ranks: Map<string, DeviceRank>
+  /** Client sort keys, to hold the order still while the pointer is over the map. */
+  ranks: Map<string, ClientRank>
 }
 
 /**
@@ -95,16 +95,16 @@ export function buildTree({
   network,
   frozen,
 }: {
-  devices: DeviceRow[]
-  groups: DevicesGroup[]
+  devices: ClientRow[]
+  groups: ClientsGroup[]
   traffic: TrafficView
   filter: string
   network: string
-  frozen?: Map<string, DeviceRank> | null
+  frozen?: Map<string, ClientRank> | null
 }): MapTree {
   const q = filter.trim().toLowerCase()
   const filtering = q !== '' || network !== ''
-  const matches = (d: DeviceRow) =>
+  const matches = (d: ClientRow) =>
     (!network || (network === NO_NETWORK ? !d.network : d.network === network)) &&
     (!q ||
       [d.name, d.mac, d.hostname ?? '', d.vendor ?? '', d.network ?? '', d.group ?? '', ...(d.ips ?? [])]
@@ -113,8 +113,8 @@ export function buildTree({
         .includes(q))
 
   const weights = new Map<string, number>()
-  const ranks = new Map<string, DeviceRank>()
-  const rankDevices = (list: DeviceRow[]) => {
+  const ranks = new Map<string, ClientRank>()
+  const rankDevices = (list: ClientRow[]) => {
     for (const d of list) {
       const flow = traffic.flowOf(d)
       weights.set(deviceKey(d.mac), magnitude(flow, traffic.rated))
@@ -135,7 +135,7 @@ export function buildTree({
         const known = Number(frozen.has(deviceKey(b.mac))) - Number(frozen.has(deviceKey(a.mac)))
         if (known) return known
       }
-      return compareDeviceRanks(ar, br) ||
+      return compareClientRanks(ar, br) ||
         (a.name || a.mac).localeCompare(b.name || b.mac) || a.mac.localeCompare(b.mac)
     })
   }
@@ -146,8 +146,8 @@ export function buildTree({
 
   const parents = effectiveParents(groups)
   const known = new Set(groups.map((g) => g.name))
-  const membersOf = new Map<string, DeviceRow[]>()
-  const loose: DeviceRow[] = []
+  const membersOf = new Map<string, ClientRow[]>()
+  const loose: ClientRow[] = []
   for (const d of all) {
     // A device naming a group that no longer exists cannot happen through
     // the API, but a hand-edited olr.json can say anything, and such a device
@@ -167,7 +167,7 @@ export function buildTree({
     key: string,
     name: string | undefined,
     title: string,
-    members: DeviceRow[],
+    members: ClientRow[],
     subNames: string[],
     depth: number,
     parentKey: string | undefined,

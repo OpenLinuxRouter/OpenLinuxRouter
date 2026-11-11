@@ -41,7 +41,7 @@ export const IMPACT: ImpactLabels = {
   },
   disruptive: {
     get label() { return t('Internet stops working') },
-    hint: 'Devices lose name resolution. Nothing will load until this is undone — it will not look like a DNS problem, it will look like the internet is down.',
+    hint: 'Clients lose name resolution. Nothing will load until this is undone — it will not look like a DNS problem, it will look like the internet is down.',
     variant: 'destructive',
   },
 }

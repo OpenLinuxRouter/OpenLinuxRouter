@@ -10,7 +10,7 @@
 //
 // The fix is to have core publish response schemas next to the config schema
 // and extend scripts/gen-types.mjs to consume them. Until then, this file and
-// internal/dhcp/view.go, internal/devices/view.go and internal/dns/view.go must
+// internal/dhcp/view.go, internal/clients/view.go and internal/dns/view.go must
 // be changed together — three copies now, not two.
 //
 // What closing it actually costs, recorded here so it is not re-derived:
@@ -26,11 +26,11 @@
 
 import type { Problem } from '@/lib/api'
 import type {
-  DeviceCategory,
+  ClientCategory,
   FirewallConfig,
   IngressConfig,
   UpstreamScheme,
-  DevicesConfig,
+  ClientsConfig,
   ExitForm,
   LinkConfig,
   Protocol,
@@ -683,7 +683,7 @@ export type VendorKey =
  * One row of the device list: identity joined to presence
  * (design.md §4.4, internal/devices deviceView).
  */
-export interface DeviceRow {
+export interface ClientRow {
   mac: string
 
   /**
@@ -700,11 +700,11 @@ export interface DeviceRow {
    */
   name_as_of?: string
 
-  category: DeviceCategory
+  category: ClientCategory
   category_origin?: Origin
 
   /** What detection produced, whether or not it won. */
-  detected_category?: DeviceCategory
+  detected_category?: ClientCategory
   detect_reason?: string
 
   /**
@@ -721,7 +721,7 @@ export interface DeviceRow {
 
   model?: string
 
-  /** The operator's chosen picture — see Device.icon. Absent means it follows category and vendor. */
+  /** The operator's chosen picture — see Client.icon. Absent means it follows category and vendor. */
   icon?: string
 
   notes?: string
@@ -778,8 +778,8 @@ export interface DeviceRow {
   last_seen?: string
 }
 
-export interface DeviceList {
-  devices: DeviceRow[]
+export interface ClientList {
+  clients: ClientRow[]
   problems?: Problem[]
   as_of: string
 }
@@ -790,9 +790,9 @@ export interface DeviceList {
  * No `steps`, unlike dhcp's ApplyResult: this module writes one document
  * atomically, so there is no half-finished state to report.
  */
-export interface DevicesApplyResult {
+export interface ClientsApplyResult {
   plan: Plan
-  config: DevicesConfig
+  config: ClientsConfig
   error?: { message: string; problems?: Problem[] }
 }
 
@@ -1371,7 +1371,7 @@ export interface RemotePeer {
    * WireGuard knows a key, so neither reaches the kernel and changing one
    * re-issues nothing.
    */
-  category?: DeviceCategory
+  category?: ClientCategory
   icon?: string
   /** Where the device was last heard from: its address out in the world. */
   endpoint?: string

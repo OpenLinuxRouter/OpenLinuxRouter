@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ServiceIconPicker } from '@/features/ingress/service-icon-picker'
-import { useDeviceList } from '@/features/devices/queries'
+import { useClientList } from '@/features/clients/queries'
 import type { Service, UpstreamScheme } from '@/lib/config-types'
 
 const EMPTY: Service = { name: '', upstream: { port: 0 } }
@@ -77,8 +77,8 @@ export function ServiceDialog({
   const [saving, setSaving] = useState(false)
   const editing = initial !== undefined
 
-  const devices = useDeviceList()
-  const all = devices.data?.devices ?? []
+  const devices = useClientList()
+  const all = devices.data?.clients ?? []
 
   // Only devices with a reserved address, per the header. Sorted so the list is
   // stable between renders rather than in whatever order presence came back in.
@@ -87,7 +87,7 @@ export function ServiceDialog({
     .sort((a, b) => a.name.localeCompare(b.name))
 
   // How many were left out, and why — said once under the picker. Without this
-  // the list looks arbitrary to somebody who can see the device on the Devices
+  // the list looks arbitrary to somebody who can see the device on the Clients
   // page and cannot find it here.
   const withoutFixed = all.filter((d) => !d.fixed_ip && d.name).length
 
@@ -100,7 +100,7 @@ export function ServiceDialog({
     setTarget(next)
     setDraft((d) => ({
       ...d,
-      // Device and host are alternatives and the daemon refuses both at once, so
+      // Client and host are alternatives and the daemon refuses both at once, so
       // choosing one clears the other here rather than letting a stale value ride
       // along into a validation error about a field the operator cannot see.
       upstream: { ...d.upstream, device: next === MANUAL ? '' : next, host: '' },
@@ -178,7 +178,7 @@ export function ServiceDialog({
                 {/* A render function, not the bare value: SelectValue shows what
                     it is given, and the sentinel is a string nobody should ever
                     read. Without this the trigger says "manual". */}
-                <SelectValue placeholder={t('Choose a device')}>
+                <SelectValue placeholder={t('Choose a client')}>
                   {(v: string) => (v === MANUAL ? t('Somewhere else…') : all.find((d) => d.mac === v)?.name || v)}
                 </SelectValue>
               </SelectTrigger>
@@ -249,7 +249,7 @@ export function ServiceDialog({
             <p className="text-xs text-muted-foreground">
               {withoutFixed === 1 ? 'One device is' : `${withoutFixed} devices are`} not listed
               because {withoutFixed === 1 ? 'it has' : 'they have'} no reserved address. A published
-              address has to keep pointing at the same machine, so reserve one on the Devices page
+              address has to keep pointing at the same machine, so reserve one on the Clients page
               first.
             </p>
           )}

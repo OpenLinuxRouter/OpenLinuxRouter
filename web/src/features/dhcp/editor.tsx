@@ -87,7 +87,7 @@ function ConfirmDialog({ applier }: { applier: ReturnType<typeof useDhcpApply> }
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="size-4 text-destructive" aria-hidden />{t('This will disconnect devices')}</DialogTitle>
+            <AlertTriangle className="size-4 text-destructive" aria-hidden />{t('This will disconnect clients')}</DialogTitle>
           <DialogDescription>
             {pending && impactHint(pending.plan.impact)} Every other change
             applies the moment you make it — this one asks first.

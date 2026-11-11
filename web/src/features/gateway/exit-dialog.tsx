@@ -128,7 +128,7 @@ export function ExitDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{editing ? `Edit ${initial.name}` : t('Add a way out')}</DialogTitle>
-          <DialogDescription>{t('Choose where assigned devices send their traffic.')}</DialogDescription>
+          <DialogDescription>{t('Choose where assigned clients send their traffic.')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -198,7 +198,7 @@ export function ExitDialog({
             <Disclosure summary={t('DNS, health check, IPv6 and other details')}>
               <div className="space-y-4 pt-1">
                 <div className="space-y-1.5">
-                  <Label htmlFor="exit-dns-mode">{t('DNS for devices using this way out')}</Label>
+                  <Label htmlFor="exit-dns-mode">{t('DNS for clients using this way out')}</Label>
                   <Select
                     value={draft.dns?.mode || 'olr'}
                     onValueChange={(mode) =>
@@ -305,7 +305,7 @@ export function ExitDialog({
                 {draft.via.kind === 'next_hop' && (
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1">
-                      <Label htmlFor="exit-snat">{t('Hide device addresses from it')}</Label>
+                      <Label htmlFor="exit-snat">{t('Hide client addresses from it')}</Label>
                       <p className="text-xs text-muted-foreground">
                         Makes replies come back through this router, so traffic is counted
                         correctly. Turn it off if the other box needs to see which device a

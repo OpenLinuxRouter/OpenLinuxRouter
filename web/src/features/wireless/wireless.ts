@@ -1,4 +1,4 @@
-import type { Association, Neighbour, Radio, Snapshot, WirelessNetwork } from '@/features/equipment/types'
+import type { Association, Neighbour, Radio, Snapshot, WirelessNetwork } from '@/features/devices/types'
 
 /** A finding is a sentence plus the values that fill it, so it can be translated. */
 export interface Finding {

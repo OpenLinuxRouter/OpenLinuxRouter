@@ -14,8 +14,8 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useGroupActions } from '@/features/devices/group-actions'
-import { useDeviceList, useDevicesConfig } from '@/features/devices/queries'
+import { useGroupActions } from '@/features/clients/group-actions'
+import { useClientList, useClientsConfig } from '@/features/clients/queries'
 import { useDhcpConfig, useDhcpStatus } from '@/features/dhcp/queries'
 import { useDnsStatus } from '@/features/dns/queries'
 import { RELAY_UNIT, serviceOf } from '@/features/dns/units'
@@ -70,7 +70,7 @@ import { cn, formatBytes, formatRate } from '@/lib/utils'
  */
 export function OverviewPage() {
   useLocale()
-  const devices = useDeviceList()
+  const devices = useClientList()
   const dhcp = useDhcpStatus()
   const dhcpConfig = useDhcpConfig()
   const dns = useDnsStatus()
@@ -78,10 +78,10 @@ export function OverviewPage() {
   // Only the live rates need a fast sample; the other observed data stays at 5s.
   const traffic = useGatewayTraffic(1000)
   const latency = useGatewayLatency()
-  const identity = useDevicesConfig()
+  const identity = useClientsConfig()
   const ingress = useIngressConfig()
   const ingressStatus = useIngressStatus()
-  const services = useMemo(() => servicesByDevice(ingress.data, devices.data?.devices ?? []), [ingress.data, devices.data])
+  const services = useMemo(() => servicesByDevice(ingress.data, devices.data?.clients ?? []), [ingress.data, devices.data])
   const flows = useTrafficView(traffic.data, traffic.isError)
   const host = useHostMetrics()
   const publicAddresses = usePublicAddresses()
@@ -140,7 +140,7 @@ export function OverviewPage() {
 
       <section aria-label={t('Your network')} className="space-y-4 pt-2">
         <NetworkMap
-          devices={devices.data?.devices ?? []}
+          devices={devices.data?.clients ?? []}
           services={services}
           serviceDomain={ingressStatus.data?.domain}
           serviceDomainKnown={!ingressStatus.isPending}
@@ -152,8 +152,8 @@ export function OverviewPage() {
           pools={dhcpConfig.data?.pools}
           pending={devices.isPending}
           density="auto"
-          onSelect={(device) => navigate(`/devices/${device.mac}`)}
-          onOpenDialIn={(peer) => navigate(`/devices/wireguard/${encodeURIComponent(peer.name)}`)}
+          onSelect={(device) => navigate(`/clients/${device.mac}`)}
+          onOpenDialIn={(peer) => navigate(`/clients/wireguard/${encodeURIComponent(peer.name)}`)}
           onCreateGroup={groupActions.create}
           onRenameGroup={groupActions.rename}
           onDeleteGroup={groupActions.remove}
@@ -236,7 +236,7 @@ function collectFaults(dhcp?: DhcpStatus, dns?: DnsStatus, gateway?: GatewayStat
       key: 'dhcp-down',
       get title() { return t('Addresses are not being handed out') },
       detail:
-        'DHCP is on and the server is stopped. Devices here keep their address until it expires; anything joining now gets none.',
+        'DHCP is on and the server is stopped. Clients here keep their address until it expires; anything joining now gets none.',
       tone: 'bad',
       to: '/gateway/dhcp',
       action: 'Open DHCP',

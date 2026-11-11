@@ -157,7 +157,7 @@ func TestRequestCombinesPathQueryAndBodyArguments(t *testing.T) {
 func TestEscapedPathArgumentsReachThePublishedHandler(t *testing.T) {
 	api := core.New()
 	api.Mount("widgets", []core.Route{{
-		Method: http.MethodGet, Path: "/devices/{id}/snapshot", Tool: "show snapshot",
+		Method: http.MethodGet, Path: "/{id}/snapshot", Tool: "show snapshot",
 		Summary: "Show a device snapshot.",
 		Handler: func(w http.ResponseWriter, r *http.Request) {
 			core.WriteJSON(w, http.StatusOK, map[string]string{
@@ -194,7 +194,7 @@ func TestEscapedPathArgumentsReachThePublishedHandler(t *testing.T) {
 			if seen["id"] != tt.value {
 				t.Errorf("handler received id %q, want %q", seen["id"], tt.value)
 			}
-			if want := "/devices/" + tt.escaped + "/snapshot"; seen["path"] != want {
+			if want := "/" + tt.escaped + "/snapshot"; seen["path"] != want {
 				t.Errorf("handler path = %q, want %q", seen["path"], want)
 			}
 			if seen["query"] != "" {

@@ -1,5 +1,5 @@
 import { chainTo, OTHER_KEY, type MapGroup, type MapTree } from '@/features/topology/model'
-import type { DeviceRow } from '@/lib/api-types'
+import type { ClientRow } from '@/lib/api-types'
 import { chunk, edgeWidth, link, withBand, EDGE_MIN, type Box, type Link } from './band'
 
 export type { Box, Link } from './band'
@@ -156,7 +156,7 @@ export type Item =
   | {
       kind: 'device'
       key: string
-      device: DeviceRow
+      device: ClientRow
       box: Box
       /** Present when the device is a row of a container's list rather than a card of its own. */
       row?: { first: boolean }
@@ -172,7 +172,7 @@ export type Item =
       target: string
       open: boolean
       hidden: Hidden
-      /** Devices behind a top-level fold, for its second line. */
+      /** Clients behind a top-level fold, for its second line. */
       devices?: number
       /** Whether "Other devices" is among what a top-level fold hides. */
       others?: boolean
@@ -257,7 +257,7 @@ interface Plan {
   w: number
   h: number
   cost: number
-  devices: DeviceRow[]
+  devices: ClientRow[]
   /** Subgroups, as rows of plans. */
   shelves: Plan[][]
   more?: { hidden: Hidden; open: boolean }
@@ -676,7 +676,7 @@ function layoutFocus(input: LayoutInput, focus: string): Layout {
 
   // The fan.
   const fanY = above.y + above.h + DROP
-  const children: ({ group: MapGroup } | { device: DeviceRow })[] = [
+  const children: ({ group: MapGroup } | { device: ClientRow })[] = [
     ...focused.groups.map((group) => ({ group })),
     ...focused.devices.map((device) => ({ device })),
   ]

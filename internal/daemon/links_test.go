@@ -191,7 +191,7 @@ func TestEveryInterfaceConsumerSeesTheSameAdoption(t *testing.T) {
 // This adapter is where that value originates, and it briefly reported
 // `info.Members[0]` — so an operator who named a network `lan` saw their
 // devices filed under `bridge0`, contradicting every other screen. The field's
-// own contract (internal/devices/view.go) calls it "which of this router's
+// own contract (internal/clients/view.go) calls it "which of this router's
 // networks the device is on", and an interface is not one of them.
 func TestDeviceNetworksAreNamedByNetwork(t *testing.T) {
 	// A pool with no range of its own, so this also covers the resolution the

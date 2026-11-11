@@ -32,18 +32,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { brandLogoHref } from '@/features/brand-logos/brand-logos'
-import { DeviceIcon } from '@/features/devices/device-icon'
-import type { GroupDeletion } from '@/features/devices/group-actions'
-import { groupOptions, MAX_GROUP_DEPTH, parentChoices } from '@/features/devices/group-tree'
-import { lastHeardLabel, lastHeardTitle } from '@/features/devices/last-heard'
+import { DeviceIcon } from '@/features/clients/client-icon'
+import type { GroupDeletion } from '@/features/clients/group-actions'
+import { groupOptions, MAX_GROUP_DEPTH, parentChoices } from '@/features/clients/group-tree'
+import { lastHeardLabel, lastHeardTitle } from '@/features/clients/last-heard'
 import { WayBadge } from '@/features/remote/way-badge'
 
 import type { DialInPeer } from '@/features/topology/dial-in'
 import type { Density, GroupVariant, Hidden } from '@/features/topology/layout'
 import type { MapGroup } from '@/features/topology/model'
 import { magnitude, type Flow, type TrafficView } from '@/features/topology/traffic'
-import type { DeviceRow } from '@/lib/api-types'
-import type { DevicesGroup, Service } from '@/lib/config-types'
+import type { ClientRow } from '@/lib/api-types'
+import type { ClientsGroup, Service } from '@/lib/config-types'
 import { getToken } from '@/lib/api'
 import { cn, formatAgo, formatBytes, formatRate, formatRateCompact } from '@/lib/utils'
 
@@ -52,7 +52,7 @@ import { cn, formatAgo, formatBytes, formatRate, formatRateCompact } from '@/lib
  * a picture, which is what it should be anywhere that cannot change groups.
  */
 export interface MapActions {
-  onSelect?: (device: DeviceRow) => void
+  onSelect?: (device: ClientRow) => void
   /** Open one dialed-in device, whose page is the tunnel's answer about it. */
   onOpenDialIn?: (peer: DialInPeer) => void
   onCreateGroup?: (parent?: string) => void
@@ -141,7 +141,7 @@ function NetworkChip({ network: n }: { network: NetworkInfo }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Devices dialed in over WireGuard                                            */
+/* Clients dialed in over WireGuard                                            */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -281,7 +281,7 @@ export function GroupNode({
   nested?: boolean
   /** For the bucket beside the operator's groups, which is not one of them. */
   dashed: boolean
-  groups: DevicesGroup[]
+  groups: ClientsGroup[]
   actions: MapActions
   /** Open a named group, or focus the unnamed device bucket. */
   onFocus: () => void
@@ -397,7 +397,7 @@ export function GroupNode({
  * with the ones it cannot — itself, anything below it, anything too deep to
  * take everything it carries — left out or greyed.
  */
-function GroupMenu({ group, groups, actions }: { group: MapGroup; groups: DevicesGroup[]; actions: MapActions }) {
+function GroupMenu({ group, groups, actions }: { group: MapGroup; groups: ClientsGroup[]; actions: MapActions }) {
   useLocale()
   const name = group.name!
   const { onRenameGroup, onDeleteGroup, onMoveGroup, onCreateGroup } = actions
@@ -471,7 +471,7 @@ function GroupMenu({ group, groups, actions }: { group: MapGroup; groups: Device
 }
 
 /* -------------------------------------------------------------------------- */
-/* Devices                                                                    */
+/* Clients                                                                    */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -505,7 +505,7 @@ const SERVICE_INSET = 4 + 12 + 48 + SERVICE_GAP
  * against the busiest device on the whole map, not in its group, so a bar means
  * the same length everywhere on screen.
  */
-export function DeviceNode({
+export function ClientNode({
   device,
   services,
   serviceDomain,
@@ -516,7 +516,7 @@ export function DeviceNode({
   busiest,
   actions,
 }: {
-  device: DeviceRow
+  device: ClientRow
   services?: Service[]
   serviceDomain?: string
   /** Whether that suffix has been answered for, or is still on its way. */
@@ -569,7 +569,7 @@ export function DeviceNode({
             {/* Away is said beside the dimmed name, so presence is never
                 colour alone — and a green dot on every row that is fine was
                 the one mark on the list that said nothing. */}
-            <DeviceActivity device={device} flow={flow} rated={traffic.rated} counting={traffic.counting} />
+            <ClientActivity device={device} flow={flow} rated={traffic.rated} counting={traffic.counting} />
           </span>
         </Shell>
         <ServiceLinks services={services} domain={serviceDomain} domainKnown={serviceDomainKnown}
@@ -624,7 +624,7 @@ export function DeviceNode({
                 />
               </span>
               <span className="shrink-0 text-[10.5px] leading-3 text-muted-foreground tabular-nums">
-                <DeviceTraffic device={device} flow={flow} rated={traffic.rated} counting />
+                <ClientTraffic device={device} flow={flow} rated={traffic.rated} counting />
               </span>
             </span>
           )}
@@ -785,7 +785,7 @@ function Shell({
 }
 
 /** The second line of a detail node: the address, whole where it fits. */
-function Address({ device }: { device: DeviceRow }) {
+function Address({ device }: { device: ClientRow }) {
   useLocale()
   const address = device.fixed_ip ?? device.ips?.[0]
   if (!device.seen) return <span className="truncate text-[11px] leading-4 text-muted-foreground italic">{t('never seen')}</span>
@@ -814,13 +814,13 @@ function Address({ device }: { device: DeviceRow }) {
  * is the one that says something, since a quiet device that is here and one
  * that left at breakfast are both "not moving".
  */
-function DeviceTraffic({
+function ClientTraffic({
   device,
   flow,
   rated,
   counting,
 }: {
-  device: DeviceRow
+  device: ClientRow
   flow?: Flow
   rated: boolean
   counting: boolean
@@ -842,8 +842,8 @@ function DeviceTraffic({
 }
 
 /** Live bit rates without the unit in the narrow list; full units remain on hover. */
-function DeviceActivity({ device, flow, rated, counting }: {
-  device: DeviceRow
+function ClientActivity({ device, flow, rated, counting }: {
+  device: ClientRow
   flow?: Flow
   rated: boolean
   counting: boolean
@@ -869,11 +869,11 @@ function DeviceActivity({ device, flow, rated, counting }: {
 /**
  * When a device was last heard, or the word for why there is no time.
  *
- * The same three words as every other list (features/devices/last-heard) — this
+ * The same three words as every other list (features/clients/last-heard) — this
  * node used to add "idle" and "away", which were the map's private names for
  * "we do not know" while the group list said "Offline" about the same device.
  */
-function Quiet({ device }: { device: DeviceRow }) {
+function Quiet({ device }: { device: ClientRow }) {
   useLocale()
   return <span className="text-muted-foreground/60" title={lastHeardTitle(device)}>{lastHeardLabel(device)}</span>
 }

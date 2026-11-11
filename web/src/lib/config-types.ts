@@ -5,7 +5,7 @@
 //
 // Hand-edited again for `IngressConfig.domain` and `DnsConfig.private_domains`:
 // a real `make types` run was available and produced both fields correctly, but
-// replacing the file also renamed the generated group type (`DevicesGroup` →
+// replacing the file also renamed the generated group type (`ClientsGroup` →
 // `Group`) and marked `NetworkIPv6.subnet` required, which the device and
 // topology screens do not compile against. Those two are a separate piece of
 // work — the schema and those screens currently disagree, and that predates this
@@ -19,12 +19,12 @@
 // answer, which is what should happen before this ships.
 //
 // Device groups were added the same way and for the same reason:
-// `DevicesConfig.groups`, `Device.group` and `DevicesGroup`, spelled the way
-// internal/devices/config.go marshals them. So was `DevicesGroup.parent`, when
-// groups learned to nest. `Device.icon` and its `DevicePicture` type, and the
+// `ClientsConfig.groups`, `Client.group` and `ClientsGroup`, spelled the way
+// internal/clients/config.go marshals them. So was `ClientsGroup.parent`, when
+// groups learned to nest. `Client.icon` and its `ClientPicture` type, and the
 // appliance categories, were checked against a real `make types` run and match
 // it; that run could not replace the file because its group type is named
-// differently from the `DevicesGroup` the UI imports.
+// differently from the `ClientsGroup` the UI imports.
 //
 // `FirewallConfig` is back, for a module that now does filter: one field,
 // spelled the way internal/firewall/config.go marshals it.
@@ -38,7 +38,7 @@
 // put 'modem' between 'sbc' and 'router', which is where it is below. That run
 // could not replace the file, and the reason is worth writing down — it is the
 // same reason as before, and it is now the whole file rather than one type.
-// Regenerating renames `DevicesGroup` to `Group` and drops `DevicesGroup.parent`
+// Regenerating renames `ClientsGroup` to `Group` and drops `ClientsGroup.parent`
 // with it, which breaks `npm run build` for every module that imports it. So the
 // file still cannot be regenerated wholesale until the UI is moved onto the
 // generated names; until then this header is the record of what is hand-kept.
@@ -51,12 +51,12 @@
 // `Peer.category` and `Peer.icon` are the latest of these: a device that dials
 // in can be drawn like one at home, and internal/remote/wireguard.go borrows
 // `devices.Category` and `devices.Icon` to say so — which a real run resolves
-// to the `DeviceCategory` and `DevicePicture` types spelled here.
+// to the `ClientCategory` and `ClientPicture` types spelled here.
 
 /**
  * What kind of device this is. It selects the picture shown in the device list, and an operator-set value always beats a detected one. Empty means nothing has been set, so detection may answer; "unknown" means the device was looked at and could not be placed.
  */
-export type DeviceCategory =
+export type ClientCategory =
   | ''
   | 'unknown'
   | 'phone'
@@ -94,7 +94,7 @@ export type DeviceCategory =
 /**
  * A picture chosen for this device, overriding the one its category and vendor would pick: <vendor>/<category> such as "apple/laptop", optionally followed by /<variant> such as "apple/desktop/mini", <category>/<variant> such as "server/tower", os/<system> such as "os/debian", or thesvg:<slug> such as "thesvg:proxmox". Empty means the picture follows category and vendor.
  */
-export type DevicePicture = string
+export type ClientPicture = string
 export type IPAddress = string
 export type IPAddress1 = string
 /**
@@ -215,7 +215,7 @@ export type WhatTheDeviceSendsThroughTheTunnel = '' | 'home' | 'everything'
  * The whole box's configuration, one property per module — the shape of /etc/open-linux-router/olr.json.
  */
 export interface OlrDocument {
-  devices?: DevicesConfig
+  clients?: ClientsConfig
   dhcp?: DhcpConfig
   dial?: DialConfig
   dns?: DnsConfig
@@ -226,19 +226,19 @@ export interface OlrDocument {
   remote?: RemoteConfig
   system?: SystemConfig
 }
-export interface DevicesConfig {
-  devices?: Device[]
+export interface ClientsConfig {
+  clients?: Client[]
   /**
    * The operator's sets of devices. Nothing is seeded and nothing is assigned automatically: a group exists because somebody made it.
    */
-  groups?: DevicesGroup[]
+  groups?: ClientsGroup[]
 }
-export interface Device {
+export interface Client {
   mac: string
   name?: string
-  category?: DeviceCategory
+  category?: ClientCategory
   model?: string
-  icon?: DevicePicture
+  icon?: ClientPicture
   notes?: string
   /**
    * The one group this device is in, or absent for none. Must name an existing group.
@@ -248,7 +248,7 @@ export interface Device {
 /**
  * One set of devices. Renaming carries every member and subgroup along.
  */
-export interface DevicesGroup {
+export interface ClientsGroup {
   name: string
   /**
    * The group this one sits inside, or absent for a group at the top. At most four levels deep, and never inside itself.
@@ -516,11 +516,11 @@ export interface Peer {
   /**
    * What kind of device this is. It selects the picture shown in the device list, and an operator-set value always beats a detected one. Empty means nothing has been set, so detection may answer; "unknown" means the device was looked at and could not be placed.
    */
-  category?: DeviceCategory
+  category?: ClientCategory
   /**
    * A picture chosen for this device, overriding the one its category and vendor would pick: <vendor>/<category> such as "apple/laptop", optionally followed by /<variant> such as "apple/desktop/mini", <category>/<variant> such as "server/tower", os/<system> such as "os/debian", or thesvg:<slug> such as "thesvg:proxmox". Empty means the picture follows category and vendor.
    */
-  icon?: DevicePicture
+  icon?: ClientPicture
 }
 export interface SystemConfig {
   access?: Access

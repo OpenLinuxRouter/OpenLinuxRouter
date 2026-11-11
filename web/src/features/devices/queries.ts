@@ -1,155 +1,99 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
-import { api, ApiError } from '@/lib/api'
-import type { DeviceList, DevicesApplyResult, Plan } from '@/lib/api-types'
-import type { Device, DevicesConfig } from '@/lib/config-types'
+import { api, ApiError, configPatch } from '@/lib/api'
+import { t } from '@/lib/i18n'
 
-// Same polling story as features/dhcp/queries.ts: the UI asks again rather than
-// subscribing, because EventSource cannot carry an Authorization header. The
-// device list is observed state that the daemon never caches (design.md §4.5),
-// so asking again is the only way to stay current.
-const OBSERVED_REFETCH_MS = 5000
+import type { FDBQuery, FDBResult, DevicesConfig, Device, Snapshot } from './types'
 
 export const deviceKeys = {
-  config: ['devices', 'config'] as const,
-  list: ['devices', 'list'] as const,
+  config: ['network', 'config'] as const,
+  snapshot: (id: string) => ['network', 'snapshot', id] as const,
 }
 
-/** Stored identity only — what a human has said. */
+/**
+ * The inventory is configuration, not an observation: reading it never touches
+ * the equipment. Both this page and the Wireless page read the same keys, so a
+ * save in one place is what the other sees.
+ */
 export function useDevicesConfig() {
   return useQuery({
     queryKey: deviceKeys.config,
     queryFn: () => api.get<DevicesConfig>('/api/devices/config'),
-    structuralSharing: false,
+    staleTime: 30_000,
   })
 }
 
-/** The join: identity, presence and fixed addresses in one answer. */
-export function useDeviceList() {
+/**
+ * One device's observations. The daemon reads them on demand and never keeps
+ * them as current truth, so a page treats each answer as a dated snapshot — one
+ * collection may have failed while the rest are fine.
+ */
+export function useNetworkSnapshot(id?: string) {
   return useQuery({
-    queryKey: deviceKeys.list,
-    queryFn: () => api.get<DeviceList>('/api/devices/list'),
-    refetchInterval: OBSERVED_REFETCH_MS,
-  })
-}
-
-export function useDevicesPlanPreview() {
-  return useMutation({
-    mutationFn: (config: DevicesConfig) => api.post<Plan>('/api/devices/plan', config),
+    queryKey: deviceKeys.snapshot(id ?? ''),
+    queryFn: () => api.get<Snapshot>(`/api/devices/${encodeURIComponent(id ?? '')}/snapshot`),
+    enabled: Boolean(id),
+    staleTime: 10_000,
   })
 }
 
 /**
- * Stores identity.
- *
- * No plan preview beforehand, unlike dhcp. This module has no backend, so its
- * impact is always `none` and there is nothing a rename could disconnect —
- * §5.1's instant apply with no confirmation is exactly right here. The one
- * action on this screen that *can* drop a client is setting a fixed address,
- * and that goes through dhcp's own apply and its impact gate.
+ * Where one MAC is reachable from. The search is a decision an operator makes
+ * about a specific address, not a table the page fetches on arrival, and its
+ * answer is a dated read like every other observation here.
  */
-export function useApplyDevicesConfig() {
-  const queryClient = useQueryClient()
-
+export function useFDBLookup(id: string) {
   return useMutation({
-    mutationFn: (config: DevicesConfig) =>
-      api.put<DevicesApplyResult>('/api/devices/config', config),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['devices'] })
-      queryClient.invalidateQueries({ queryKey: ['ingress'] })
+    mutationFn: ({ mac, vlan }: FDBQuery) => {
+      const query = new URLSearchParams({ mac })
+      if (vlan != null) query.set('vlan', String(vlan))
+      return api.get<FDBResult>(`/api/devices/${encodeURIComponent(id)}/fdb?${query}`)
     },
   })
 }
 
-/*
- * Groups, one item at a time.
+/**
+ * Writing the inventory: one entry at a time.
  *
- * These go to the per-item routes rather than through useApplyDevicesConfig,
- * for the reason internal/devices/http.go gives: a whole-document PUT is two
- * requests with the lock covering only the second, and a rename has to carry
- * every member along — the server does that under its lock, and a client
- * splicing the document itself would be a second copy of the cascade.
- *
- * Every one invalidates all of ['devices'], not just the config: the list rows
- * carry `group` too, and the map is drawn from the list.
+ * The request carries the revision of the configuration the form was built
+ * from, so a second tab that saved first is reported as a conflict instead of
+ * being overwritten.
  */
+export function useDeviceEditor() {
+  const client = useQueryClient()
+  const config = useDevicesConfig()
+  const invalidate = () => client.invalidateQueries({ queryKey: ['network'] })
 
-const groupPath = (name: string) => `/api/devices/groups/${encodeURIComponent(name)}`
-
-function useDevicesMutation<T>(fn: (vars: T) => Promise<DevicesApplyResult>) {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: fn,
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['devices'] })
-      queryClient.invalidateQueries({ queryKey: ['ingress'] })
-    },
+  const save = useMutation({
+    mutationFn: (device: Device) =>
+      api.put<DevicesConfig>(`/api/devices/${encodeURIComponent(device.id)}`, configPatch(config.data ?? {}, device)),
+    onSettled: invalidate,
   })
-}
-
-export function useSaveDevice() {
-  return useDevicesMutation(({ device, forget }: { device: Device; forget: boolean }) => {
-    const path = `/api/devices/devices/${encodeURIComponent(device.mac)}`
-    return forget
-      ? api.delete<DevicesApplyResult>(path)
-      : api.put<DevicesApplyResult>(path, device)
+  const remove = useMutation({
+    mutationFn: (id: string) => api.delete<DevicesConfig>(`/api/devices/${encodeURIComponent(id)}`),
+    onSettled: invalidate,
   })
-}
 
-/**
- * Creates a group, inside another when a parent is given. Creating one that
- * already exists is a no-op, not an error.
- */
-export function useCreateDeviceGroup() {
-  return useDevicesMutation(({ name, parent }: { name: string; parent?: string }) =>
-    api.put<DevicesApplyResult>(groupPath(name), parent ? { parent } : {}),
-  )
-}
-
-/** Renames a group; its members follow on the server. */
-export function useRenameDeviceGroup() {
-  return useDevicesMutation(({ from, to }: { from: string; to: string }) =>
-    api.put<DevicesApplyResult>(groupPath(from), { name: to }),
-  )
-}
-
-/**
- * Moves a group inside another, or to the top with an empty parent. Its
- * members and subgroups travel with it; the server refuses a move that would
- * put a group inside itself or nest deeper than four levels.
- */
-export function useMoveDeviceGroup() {
-  return useDevicesMutation(({ name, parent }: { name: string; parent: string }) =>
-    api.put<DevicesApplyResult>(groupPath(name), { parent }),
-  )
-}
-
-/**
- * Deletes a group. What it held moves up one level — its devices and
- * subgroups go to its parent, or to the top — rather than the delete being
- * refused.
- */
-export function useDeleteDeviceGroup() {
-  return useDevicesMutation((name: string) => api.delete<DevicesApplyResult>(groupPath(name)))
-}
-
-/** Puts one device in a group, or takes it out of its group with an empty name. */
-export function useSetDeviceGroup() {
-  return useDevicesMutation(({ mac, group }: { mac: string; group: string }) =>
-    api.put<DevicesApplyResult>(`/api/devices/devices/${encodeURIComponent(mac)}/group`, {
-      group,
-    }),
-  )
-}
-
-/**
- * The server's words, most specific first. A 422 carries the reason in its
- * problems and only "invalid devices configuration" in its message, which on
- * its own would tell the operator nothing about what to change.
- */
-export function describeError(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.problems.length ? error.problems.map((p) => p.message).join('; ') : error.message
+  async function report<T>(run: (value: T) => Promise<unknown>, value: T, success: string) {
+    try {
+      await run(value)
+      toast.success(success)
+      return true
+    } catch (error) {
+      if (error instanceof ApiError) {
+        toast.error(error.message, { description: error.problems.map(problem => problem.message).join('\n') || undefined })
+      } else {
+        toast.error(String(error))
+      }
+      return false
+    }
   }
-  return String(error)
+
+  return {
+    busy: save.isPending || remove.isPending,
+    save: (device: Device) =>
+      report(save.mutateAsync, device, t('{name} saved', { name: device.name || device.id })),
+    remove: (id: string) => report(remove.mutateAsync, id, t('{id} forgotten', { id })),
+  }
 }

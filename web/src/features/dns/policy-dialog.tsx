@@ -36,7 +36,7 @@ const RESPONSE_OPTIONS: {
   {
     value: 'nxdomain',
     get label() { return t('Say it doesn\'t exist') },
-    hint: 'The honest answer. Devices cache it and stop asking. Recommended.',
+    hint: 'The honest answer. Clients cache it and stop asking. Recommended.',
   },
   {
     value: 'zero',
@@ -113,7 +113,7 @@ export function PolicyDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="policy-clients">{t('Devices')}</Label>
+            <Label htmlFor="policy-clients">{t('Clients')}</Label>
             <Input
               id="policy-clients"
               placeholder="everyone not covered by another rule"

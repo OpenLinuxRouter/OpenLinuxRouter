@@ -4,6 +4,22 @@ The visual direction is a precise, calm network console. Content must support
 that direction: users should identify the important information before reading
 supporting text. This guide complements [the visual guide](ui-style-guide.md).
 
+## Vocabulary
+
+Two words are kept apart, in English and in Chinese:
+
+| Word | Means | Does not mean |
+| --- | --- | --- |
+| **device** / 设备 | Network equipment olr manages: switches, access points and routers. `/devices`, `olr devices`, the device inventory. | A laptop, phone or printer on the LAN. |
+| **client** / 客户端 | A thing on the LAN, keyed by MAC: identity, presence, groups, the target of a policy. `/clients`, the client inventory. | The equipment olr reaches over a management interface. |
+
+Both used to be called "device", which is why a page that says "device" no
+longer said which one. **Network** is a third word and always means a subnet
+Gateway serves (`olr net`, `link.networks`), never this inventory. Where a
+sentence is about hardware in general — "the device's own management interface",
+"connect it to the device" — leave it alone; the rule names the two inventories,
+not every use of the word.
+
 ## Start with the user's decision
 
 Advanced's System group includes Backup. The backup page distinguishes a
@@ -18,11 +34,11 @@ now. Never confirm automatically on a successful API response or page load.
 Keep failed recovery and lost connectivity visible; explain how to reconnect to
 the previous address after the countdown.
 
-Device priority and speed limits apply automatically, without an enable switch.
+Client priority and speed limits apply automatically, without an enable switch.
 Use “applied” only after observing matching runtime state. Show pending device
 placement and apply failures explicitly. Blank means unlimited. Keep the user
-workflow focused on per-device priority and speed limits; do not add aggregate
-QoS settings to Gateway or imply they are required for device limits.
+workflow focused on per-client priority and speed limits; do not add aggregate
+QoS settings to Gateway or imply they are required for client limits.
 
 Before adding content, write down the page's primary task and what the user needs
 to decide next. Give each visible element a purpose in that decision. Remove

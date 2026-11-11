@@ -52,7 +52,7 @@ export function DnsNamesPage() {
 
 
       {hosts.length === 0 ? (
-        <ListEmpty>{t('No names yet. Devices here are reachable by address only.')}</ListEmpty>
+        <ListEmpty>{t('No names yet. Clients here are reachable by address only.')}</ListEmpty>
       ) : (
         <List>
           {hosts.map((h) => (

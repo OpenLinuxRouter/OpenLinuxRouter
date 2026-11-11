@@ -2,7 +2,7 @@ import { t, useLocale } from '@/lib/i18n'
 import { AlertTriangle, Plus, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { useDeviceList } from '@/features/devices/queries'
+import { useClientList } from '@/features/clients/queries'
 
 import { StatusStrip } from '@/components/layout/status-strip'
 import { SubPage } from '@/components/layout/sub-page'
@@ -51,9 +51,9 @@ export function CaddyPage() {
   const applier = useIngressApply()
   const reapply = useReapplyIngress()
   const [params, setParams] = useSearchParams()
-  const devices = useDeviceList()
+  const devices = useClientList()
   const deviceMac = params.get('device')
-  const device = devices.data?.devices.find((d) => d.mac.toLowerCase() === deviceMac?.toLowerCase())
+  const device = devices.data?.clients.find((d) => d.mac.toLowerCase() === deviceMac?.toLowerCase())
   // `host` is the other half of the same shortcut, for a target that is not in
   // `devices` at all: a device that dialled in over the tunnel is published by
   // its address (docs/remote-access.md §3.3), so its page can prefill one and
@@ -337,7 +337,7 @@ function ServiceList({
   onEdit: (service: Service) => void
 }) {
   useLocale()
-  const devices = useDeviceList()
+  const devices = useClientList()
   if (services.length === 0) {
     return (
       <ListEmpty> {t('No services published yet. Add a service and its target.')} </ListEmpty>
@@ -353,7 +353,7 @@ function ServiceList({
           <ListRow
             key={s.name}
             title={domain ? `${s.name}.${domain}${s.link_path ?? ''}` : s.name}
-            subtitle={describeService(s, devices.data?.devices.find((d) => d.mac === s.upstream.device)?.name)}
+            subtitle={describeService(s, devices.data?.clients.find((d) => d.mac === s.upstream.device)?.name)}
             wrap
             editLabel={`${t('Edit')} ${s.name}`}
             onSelect={() => onEdit(s)}

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/open-linux-router/open-linux-router/internal/cli"
+	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/core"
 	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/dhcp"
@@ -21,7 +22,6 @@ import (
 	"github.com/open-linux-router/open-linux-router/internal/inspection"
 	"github.com/open-linux-router/open-linux-router/internal/iptv"
 	"github.com/open-linux-router/open-linux-router/internal/link"
-	"github.com/open-linux-router/open-linux-router/internal/network"
 	"github.com/open-linux-router/open-linux-router/internal/qos"
 	"github.com/open-linux-router/open-linux-router/internal/remote"
 	socksout "github.com/open-linux-router/open-linux-router/internal/socksout"
@@ -49,8 +49,8 @@ func moduleRoutes() map[string][]core.Route {
 		dial.ModuleName:    dial.HTTP{}.Routes(),
 		dhcp.ModuleName:    dhcp.HTTP{}.Routes(),
 		dns.ModuleName:     dns.HTTP{}.Routes(),
+		clients.ModuleName: clients.HTTP{}.Routes(),
 		devices.ModuleName: devices.HTTP{}.Routes(),
-		network.ModuleName: network.HTTP{}.Routes(),
 		// Both halves of gateway, because the NAT package's routes are mounted
 		// under the same prefix and are as much of the module's surface as the
 		// routing ones (gateway.HTTP.NAT).
@@ -165,7 +165,7 @@ func TestEveryReadRouteIsPublishedAsATool(t *testing.T) {
 		// every client on that band. The page offers it as a deliberate
 		// per-band action; an agent must not interrupt the Wi-Fi merely to
 		// fill in a diagram.
-		"network POST /devices/{id}/scan": true,
+		"devices POST /{id}/scan": true,
 	}
 
 	for module, routes := range moduleRoutes() {
@@ -262,7 +262,7 @@ func TestMCPImportsNoModule(t *testing.T) {
 		t.Fatal("parsed no packages; this test is not reading internal/mcp")
 	}
 
-	forbidden := []string{"internal/link", "internal/dhcp", "internal/dns", "internal/devices", "internal/gateway", "internal/dnsrelay"}
+	forbidden := []string{"internal/link", "internal/dhcp", "internal/dns", "internal/clients", "internal/devices", "internal/gateway", "internal/dnsrelay"}
 
 	for _, pkg := range pkgs {
 		for path, file := range pkg.Files {

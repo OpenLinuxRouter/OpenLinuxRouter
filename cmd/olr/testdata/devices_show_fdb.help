@@ -1,0 +1,14 @@
+Locate a known MAC on a device
+
+Usage:
+  olr devices show fdb <id> [flags]
+
+Flags:
+  -h, --help         help for fdb
+      --mac string   MAC address to locate
+      --vlan int     VLAN ID to search
+
+Global Flags:
+      --dry-run         show what would change and exit without applying it
+  -o, --output string   output format: text|json (default "text")
+      --socket string   olrd control socket (default "/run/olr/olrd.sock")

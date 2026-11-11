@@ -36,6 +36,7 @@ import (
 
 	"github.com/open-linux-router/open-linux-router/internal/brandlogo"
 	"github.com/open-linux-router/open-linux-router/internal/buildinfo"
+	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/core"
 	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/dhcp"
@@ -51,7 +52,6 @@ import (
 	"github.com/open-linux-router/open-linux-router/internal/iptv"
 	"github.com/open-linux-router/open-linux-router/internal/link"
 	"github.com/open-linux-router/open-linux-router/internal/mcp"
-	"github.com/open-linux-router/open-linux-router/internal/network"
 	"github.com/open-linux-router/open-linux-router/internal/qos"
 	"github.com/open-linux-router/open-linux-router/internal/remote"
 	"github.com/open-linux-router/open-linux-router/internal/runtimedb"
@@ -395,10 +395,10 @@ func run(args []string) error {
 	// long as olrd runs, from the neighbour table and the lease file
 	// respectively — the lease is what outlives a sleeping phone's last answer.
 	names := dhcpNames{applier: applier}
-	seen := devices.NewSeen("", devices.Neighbours{}, names, logger)
+	seen := clients.NewSeen("", clients.Neighbours{}, names, logger)
 	if runtimeDB != nil {
-		restored, loadErr := restoreHistory(runtimeDB, logger, func() (*devices.Seen, error) {
-			return devices.OpenSeenDB(runtimeDB, devices.SeenPath(opts.root), devices.Neighbours{}, names, logger)
+		restored, loadErr := restoreHistory(runtimeDB, logger, func() (*clients.Seen, error) {
+			return clients.OpenSeenDB(runtimeDB, clients.SeenPath(opts.root), clients.Neighbours{}, names, logger)
 		})
 		if loadErr != nil {
 			logger.Error("could not restore what the router remembers about devices", "error", loadErr)
@@ -410,14 +410,14 @@ func run(args []string) error {
 	// Hoisted out of the Mount call because `ingress` reads devices through it
 	// too. One Applier, so both surfaces answer from the same join rather than
 	// from two that could drift.
-	devicesApplier := devices.Applier{
+	devicesApplier := clients.Applier{
 		Store: store,
 		// Two presence sources, and the pair is the point: leases know about
 		// anything that asked for an address, ARP sees the statically-addressed
 		// printer that never did (§10 decision 7).
-		Presence: []devices.PresenceSource{
+		Presence: []clients.PresenceSource{
 			dhcpPresence{applier: applier},
-			devices.ARP{},
+			clients.ARP{},
 		},
 		Fixed:    dhcpFixedAddresses{applier: applier},
 		Networks: dhcpNetworks{applier: applier},
@@ -427,16 +427,16 @@ func run(args []string) error {
 		return preserveIngressDevices(doc, ingressDevices{applier: devicesApplier})
 	}
 
-	srv.Mount(devices.ModuleName, devices.HTTP{
+	srv.Mount(clients.ModuleName, clients.HTTP{
 		Applier: devicesApplier,
 		Lock:    srv.ApplyLock(),
 		Events:  srv.Events(),
-	}.Routes(), devices.Config{})
+	}.Routes(), clients.Config{})
 
 	// Remote equipment is observed on demand; inventory writes never alter it.
-	srv.Mount(network.ModuleName, network.HTTP{
-		Service: network.NewService(store), Lock: srv.ApplyLock(), Events: srv.Events(),
-	}.Routes(), network.Config{})
+	srv.Mount(devices.ModuleName, devices.HTTP{
+		Service: devices.NewService(store), Lock: srv.ApplyLock(), Events: srv.Events(),
+	}.Routes(), devices.Config{})
 
 	bootID, bootErr := os.ReadFile("/proc/sys/kernel/random/boot_id")
 	if bootErr != nil || strings.TrimSpace(string(bootID)) == "" {
@@ -965,7 +965,18 @@ func run(args []string) error {
 		logger.Error("connectivity recovery needs attention; journal retained", "error", err)
 	}
 	srv.Mount("recovery", recovery.Routes(), core.RecoveryRequest{})
-	backup := &core.Backup{Store: store, Recovery: recovery, Validate: func(ctx context.Context, doc core.Document) error { return validateBackup(ctx, doc, source) }}
+	backup := &core.Backup{
+		Store:    store,
+		Recovery: recovery,
+		// A backup written before the two inventories swapped names is
+		// migrated here rather than refused: the sections it names still exist,
+		// under the words the box now uses.
+		Prepare: func(doc core.Document) (core.Document, error) {
+			doc, _, err := renameInventories(doc)
+			return doc, err
+		},
+		Validate: func(ctx context.Context, doc core.Document) error { return validateBackup(ctx, doc, source) },
+	}
 	srv.Mount("configuration", backup.Routes(), configurationSchema{})
 	//
 	// The API and the SPA are composed here rather than inside core, which has

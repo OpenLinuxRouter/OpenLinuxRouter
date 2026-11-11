@@ -16,7 +16,7 @@ test('switching updates shared copy, falls back safely and interpolates named va
     setLocale('zh-CN')
     assert.equal(t('Gateway'), '网关')
     assert.equal(t('Unknown backend message'), 'Unknown backend message')
-    assert.equal(t('Device {name}', { name: 'NAS $& <test>' }), 'Device NAS $& <test>')
+    assert.equal(t('Client {name}', { name: 'NAS $& <test>' }), 'Client NAS $& <test>')
     setLocale('en')
     assert.equal(t('Gateway'), 'Gateway')
   } finally { setLocale(previous) }

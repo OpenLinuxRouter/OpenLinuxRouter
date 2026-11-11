@@ -4,7 +4,7 @@ import { Heading } from '@/components/ui/heading'
 
 import { AppShell } from '@/components/layout/app-shell'
 import { SubPage } from '@/components/layout/sub-page'
-import { EquipmentDevicePage, EquipmentPage } from '@/routes/equipment'
+import { DevicePage, DevicesPage } from '@/routes/devices'
 import { WirelessPage } from '@/routes/wireless'
 import { Button } from '@/components/ui/button'
 import { AuthGate } from '@/components/layout/auth-gate'
@@ -36,7 +36,7 @@ import { LatencyPage } from '@/routes/latency'
 import { QualityPage } from '@/routes/quality'
 import { MapPage } from '@/routes/map'
 import { ToolPage } from '@/routes/tool-page'
-import { DevicePage } from '@/routes/device'
+import { ClientPage } from '@/routes/client'
 import { WireguardPeerPage } from '@/routes/peer'
 import { GroupPage } from '@/routes/group'
 import { GatewayPage } from '@/routes/gateway/index'
@@ -64,8 +64,8 @@ export function App() {
           {/* Static segment before the MAC route: a device that dialed in is not
               in the device list, so it gets its own path rather than a made-up
               hardware address (docs/remote-access.md §3.3). */}
-          <Route path="devices/wireguard/:name" element={<WireguardPeerPage />} />
-          <Route path="devices/:mac" element={<DevicePage />} />
+          <Route path="clients/wireguard/:name" element={<WireguardPeerPage />} />
+          <Route path="clients/:mac" element={<ClientPage />} />
           <Route path="groups/:name" element={<GroupPage />} />
           <Route path="gateway">
             <Route index element={<GatewayPage />} />
@@ -103,8 +103,8 @@ export function App() {
             </Route>
           </Route>
           <Route path="wireless" element={<WirelessPage />} />
-          <Route path="equipment" element={<EquipmentPage />} />
-          <Route path="equipment/:id" element={<EquipmentDevicePage />} />
+          <Route path="devices" element={<DevicesPage />} />
+          <Route path="devices/:id" element={<DevicePage />} />
           <Route path="firewall" element={<SubPage section="/advanced" slug="firewall"><FirewallPage /></SubPage>} />
           <Route path="firewall/rules" element={<FirewallRulesPage />} />
           <Route path="access" element={<AccessPage />} />
@@ -155,7 +155,8 @@ export function App() {
           <Route path="access/remote" element={<RedirectWithState to="/access/wireguard" />} />
           <Route path="ingress" element={<RedirectWithState to="/advanced/caddy" />} />
           <Route path="advanced/ingress" element={<RedirectWithState to="/advanced/caddy" />} />
-          <Route path="devices" element={<Navigate to="/" replace />} />
+          <Route path="equipment" element={<Navigate to="/devices" replace />} />
+          <Route path="equipment/:id" element={<RedirectWithState to="/devices" />} />
           <Route path="dhcp/interfaces" element={<Navigate to="/gateway/interfaces" replace />} />
           <Route path="dhcp/*" element={<LegacySectionRedirect />} />
           <Route path="dns/*" element={<LegacySectionRedirect />} />

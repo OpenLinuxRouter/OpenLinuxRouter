@@ -4,8 +4,8 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/core"
-	"github.com/open-linux-router/open-linux-router/internal/devices"
 )
 
 // The API's own shapes for things the module models internally.
@@ -88,8 +88,8 @@ type peerView struct {
 	// passed through as stored. Absent means nothing was chosen, which is not
 	// the same as "unknown": the screen falls back to the tunnel's own mark
 	// rather than drawing a question mark over a device nobody described.
-	Category devices.Category `json:"category,omitempty"`
-	Icon     devices.Icon     `json:"icon,omitempty"`
+	Category clients.Category `json:"category,omitempty"`
+	Icon     clients.Icon     `json:"icon,omitempty"`
 
 	// PublicKey is reported. It is not a secret — it is in every client
 	// configuration and in `wg show` — and it is the only way to match a peer

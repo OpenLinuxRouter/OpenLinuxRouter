@@ -1,8 +1,8 @@
-import type { DeviceRow } from '@/lib/api-types'
+import type { ClientRow } from '@/lib/api-types'
 import type { IngressConfig, Service } from '@/lib/config-types'
 
 /** Only attach a manually addressed service when its target identifies one device. */
-export function servicesByDevice(config: IngressConfig | undefined, devices: DeviceRow[]): Map<string, Service[]> {
+export function servicesByDevice(config: IngressConfig | undefined, devices: ClientRow[]): Map<string, Service[]> {
   const result = new Map<string, Service[]>()
   if (!config?.enabled) return result
 

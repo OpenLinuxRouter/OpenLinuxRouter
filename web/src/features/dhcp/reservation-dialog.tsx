@@ -22,7 +22,7 @@ const EMPTY: Reservation = { mac: '', ip: '' }
  *
  * design.md §11.1 says a fixed address is a property *of a device*, set from the
  * device list rather than by typing a MAC into a form. That is now how it is
- * normally reached: the Devices screen opens this dialog with the MAC already
+ * normally reached: the Clients screen opens this dialog with the MAC already
  * filled in, so the operator never goes and finds a hardware address.
  *
  * The flat MAC-to-IP form survives underneath because the fact itself still
@@ -67,7 +67,7 @@ export function ReservationDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit reserved address' : 'Reserve an address'}</DialogTitle>
-          <DialogDescription>{t('Always give this device the same address. Devices stay connected while this is added.')}</DialogDescription>
+          <DialogDescription>{t('Always give this client the same address. Clients stay connected while this is added.')}</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4">

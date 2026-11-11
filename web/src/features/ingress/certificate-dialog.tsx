@@ -113,7 +113,7 @@ export function CertificateDialog({
               {t('Names you publish live under this: grafana here becomes grafana.{domain}. The records are yours, in this domain\'s zone — point them at this router.', { domain: suffix || 'home.example.com' })}
             </p>
             <p className="text-xs text-muted-foreground">
-              {t('Not the same as the resolver\'s local domain, which names the devices in the house and never needs a certificate.')}
+              {t('Not the same as the resolver\'s local domain, which names the clients in the house and never needs a certificate.')}
             </p>
           </div>
 

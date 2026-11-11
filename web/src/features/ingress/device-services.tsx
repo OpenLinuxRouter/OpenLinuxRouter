@@ -21,7 +21,7 @@ import { servicesOf } from '@/features/topology/services'
  * `/advanced/caddy?device=<mac>`, a peer `?host=<address>`, and the dialog lands
  * on whichever target form the service will actually have.
  */
-export function DeviceServices({
+export function ClientServices({
   mac,
   name,
   addresses,
@@ -79,7 +79,7 @@ export function DeviceServices({
       )}
       <Link
         to={add}
-        aria-label={t('Add service for this device')}
+        aria-label={t('Add service for this client')}
         title={t('Add service')}
         className="flex size-7 shrink-0 items-center justify-center rounded-md border transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
       >

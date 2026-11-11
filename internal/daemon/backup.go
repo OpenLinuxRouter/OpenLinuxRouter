@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/core"
 	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/dhcp"
@@ -20,7 +21,6 @@ import (
 	"github.com/open-linux-router/open-linux-router/internal/ingress"
 	"github.com/open-linux-router/open-linux-router/internal/iptv"
 	"github.com/open-linux-router/open-linux-router/internal/link"
-	"github.com/open-linux-router/open-linux-router/internal/network"
 	"github.com/open-linux-router/open-linux-router/internal/qos"
 	"github.com/open-linux-router/open-linux-router/internal/remote"
 	"github.com/open-linux-router/open-linux-router/internal/socksout"
@@ -36,8 +36,8 @@ type configurationSchema struct {
 	Dial     *dial.Config     `json:"dial,omitempty"`
 	DHCP     *dhcp.Config     `json:"dhcp,omitempty"`
 	DNS      *dns.Config      `json:"dns,omitempty"`
+	Clients  *clients.Config  `json:"clients,omitempty"`
 	Devices  *devices.Config  `json:"devices,omitempty"`
-	Network  *network.Config  `json:"network,omitempty"`
 	Gateway  *gateway.Config  `json:"gateway,omitempty"`
 	IPTV     *iptv.Config     `json:"iptv,omitempty"`
 	SocksOut *socksout.Config `json:"socksout,omitempty"`
@@ -49,7 +49,7 @@ type configurationSchema struct {
 
 func configurationStore(path string) *core.Store {
 	return core.NewStore(path, system.ModuleName, link.ModuleName, dial.ModuleName,
-		dhcp.ModuleName, dns.ModuleName, devices.ModuleName, network.ModuleName, gateway.ModuleName,
+		dhcp.ModuleName, dns.ModuleName, clients.ModuleName, devices.ModuleName, gateway.ModuleName,
 		iptv.ModuleName, socksout.ModuleName, qos.ModuleName, remote.ModuleName,
 		ingress.ModuleName, firewall.ModuleName)
 }
@@ -112,7 +112,7 @@ func validateBackup(ctx context.Context, doc core.Document, source link.Source) 
 	facts := link.Facts{Store: store, Source: func() ([]link.Interface, error) { return observed, nil }}
 	dhcpApplier := dhcp.Applier{Store: store, Networks: dhcpNetworkView{facts: facts}}
 	dnsApplier := dns.Applier{Store: store}
-	deviceApplier := devices.Applier{Store: store, Fixed: dhcpFixedAddresses{applier: dhcpApplier}}
+	deviceApplier := clients.Applier{Store: store, Fixed: dhcpFixedAddresses{applier: dhcpApplier}}
 	checks := []func() error{
 		func() error {
 			c, e := system.FromDocument(doc)
@@ -140,14 +140,14 @@ func validateBackup(ctx context.Context, doc core.Document, source link.Source) 
 			return dns.Validate(c, dnsLinkView{facts: facts}, dnsReservations{applier: dhcpApplier}).Err()
 		},
 		func() error {
-			c, e := devices.FromDocument(doc)
+			c, e := clients.FromDocument(doc)
 			if e != nil {
 				return e
 			}
-			return devices.Validate(c).Err()
+			return clients.Validate(c).Err()
 		},
 		func() error {
-			c, e := network.FromDocument(doc)
+			c, e := devices.FromDocument(doc)
 			if e != nil {
 				return e
 			}

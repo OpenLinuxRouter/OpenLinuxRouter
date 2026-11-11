@@ -7,6 +7,7 @@ Usage:
   olr [command]
 
 Modules:
+  devices     Devices: switches, access points and routers olr can read
   dhcp        DHCP server (dnsmasq)
   dial        Internet uplink, and a public name that follows it
   dns         DNS resolver and policy (olr-dnsd + unbound)
@@ -15,7 +16,6 @@ Modules:
   ingress     Publish internal services at https:// names
   iptv        Routed IPTV multicast (IGMP proxy)
   link        Network interfaces olr has been given
-  network     Network equipment: switches, access points and routers
   remote      Get back into your network from outside it
   socks-out   Transparent outbound SOCKS5 for selected networks and devices
   system      Show how this router may be reached

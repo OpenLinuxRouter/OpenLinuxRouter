@@ -1,0 +1,17 @@
+Record a device olr may read
+
+Usage:
+  olr devices add <id> [flags]
+
+Flags:
+      --adapter string        Device adapter: mercury or openwrt
+      --address string        HTTP(S) management origin
+  -h, --help                  help for add
+      --name string           Device display name
+      --password-env string   Daemon environment variable containing the management password
+      --username string       Management login username
+
+Global Flags:
+      --dry-run         show what would change and exit without applying it
+  -o, --output string   output format: text|json (default "text")
+      --socket string   olrd control socket (default "/run/olr/olrd.sock")

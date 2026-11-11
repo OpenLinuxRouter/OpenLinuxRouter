@@ -355,7 +355,7 @@ function driftNote(status: DnsStatus | undefined): string | undefined {
  * The headline.
  *
  * Two daemons make this harder than dhcp's version, and the extra cases are the
- * point rather than an inconvenience. "Devices can reach us but we cannot look
+ * point rather than an inconvenience. "Clients can reach us but we cannot look
  * anything up" and "devices cannot reach us at all" both present to a human as
  * the internet being broken, and they have completely different fixes.
  *
@@ -381,7 +381,7 @@ function describeStatus(
   if (!config.enabled) {
     return {
       headline: 'Off',
-      detail: 'Devices cannot look up names through this router.',
+      detail: 'Clients cannot look up names through this router.',
       tone: 'off',
     }
   }
@@ -399,7 +399,7 @@ function describeStatus(
   if (relay?.status && !relay.status.active) {
     return {
       headline: 'Not answering',
-      detail: 'Turned on, but nothing is serving DNS. Devices cannot look up names.',
+      detail: 'Turned on, but nothing is serving DNS. Clients cannot look up names.',
       tone: 'fault',
     }
   }
@@ -407,7 +407,7 @@ function describeStatus(
     return {
       headline: 'Answering, but nothing is resolving',
       detail:
-        'Devices reach this router, but it cannot look anything up behind the scenes. Lookups will fail.',
+        'Clients reach this router, but it cannot look anything up behind the scenes. Lookups will fail.',
       tone: 'fault',
     }
   }

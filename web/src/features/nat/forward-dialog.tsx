@@ -22,9 +22,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { useDeviceList } from '@/features/devices/queries'
+import { useClientList } from '@/features/clients/queries'
 import { useInterfaces } from '@/features/link/queries'
-import type { DeviceRow } from '@/lib/api-types'
+import type { ClientRow } from '@/lib/api-types'
 import type { Forward, Protocol } from '@/lib/config-types'
 
 const EMPTY: Forward = { name: '', in: '', slot: 0, port: '', to: '' }
@@ -80,7 +80,7 @@ export function ForwardDialog({
   const editing = initial !== undefined
 
   const interfaces = useInterfaces()
-  const devices = useDeviceList()
+  const devices = useClientList()
 
   function field<K extends keyof Forward>(key: K, value: Forward[K]) {
     setDraft((d) => ({ ...d, [key]: value }))
@@ -93,7 +93,7 @@ export function ForwardDialog({
 
   // A device is only offerable if we know an address for it. One with none has
   // nothing to put in the field.
-  const offerable = (devices.data?.devices ?? []).filter((d) => addressOf(d) !== undefined)
+  const offerable = (devices.data?.clients ?? []).filter((d) => addressOf(d) !== undefined)
   const pickedDevice = offerable.find((d) => d.mac === picked)
 
   // The Select reports null for "nothing chosen", which is the same statement as
@@ -204,7 +204,7 @@ export function ForwardDialog({
 
           {offerable.length > 0 && (
             <div className="space-y-1.5">
-              <Label htmlFor="fwd-device">{t('Go to device')}</Label>
+              <Label htmlFor="fwd-device">{t('Go to client')}</Label>
               <Select value={picked} onValueChange={pickDevice}>
                 <SelectTrigger id="fwd-device">
                   <SelectValue>
@@ -317,7 +317,7 @@ export function ForwardDialog({
  * IPv6 is not forwarded, so offering a v6 address would fill the field with
  * something validation then rejects.
  */
-function addressOf(d: DeviceRow): string | undefined {
+function addressOf(d: ClientRow): string | undefined {
   if (d.fixed_ip) return d.fixed_ip
   return d.ips?.find((ip) => !ip.includes(':'))
 }

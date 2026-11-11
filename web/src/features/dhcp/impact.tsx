@@ -25,17 +25,17 @@ export const IMPACT: ImpactLabels = {
   },
   reload: {
     get label() { return t('Seamless') },
-    get hint() { return t('Devices stay connected and notice nothing.') },
+    get hint() { return t('Clients stay connected and notice nothing.') },
     variant: 'success',
   },
   restart: {
     get label() { return t('Brief pause') },
-    get hint() { return t('Address handling stops for a moment. Devices keep the addresses they already have.') },
+    get hint() { return t('Address handling stops for a moment. Clients keep the addresses they already have.') },
     variant: 'warning',
   },
   disruptive: {
-    get label() { return t('Devices disconnect') },
-    hint: 'Devices using an address from this router will lose it.',
+    get label() { return t('Clients disconnect') },
+    hint: 'Clients using an address from this router will lose it.',
     variant: 'destructive',
   },
 }

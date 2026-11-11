@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/core"
-	"github.com/open-linux-router/open-linux-router/internal/devices"
 )
 
 // The module's REST surface (design.md §3.2 rule 2, §6.2).
@@ -281,10 +281,10 @@ func (h HTTP) patchPeer(w http.ResponseWriter, r *http.Request) {
 			// and the validator judges them, in that order, below. Doing either
 			// here would be a second copy of a rule that already has a home.
 			if body.Category != nil {
-				peer.Category = devices.Category(*body.Category)
+				peer.Category = clients.Category(*body.Category)
 			}
 			if body.Icon != nil {
-				peer.Icon = devices.Icon(*body.Icon)
+				peer.Icon = clients.Icon(*body.Icon)
 			}
 			cfg.WireGuard.SetPeer(peer)
 		}

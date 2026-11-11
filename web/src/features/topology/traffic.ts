@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 
 import { readTrafficSample, type TrafficSample } from '@/features/gateway/traffic-sample'
-import type { DeviceRow, GatewayTraffic } from '@/lib/api-types'
+import type { ClientRow, GatewayTraffic } from '@/lib/api-types'
 
 /**
  * How much a device (or a group, or the whole box) has moved, and how fast.
@@ -37,13 +37,13 @@ export interface TrafficView {
    *
    * The level a device is built on, exposed for clients that are an address and
    * nothing else. A device that dialed in over WireGuard is one of those: it has
-   * no MAC, so it is not a `DeviceRow` (docs/remote-access.md §3.3), and the
+   * no MAC, so it is not a `ClientRow` (docs/remote-access.md §3.3), and the
    * counters key on exactly the tunnel address it was given.
    */
   flowOfAddress: (address: string) => Flow | undefined
 
   /** One device's share: its addresses' rows, summed across every exit. */
-  flowOf: (device: DeviceRow) => Flow | undefined
+  flowOf: (device: ClientRow) => Flow | undefined
 
   /** One way out's share: every address's rows through it. */
   flowOfExit: (exit: string) => Flow | undefined
@@ -147,7 +147,7 @@ export function useTrafficView(data: GatewayTraffic | undefined, failed: boolean
 
     const flowOfAddress = (address: string): Flow | undefined => byAddress.get(address.toLowerCase())
 
-    const flowOf = (device: DeviceRow): Flow | undefined =>
+    const flowOf = (device: ClientRow): Flow | undefined =>
       sumFlows((device.ips ?? []).map(flowOfAddress))
 
     return { counting, rated, total, flowOfAddress, flowOf, flowOfExit: (exit: string) => byExit.get(exit) }

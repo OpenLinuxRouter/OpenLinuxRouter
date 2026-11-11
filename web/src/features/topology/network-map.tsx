@@ -4,12 +4,12 @@ import { useNavigate } from 'react-router'
 
 import { Skeleton } from '@/components/ui/skeleton'
 import { useInterfaces } from '@/features/link/queries'
-import type { DeviceRank } from '@/features/topology/device-rank'
+import type { ClientRank } from '@/features/topology/device-rank'
 import { layout, type Box, type Density, type Item, type Layout } from '@/features/topology/layout'
 import { Links } from '@/features/topology/links'
 import { buildTree } from '@/features/topology/model'
 import {
-  DeviceNode,
+  ClientNode,
   DialInNode,
   GroupNode,
   MoreNode,
@@ -21,8 +21,8 @@ import {
 } from '@/features/topology/nodes'
 import type { DialIn } from '@/features/topology/dial-in'
 import { magnitude, type TrafficView } from '@/features/topology/traffic'
-import type { AssignmentStatus, DeviceRow, ExitStatus, NetworkRow } from '@/lib/api-types'
-import type { DevicesGroup, Pool, Service } from '@/lib/config-types'
+import type { AssignmentStatus, ClientRow, ExitStatus, NetworkRow } from '@/lib/api-types'
+import type { ClientsGroup, Pool, Service } from '@/lib/config-types'
 
 /**
  * The network, drawn top-down: what reached this router from outside, the
@@ -82,16 +82,16 @@ export function NetworkMap({
   onDensity,
   ...actions
 }: {
-  devices: DeviceRow[]
+  devices: ClientRow[]
   services?: Map<string, Service[]>
   serviceDomain?: string
   /** Whether that suffix has been answered for, or is still on its way. */
   serviceDomainKnown?: boolean
-  groups?: DevicesGroup[]
+  groups?: ClientsGroup[]
   traffic: TrafficView
   assignments?: AssignmentStatus[]
   exits?: ExitStatus[]
-  /** Devices dialed in over WireGuard, when the tunnel has any. */
+  /** Clients dialed in over WireGuard, when the tunnel has any. */
   dialIn?: DialIn
   pools?: Pool[]
   pending: boolean
@@ -179,11 +179,11 @@ function Canvas({
   onDensity,
   actions,
 }: {
-  devices: DeviceRow[]
+  devices: ClientRow[]
   services: Map<string, Service[]>
   serviceDomain?: string
   serviceDomainKnown?: boolean
-  groups: DevicesGroup[]
+  groups: ClientsGroup[]
   traffic: TrafficView
   networks: NetworkInfo[]
   dialIn?: DialIn
@@ -199,7 +199,7 @@ function Canvas({
   // be drawn above the router as a next hop, which meant the one device that
   // was definitely on this network was the one the map did not list.
   // Sample only sort keys. Live rates and device data keep refreshing normally.
-  const [frozen, setFrozen] = useState<Map<string, DeviceRank>>(() =>
+  const [frozen, setFrozen] = useState<Map<string, ClientRank>>(() =>
     buildTree({ devices: all, groups, traffic, filter, network }).ranks,
   )
   const interacting = useRef({ pointer: false, focus: false, touch: false })
@@ -362,7 +362,7 @@ function Canvas({
         )
       case 'device':
         return (
-          <DeviceNode
+          <ClientNode
             device={item.device}
             services={services.get(item.device.mac)}
             serviceDomain={serviceDomain}
@@ -487,7 +487,7 @@ function Placed({ box, transition, children }: { box: Box; transition: Transitio
  * `bridge0`, is the bug this shape prevents.
  */
 function buildNetworks(
-  devices: DeviceRow[],
+  devices: ClientRow[],
   assignments?: AssignmentStatus[],
   exits?: ExitStatus[],
   pools?: Pool[],

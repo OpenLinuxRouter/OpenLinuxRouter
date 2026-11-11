@@ -99,7 +99,7 @@ export function ActivityCard({
             />
             <Input
               aria-label={view === 'queries' ? 'Filter queries' : 'Filter addresses'}
-              placeholder={t('Filter by name or device')}
+              placeholder={t('Filter by name or client')}
               className="h-9 pl-8"
               value={filter}
               onChange={(e) => {

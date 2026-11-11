@@ -4,16 +4,16 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/core"
-	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/ingress"
 )
 
 func TestIngressDeviceReferencesSurviveRename(t *testing.T) {
 	const mac = "aa:bb:cc:00:00:01"
-	store := core.NewStore(filepath.Join(t.TempDir(), "olr.json"), "devices", "ingress")
-	a := devices.Applier{Store: store}
-	cfg := devices.Config{Devices: []devices.Device{{MAC: mac, Name: "nas"}}}
+	store := core.NewStore(filepath.Join(t.TempDir(), "olr.json"), "clients", "ingress")
+	a := clients.Applier{Store: store}
+	cfg := clients.Config{Clients: []clients.Client{{MAC: mac, Name: "nas"}}}
 	if _, err := a.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestIngressDeviceReferencesSurviveRename(t *testing.T) {
 		t.Fatalf("legacy reference was not resolved on read: %+v, %v", loaded, err)
 	}
 	a.BeforeSave = func(doc *core.Document) error { return preserveIngressDevices(doc, view) }
-	cfg.Devices[0].Name = "storage"
+	cfg.Clients[0].Name = "storage"
 	if _, err := a.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func TestIngressDeviceReferencesSurviveRename(t *testing.T) {
 		t.Fatal("old name unexpectedly resolves")
 	}
 	// A later device adopting the old name must not inherit the service.
-	cfg.Devices = append(cfg.Devices, devices.Device{MAC: "aa:bb:cc:00:00:02", Name: "nas"})
+	cfg.Clients = append(cfg.Clients, clients.Client{MAC: "aa:bb:cc:00:00:02", Name: "nas"})
 	if _, err := a.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestIngressDeviceReferencesSurviveRename(t *testing.T) {
 	if err != nil || info.MAC != mac {
 		t.Fatalf("service moved to another device: %+v, %v", info, err)
 	}
-	cfg.Devices[1].Name = "storage"
+	cfg.Clients[1].Name = "storage"
 	if _, err := a.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

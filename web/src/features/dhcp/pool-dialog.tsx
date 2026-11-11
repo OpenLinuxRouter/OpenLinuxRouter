@@ -37,7 +37,7 @@ const RA_OPTIONS: { value: Exclude<RouterAdvertisementMode, ''>; label: string; 
   {
     value: 'slaac',
     get label() { return t('Automatic') },
-    get hint() { return t('Devices choose their own IPv6 address. Recommended.') },
+    get hint() { return t('Clients choose their own IPv6 address. Recommended.') },
   },
   { value: 'stateful', get label() { return t('Managed') }, get hint() { return t('The router hands out IPv6 addresses too.') } },
 ]
@@ -173,7 +173,7 @@ export function PoolDialog({
 
             {draft.ipv4 === undefined ? (
               <p className="text-xs text-muted-foreground">
-                No IPv4 addresses are handed out here. Devices get an address only if this
+                No IPv4 addresses are handed out here. Clients get an address only if this
                 network advertises IPv6 below.
               </p>
             ) : (
@@ -250,7 +250,7 @@ export function PoolDialog({
                   id="pool-ra-mtu"
                   inputMode="numeric"
                   value={draft.ipv6.mtu ?? ''}
-                  placeholder={t('None — devices use their own')}
+                  placeholder={t('None — clients use their own')}
                   onChange={(e) => {
                     const n = Number(e.target.value.trim())
                     field('ipv6', {

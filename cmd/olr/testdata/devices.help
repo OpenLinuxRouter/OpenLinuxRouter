@@ -1,0 +1,20 @@
+Devices: switches, access points and routers olr can read
+
+Usage:
+  olr devices [command]
+
+Available Commands:
+  add         Record a device olr may read
+  rm          Forget a device without changing it
+  set         Operate on one device
+  show        Inspect managed devices
+
+Flags:
+  -h, --help   help for devices
+
+Global Flags:
+      --dry-run         show what would change and exit without applying it
+  -o, --output string   output format: text|json (default "text")
+      --socket string   olrd control socket (default "/run/olr/olrd.sock")
+
+Use "olr devices [command] --help" for more information about a command.

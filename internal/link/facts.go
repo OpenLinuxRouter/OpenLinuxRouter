@@ -15,7 +15,7 @@ import (
 
 // The join: stored consent against observed facts.
 //
-// This is the same shape internal/devices/list.go has for a device — an
+// This is the same shape internal/clients/list.go has for a device — an
 // operator's half that is ours and stored, an observed half that is read
 // through whatever observes it — and it is the only place the two meet, so
 // "adoption is intent, addresses are facts" is a property of the system rather

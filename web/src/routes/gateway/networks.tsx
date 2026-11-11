@@ -181,7 +181,7 @@ export function ConfirmDisruptive({ editor }: { editor: ReturnType<typeof useNet
           <DialogDescription>
             {ipv6Addressing
               ? 'Changing how this interface obtains IPv6 addresses can interrupt IPv6 access to this router. Static addresses and IPv4 settings are kept.'
-              : 'Every device on this network loses the address it is holding and has to ask for a new one. Devices that are already on keep the old address until they renew.'}
+              : 'Every device on this network loses the address it is holding and has to ask for a new one. Clients that are already on keep the old address until they renew.'}
           </DialogDescription>
         </DialogHeader>
 

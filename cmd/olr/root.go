@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-linux-router/open-linux-router/internal/cli"
+	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/dhcp"
 	"github.com/open-linux-router/open-linux-router/internal/dial"
 	"github.com/open-linux-router/open-linux-router/internal/dns"
@@ -12,7 +13,6 @@ import (
 	"github.com/open-linux-router/open-linux-router/internal/ingress"
 	"github.com/open-linux-router/open-linux-router/internal/iptv"
 	"github.com/open-linux-router/open-linux-router/internal/link"
-	"github.com/open-linux-router/open-linux-router/internal/network"
 	"github.com/open-linux-router/open-linux-router/internal/remote"
 	"github.com/open-linux-router/open-linux-router/internal/socksout"
 	"github.com/open-linux-router/open-linux-router/internal/system"
@@ -37,7 +37,7 @@ func newRoot() *cobra.Command {
 	root.AddCommand(
 		system.Command(),
 		link.Command(),
-		network.Command(),
+		devices.Command(),
 		dial.Command(),
 		dhcp.Command(),
 		dns.Command(),

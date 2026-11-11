@@ -8,7 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/core"
+	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/dhcp"
 	"github.com/open-linux-router/open-linux-router/internal/link"
 )
@@ -354,5 +356,99 @@ func TestMigrateRenamesOnlyTheSubtreeThatNeedsIt(t *testing.T) {
 	raw, _ := doc.Raw(link.ModuleName)
 	if link.HasLegacyKeys(raw) {
 		t.Errorf("link still carries the old key: %s", raw)
+	}
+}
+
+// The vocabulary swap: `devices` used to be the things on the LAN and
+// `network` the equipment olr reads. Both move, in one write, and the clients
+// subtree is rewritten as well as re-keyed — its list was stored under
+// `devices` inside the subtree too.
+func TestMigrateRenamesTheTwoInventories(t *testing.T) {
+	const document = `{
+  "devices": {
+    "devices": [{"mac": "aa:bb:cc:dd:ee:ff", "name": "printer"}],
+    "groups": [{"name": "Serving"}]
+  },
+  "network": {
+    "devices": [{"id": "switch", "adapter": "mercury", "address": "http://192.168.1.2", "roles": ["switch"]}]
+  }
+}`
+	path := filepath.Join(t.TempDir(), "olr.json")
+	if err := os.WriteFile(path, []byte(document), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store := core.NewStore(path, clients.ModuleName, devices.ModuleName)
+
+	changed, err := migrateDocument(store, testFacts(t, ""), quietLogger())
+	if err != nil {
+		t.Fatalf("migrateDocument: %v", err)
+	}
+	if !changed {
+		t.Fatal("reported no change for a document in the old vocabulary")
+	}
+
+	doc, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := doc.Raw("network"); ok {
+		t.Error("the old equipment key survived the migration")
+	}
+	clientsCfg, err := clients.FromDocument(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(clientsCfg.Clients) != 1 || clientsCfg.Clients[0].Name != "printer" {
+		t.Errorf("client inventory = %+v, want the printer", clientsCfg.Clients)
+	}
+	if len(clientsCfg.Groups) != 1 || clientsCfg.Groups[0].Name != "Serving" {
+		t.Errorf("groups = %+v, want Serving", clientsCfg.Groups)
+	}
+	devicesCfg, err := devices.FromDocument(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(devicesCfg.Devices) != 1 || devicesCfg.Devices[0].ID != "switch" {
+		t.Errorf("device inventory = %+v, want the switch", devicesCfg.Devices)
+	}
+
+	// Idempotent: a second run finds nothing to do.
+	changed, err = migrateDocument(store, testFacts(t, ""), quietLogger())
+	if err != nil {
+		t.Fatalf("second migrateDocument: %v", err)
+	}
+	if changed {
+		t.Fatal("the migration rewrote a document already in the current shape")
+	}
+}
+
+// A document already using `devices` for equipment must not be mistaken for the
+// old client inventory: the two are told apart by shape, not only by key.
+func TestMigrateLeavesTheEquipmentInventoryAlone(t *testing.T) {
+	const document = `{
+  "devices": {"devices": [{"id": "ap", "adapter": "openwrt", "address": "http://192.168.1.3"}]}
+}`
+	path := filepath.Join(t.TempDir(), "olr.json")
+	if err := os.WriteFile(path, []byte(document), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store := core.NewStore(path, clients.ModuleName, devices.ModuleName)
+
+	if _, err := migrateDocument(store, testFacts(t, ""), quietLogger()); err != nil {
+		t.Fatalf("migrateDocument: %v", err)
+	}
+	doc, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	devicesCfg, err := devices.FromDocument(doc)
+	if err != nil {
+		t.Fatalf("equipment inventory was lost: %v", err)
+	}
+	if len(devicesCfg.Devices) != 1 || devicesCfg.Devices[0].ID != "ap" {
+		t.Errorf("device inventory = %+v, want the access point", devicesCfg.Devices)
+	}
+	if _, ok := doc.Raw(clients.ModuleName); ok {
+		t.Error("an equipment document was re-keyed as a client inventory")
 	}
 }

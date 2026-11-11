@@ -110,7 +110,7 @@ export function HostDialog({
 
           {suggestions.length > 0 && (
             <div className="grid gap-2">
-              <Label>{t('Reserved devices')}</Label>
+              <Label>{t('Reserved clients')}</Label>
               <div className="flex flex-wrap gap-2">
                 {suggestions.map((r) => (
                   <Button

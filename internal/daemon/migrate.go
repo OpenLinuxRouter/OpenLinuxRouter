@@ -5,7 +5,9 @@ import (
 	"log/slog"
 	"net/netip"
 
+	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/core"
+	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/dhcp"
 	"github.com/open-linux-router/open-linux-router/internal/link"
 )
@@ -64,6 +66,10 @@ func migrateDocument(store *core.Store, facts link.Facts, log *slog.Logger) (boo
 	if err != nil {
 		return false, err
 	}
+	doc, moved, err := renameInventories(doc)
+	if err != nil {
+		return false, err
+	}
 
 	dhcpCfg, err := dhcp.FromDocument(doc)
 	if err != nil {
@@ -73,7 +79,7 @@ func migrateDocument(store *core.Store, facts link.Facts, log *slog.Logger) (boo
 	rewriteLink := hasLegacyKeys(doc, link.ModuleName, link.HasLegacyKeys)
 	rewriteDhcp := hasLegacyKeys(doc, dhcp.ModuleName, dhcp.HasLegacyKeys)
 	legacyPools := len(dhcpCfg.Legacy) > 0
-	if !legacyPools && !rewriteLink && !rewriteDhcp {
+	if !legacyPools && !rewriteLink && !rewriteDhcp && !moved {
 		return false, nil
 	}
 
@@ -120,11 +126,51 @@ func migrateDocument(store *core.Store, facts link.Facts, log *slog.Logger) (boo
 	if legacyPools {
 		log.Info("migrated dhcp pools onto networks",
 			"pools", len(dhcpCfg.Pools), "networks", len(linkCfg.Networks))
-	} else {
+	}
+	if moved {
+		log.Info("renamed the stored inventories: devices are network equipment, clients are the things on the LAN")
+	}
+	if !legacyPools && !moved {
 		log.Info("renamed the stored network keys from group to network",
 			"link", rewriteLink, "dhcp", rewriteDhcp)
 	}
 	return true, nil
+}
+
+// renameInventories moves the two inventories to the words the rest of the box
+// now uses. `devices` used to name the MAC-keyed inventory of things on the LAN
+// and `network` the equipment olr reads; today `devices` is the equipment and
+// `clients` the things on the LAN.
+//
+// The clients subtree is rewritten as well as re-keyed: its list was stored
+// under `devices` inside the subtree too, and keeping that key readable forever
+// would mean two shapes of one document. The equipment subtree only moves.
+func renameInventories(doc core.Document) (core.Document, bool, error) {
+	moved := false
+	if raw, ok := doc.Raw("devices"); ok {
+		if _, taken := doc.Raw(clients.ModuleName); !taken {
+			// A clients subtree decodes as one; an equipment subtree stored
+			// under the new name does not (its entries carry adapter and
+			// address), so it is left for the devices module to read.
+			if c, err := clients.UnmarshalConfig(raw); err == nil && c.Legacy {
+				data, err := clients.MarshalConfig(c)
+				if err != nil {
+					return doc, false, err
+				}
+				doc.Set(clients.ModuleName, data)
+				doc.Delete("devices")
+				moved = true
+			}
+		}
+	}
+	if raw, ok := doc.Raw("network"); ok {
+		if _, taken := doc.Raw(devices.ModuleName); !taken {
+			doc.Set(devices.ModuleName, raw)
+			doc.Delete("network")
+			moved = true
+		}
+	}
+	return doc, moved, nil
 }
 
 // hasLegacyKeys asks a module whether its stored subtree still uses a key the

@@ -20,7 +20,7 @@ func TestBackupValidationUsesCandidateNetworks(t *testing.T) {
 	source := func() ([]link.Interface, error) {
 		return []link.Interface{{Name: "lan0", Up: true, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.0.1/24")}}}, nil
 	}
-	doc, err := s.ParseBackup([]byte(body))
+	doc, err := s.ParseBackup([]byte(body), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestBackupValidationUsesCandidateNetworks(t *testing.T) {
 		strings.Replace(body, `"enabled":true`, `"enabled":true,"typo":true`, 1),
 		strings.Replace(body, `"$schema"`, `"system":{"access":{"password":{"hash":"broken"}}},"$schema"`, 1),
 	} {
-		doc, err := s.ParseBackup([]byte(bad))
+		doc, err := s.ParseBackup([]byte(bad), nil)
 		if err == nil {
 			err = validateBackup(context.Background(), doc, source)
 		}
@@ -45,7 +45,7 @@ func TestBackupValidationUsesCandidateNetworks(t *testing.T) {
 
 func TestBackupValidationAcceptsEmptyConfiguration(t *testing.T) {
 	s := configurationStore(filepath.Join(t.TempDir(), "olr.json"))
-	doc, err := s.ParseBackup([]byte(`{"$schema":"` + core.SchemaURL + `"}`))
+	doc, err := s.ParseBackup([]byte(`{"$schema":"`+core.SchemaURL+`"}`), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
