@@ -3,9 +3,10 @@
  * snapshot this app reads.
  *
  * An inventory entry is not a "device" in the MAC-keyed client list: it is a box
- * olr reaches over its management interface. `roles` is a set rather than a
- * type, because one box can be a switch and an access point at once, and pages
- * grow their tabs from what a snapshot reports instead of from a fixed model.
+ * olr reaches over its management interface. `adapter` is the device type and
+ * decides which page the box gets. `roles` is a set rather than a type, because
+ * a fiber ONT usually terminates the line and routes at once, and an OpenWrt box
+ * can be an access point and a router at the same time.
  *
  * Every optional field is genuinely optional. An adapter or firmware that cannot
  * observe a metric leaves it absent rather than reporting a zero, and the page

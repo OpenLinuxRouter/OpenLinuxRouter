@@ -98,19 +98,31 @@ switch or an access point and stores the management password in the
 configuration, so onboarding never requires setting a variable in `olrd`'s
 environment.
 
-The device page is read-only and grows its tabs from the snapshot rather than
-from a device type:
+The page below `/devices/{id}` is read-only, and which page it is follows the
+**adapter** — the inventory's device type. Each type answers the questions that
+device can answer, in its own tabs and its own words:
 
-| Tab | Shows |
-| --- | --- |
-| Overview | Identity, the state of every collection this read attempted, and the device's own capability list with each reason. |
-| Ports | Link state, speed and duplex, packet or byte counters, and error counters, in the device's own port order. |
-| VLAN | Device-local VLANs with tagged and untagged ports, and whether VLAN mode is active. |
-| MAC lookup | A bounded `fdb.lookup` for one address, with an optional VLAN. |
+| Page | Tabs | Shows |
+| --- | --- | --- |
+| Switch (`mercury`) | Overview, Ports, VLAN, MAC lookup | Identity and the state of every collection this read attempted; link state, speed, duplex, counters and errors in the device's own port order; device-local VLAN membership with tagged and untagged ports and whether VLAN mode is active; a bounded `fdb.lookup` for one address, VLAN optional. |
+| OpenWrt (`openwrt`) | Overview, Ports | Identity, uptime and the collection states; the port table; a radio and client count that links to `/wireless`. |
+| Fiber ONT (`huawei`) | Line, WAN, Ports | PON mode, registration, carrier build, CPU/memory/NAT, and the transceiver's readings against the window the ONT publishes; one row per carrier service with its service VLAN and 802.1p priority, address, IPv6 prefix and counters; the PON line and LAN ports. |
 
 Wi-Fi stays on `/wireless`: an access point's radios, clients, channels and
-scans are a view of that device, not a second copy of it, and the device page
-links there. Mercury switches have no radios, so the link is absent.
+scans are a view of that device, not a second copy of it, and the OpenWrt page
+shows only a count and a link. An ONT's VLAN is a carrier service tag on a WAN
+row, never switch port membership: the two mean different things and do not
+share a table. `roles` still records what a box is in the operator's words, but
+the adapter picks the page, because a role set cannot tell a switch page what a
+switch page says — and a shared page can only be the union of every type's
+concerns, with `unsupported` capabilities used to hide the parts a box was never
+going to have.
+
+Each view reports the collections its own read attempted, with the adapter's
+reason for any it could not obtain, so a section that failed is never drawn as
+an empty table. The device's capability list stays on every page as a
+disclosure, as evidence rather than as a tab filter: a box that cannot read
+VLANs has no VLAN tab, not a greyed-out one.
 
 The list is configuration only. Opening a device is what contacts it — the
 daemon reads on demand and nothing polls the hardware from the page, so a row

@@ -22,8 +22,8 @@ import { useDeviceEditor, useDevicesConfig } from './queries'
  * It is not the client list (that is MAC-keyed and lives on Overview) and not
  * Gateway's networks: those are subnets this router serves. A switch, an access
  * point and a router that happens to run OpenWrt are the same kind of entry
- * here, distinguished by roles, and each one's page grows its tabs from what
- * that device actually reports.
+ * here, distinguished by roles; the adapter is the type, and it decides which
+ * page the box gets: `switch-page`, `openwrt-page` or `ont-page`.
  *
  * The list is configuration only. Reading a device means contacting it, so
  * nothing on this page does that: a device is read when somebody opens it.
@@ -97,7 +97,8 @@ export function DevicesPage() {
         <Disclosure summary={t('What can be read here')}>
           <div className="max-w-prose space-y-2 text-sm leading-6 text-muted-foreground">
             <p>{t('Every reading is dated evidence from the device’s own management interface, never a background poll. A section the adapter cannot read says so instead of showing an empty table.')}</p>
-            <p>{t('Mercury switches report ports, counters, VLANs, PVIDs and a MAC lookup. OpenWrt reports identity, ports, counters and, on an access point, radios and clients.')}</p>
+            <p>{t('A Mercury switch has a page for its ports, counters, VLANs, PVIDs and a MAC lookup. An OpenWrt box has a page for identity, ports and counters, with its radios and clients on the Wireless page.')}</p>
+            <p>{t('A Huawei ONT has a page for the fiber line it terminates: registration, the optical budget, the carrier services on it and its LAN ports. It has no switch VLAN table or MAC table to read, so it has no page for them.')}</p>
             <p>{t('Nothing on these pages writes to the device: no port, VLAN, radio or reboot control.')}</p>
           </div>
         </Disclosure>
