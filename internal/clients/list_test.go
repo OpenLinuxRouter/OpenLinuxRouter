@@ -406,7 +406,7 @@ func TestBuildPrefersTheObservedInterface(t *testing.T) {
 	}
 }
 
-// A device seen on an interface that carries no network falls through to the
+// A client seen on an interface that carries no network falls through to the
 // range, and is left unplaced if that finds nothing.
 //
 // Reporting the interface would be reporting something that is not one of this

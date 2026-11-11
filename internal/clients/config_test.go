@@ -23,10 +23,10 @@ func TestUnmarshalConfigRoundTrip(t *testing.T) {
 
 	// Normalize sorts by MAC, so 11:… precedes aa:….
 	if cfg.Clients[0].MAC != "11:22:33:44:55:66" {
-		t.Errorf("devices[0].MAC = %q; want the list sorted by MAC", cfg.Clients[0].MAC)
+		t.Errorf("clients[0].MAC = %q; want the list sorted by MAC", cfg.Clients[0].MAC)
 	}
 	if cfg.Clients[1].MAC != "aa:bb:cc:dd:ee:ff" {
-		t.Errorf("devices[1].MAC = %q; want it canonicalised", cfg.Clients[1].MAC)
+		t.Errorf("clients[1].MAC = %q; want it canonicalised", cfg.Clients[1].MAC)
 	}
 
 	out, err := MarshalConfig(cfg)
@@ -131,7 +131,7 @@ func TestFindAndRemove(t *testing.T) {
 		t.Error("Find should canonicalise its argument")
 	}
 	if _, ok := cfg.Find("11:22:33:44:55:66"); ok {
-		t.Error("Find returned a device that is not there")
+		t.Error("Find returned a client that is not there")
 	}
 	if !cfg.Remove("AA:BB:CC:DD:EE:FF") {
 		t.Error("Remove should canonicalise its argument")
@@ -140,7 +140,7 @@ func TestFindAndRemove(t *testing.T) {
 		t.Errorf("want an empty config after removing the only device, got %+v", cfg)
 	}
 	if cfg.Remove("aa:bb:cc:dd:ee:ff") {
-		t.Error("Remove reported success for a device that was already gone")
+		t.Error("Remove reported success for a client that was already gone")
 	}
 }
 

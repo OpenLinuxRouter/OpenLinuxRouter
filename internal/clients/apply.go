@@ -42,7 +42,7 @@ type Applier struct {
 	// is a smaller answer rather than a wrong one.
 	Networks NetworkView
 
-	// Seen is what the router remembers about devices that are not here: when
+	// Seen is what the router remembers about clients that are not here: when
 	// each was last heard from, and the name it last announced. Nil leaves both
 	// out rather than claiming the client was never heard or never named.
 	Seen *Seen

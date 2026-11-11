@@ -397,7 +397,7 @@ func UnmarshalConfig(data []byte) (Config, error) {
 	return c, nil
 }
 
-// renameLegacyClients rewrites the pre-rename `client` upstream key to
+// renameLegacyClients rewrites the pre-rename `device` upstream key to
 // `client`. The upstream is the only object in this subtree that ever had that
 // key, so a walk of the whole document is safe and keeps the strict decoder
 // below doing its job.

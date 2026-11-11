@@ -16,7 +16,7 @@ import (
 // Sources are declared here, by the consumer, for the reasons LinkView gives in
 // internal/dhcp/link.go: it states exactly the facts this module needs instead
 // of exposing all of another module's surface, and it lets the module be built
-// and tested before those sources exist. It also keeps `devices` from importing
+// and tested before those sources exist. It also keeps `clients` from importing
 // `dhcp` — the lease adapter is wired in internal/daemon, so the dependency is one
 // interface pointing the way the DAG (§4.1) says it should.
 

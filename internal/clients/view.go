@@ -42,7 +42,7 @@ type deviceView struct {
 	// than instead of it: the name is what a person reads, the key is what
 	// selects a picture, and only a few dozen vendors have one. Absent for the
 	// rest, which a client renders by falling through to the category — see
-	// deviceIcon() in the SPA's features/devices/icons.ts.
+	// deviceIcon() in the SPA's features/clients/icons.ts.
 	VendorKey VendorKey `json:"vendor_key,omitempty"`
 
 	Model string `json:"model,omitempty"`
@@ -282,7 +282,7 @@ func describeGroup(g Group, prefix string) string {
 	return out
 }
 
-func path(mac string) string { return fmt.Sprintf("devices[%s]", mac) }
+func path(mac string) string { return fmt.Sprintf("clients[%s]", mac) }
 
 // describe renders a client as prefixed lines, omitting fields that are unset
 // so a diff shows what was said rather than a form full of blanks.

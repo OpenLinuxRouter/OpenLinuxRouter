@@ -331,7 +331,7 @@ func (s *Seen) LastSeen(mac string) (time.Time, bool) {
 // Hostname is the last name the client announced, and when it was heard.
 //
 // The name is an observation with a date, never stored intent: see the file
-// comment. A device that has never announced anything has none, which is not
+// comment. A client that has never announced anything has none, which is not
 // the same as one that announced an empty name — that is not recorded at all.
 func (s *Seen) Hostname(mac string) (string, time.Time, bool) {
 	if s == nil {

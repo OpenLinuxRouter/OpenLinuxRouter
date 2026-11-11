@@ -154,7 +154,7 @@ func (h HTTP) putConfig(w http.ResponseWriter, r *http.Request) {
 
 // patchConfig changes named fields and leaves the rest alone.
 //
-// Same RFC 7386 array semantics as internal/dhcp: a patch containing "devices"
+// Same RFC 7386 array semantics as internal/dhcp: a patch containing "clients"
 // replaces the whole list rather than merging into it, which is why naming one
 // device is a PUT of the new document rather than a PATCH of one entry.
 func (h HTTP) patchConfig(w http.ResponseWriter, r *http.Request) {

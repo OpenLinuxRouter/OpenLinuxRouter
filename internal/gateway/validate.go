@@ -124,14 +124,14 @@ func validateDevices(r *Result, c Config, links LinkView) {
 	}
 	seen := map[string]int{}
 	for i, a := range c.Clients {
-		path := fmt.Sprintf("devices[%d]", i)
+		path := fmt.Sprintf("clients[%d]", i)
 		mac, err := core.NormalizeMAC(a.MAC)
 		if err != nil {
 			r.errorf(path+".mac", "invalid client MAC %q: %v", a.MAC, err)
 		} else if len(strings.Split(mac, ":")) != 6 {
 			r.errorf(path+".mac", "a client override needs a 6-byte Ethernet MAC address")
 		} else if first, ok := seen[mac]; ok {
-			r.errorf(path+".mac", "%s is already assigned at devices[%d]", mac, first)
+			r.errorf(path+".mac", "%s is already assigned at clients[%d]", mac, first)
 		} else {
 			seen[mac] = i
 		}

@@ -40,8 +40,8 @@ type Config struct {
 	// one-time event rather than a second shape that lives forever.
 	Legacy bool `json:"-"`
 
-	// Groups are the operator's sets of devices — "Serving", "Personal", "IoT"
-	// (design.md §4.4). A device is in at most one, named by Client.Group.
+	// Groups are the operator's sets of clients — "Serving", "Personal", "IoT"
+	// (design.md §4.4). A client is in at most one, named by Client.Group.
 	//
 	// Nothing is seeded and nothing is assigned automatically. A group exists
 	// because somebody made it and a client is in one because somebody put it
@@ -51,7 +51,7 @@ type Config struct {
 	Groups []Group `json:"groups,omitempty"`
 }
 
-// Group is one set of devices.
+// Group is one set of clients.
 //
 // Today it carries only a name and is used to lay out the network map. It is a
 // struct rather than a string because it is the tier gateway.md §2.1 reserves
@@ -84,7 +84,7 @@ const MaxGroupDepth = 4
 
 // Client is what a human has said about one client on the network.
 //
-// Every field is optional except the key. A device with nothing but a MAC is
+// Every field is optional except the key. A client with nothing but a MAC is
 // still worth storing: it is how a statically-addressed printer that never
 // speaks DHCP gets into the list at all (§10 decision 7).
 type Client struct {
@@ -179,7 +179,7 @@ type legacyConfig struct {
 	Groups  []Group  `json:"groups,omitempty"`
 }
 
-// HasLegacyKeys reports whether a stored subtree still uses the old `devices`
+// HasLegacyKeys reports whether a stored subtree still uses the old `clients`
 // key. The daemon's migration asks before rewriting anything.
 func HasLegacyKeys(raw []byte) bool {
 	var probe struct {
@@ -222,7 +222,7 @@ func FromDocument(d core.Document) (Config, error) {
 }
 
 // Normalize puts the config in canonical form: MACs canonicalised, whitespace
-// trimmed, devices sorted by MAC.
+// trimmed, clients sorted by MAC.
 //
 // Sorting is not cosmetic. The list is rendered in stored order, so an
 // append-on-edit would make a row jump to the bottom the moment it was renamed
@@ -246,7 +246,7 @@ func (c *Config) Normalize() {
 		return strings.Compare(a.MAC, b.MAC)
 	})
 
-	// Groups are trimmed and sorted by name, for the same reason devices are
+	// Groups are trimmed and sorted by name, for the same reason clients are
 	// sorted by MAC. Duplicates are left in place for Validate to name: two
 	// groups called "IoT" is something the operator typed, and silently keeping
 	// one would drop whatever made them type the other.
@@ -365,7 +365,7 @@ func (c *Config) RenameGroup(from, to string) bool {
 }
 
 // RemoveGroup drops a group, reporting whether it existed. What it held moves
-// up one level: its devices and its subgroups go to its parent, or to the top
+// up one level: its clients and its subgroups go to its parent, or to the top
 // when it had none.
 //
 // Up one level rather than out altogether, because deleting "VMs" inside
@@ -416,7 +416,7 @@ func (c Config) Ancestors(name string) []string {
 // SetDeviceGroup puts a client in a group, or takes it out of every group when
 // group is empty.
 //
-// A device that has never been described gets an entry holding just its MAC
+// A client that has never been described gets an entry holding just its MAC
 // and the group, which is how a client that was only ever seen joins one — it
 // is the same "a MAC alone is worth storing" rule the printer relies on.
 func (c *Config) SetDeviceGroup(mac, group string) {

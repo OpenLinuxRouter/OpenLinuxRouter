@@ -72,9 +72,9 @@ func TestDeviceOverridesRejectInvalidDuplicateAndMissingExit(t *testing.T) {
 		{MAC: "AA-BB-CC-DD-EE-FF", Exit: "Missing"},
 	}
 	r := Validate(c, testLinks())
-	errorAt(t, r, "devices[0].mac")
-	errorAt(t, r, "devices[2].mac")
-	errorAt(t, r, "devices[2].exit")
+	errorAt(t, r, "clients[0].mac")
+	errorAt(t, r, "clients[2].mac")
+	errorAt(t, r, "clients[2].exit")
 }
 
 func TestDeviceOverrideWithoutAnAdoptedNetworkWarns(t *testing.T) {

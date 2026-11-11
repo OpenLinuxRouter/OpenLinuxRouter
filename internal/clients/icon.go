@@ -20,7 +20,7 @@ import (
 //
 // The first is the answer to randomised MACs. A modern phone or laptop hides
 // its maker from the registry, so the Apple pictures a detected vendor would
-// select are unreachable for exactly the devices most likely to be Apple ones;
+// select are unreachable for exactly the clients most likely to be Apple ones;
 // letting the operator say so is the only way to get there. The second is for
 // machines better known by what they run — a Proxmox host, a Debian VM — where
 // a generic server picture says less than the logo does. A variant is for a
@@ -30,7 +30,7 @@ import (
 // Closed on both halves, like Category and VendorKey, so a stored icon always
 // names something the UI can resolve or deliberately fall back from. Whether a
 // picture has actually been *drawn* for a given vendor/category pair is the
-// UI's business (see IMAGES in the SPA's features/devices/icons.ts): an
+// UI's business (see IMAGES in the SPA's features/clients/icons.ts): an
 // undrawn pair falls back to the category's own picture rather than failing,
 // which is what lets the artwork keep growing without a config migration.
 type Icon string
@@ -64,7 +64,7 @@ var variants = map[string][]string{
 	// drawn from — so the picker files them under the maker now. These keys
 	// stay valid because a config that stored one must still load, and the SPA
 	// still draws them from the moved pictures (see MOVED_ICONS in
-	// features/devices/icons.ts); nothing offers them any more.
+	// features/clients/icons.ts); nothing offers them any more.
 	"nas": {"4bay", "5bay", "6bay", "8bay"},
 	// One to twelve bays, drawn as one product line so the family reads as one.
 	// "2bay" is absent on purpose: the two-bay box is the vendor picture

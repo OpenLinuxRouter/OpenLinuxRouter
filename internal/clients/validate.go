@@ -70,7 +70,7 @@ func Validate(c Config) Result {
 
 	seen := map[string]int{}
 	for i, d := range c.Clients {
-		path := fmt.Sprintf("devices[%d]", i)
+		path := fmt.Sprintf("clients[%d]", i)
 
 		mac, err := core.NormalizeMAC(d.MAC)
 		switch {
@@ -81,7 +81,7 @@ func Validate(c Config) Result {
 		default:
 			if first, dup := seen[mac]; dup {
 				r.errorf(path+".mac",
-					"%s is already described at devices[%d]; a device is keyed by MAC, so it appears once",
+					"%s is already described at clients[%d]; a client is keyed by MAC, so it appears once",
 					mac, first)
 			} else {
 				seen[mac] = i

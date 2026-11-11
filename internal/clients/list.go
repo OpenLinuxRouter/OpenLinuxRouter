@@ -34,7 +34,7 @@ type FixedAddressView interface {
 // FixedAddressView: this module declares what it needs and never imports dhcp.
 //
 // It exists because the neighbour table is the only source that reports an
-// interface, and it only knows devices it has heard from lately. A device that
+// interface, and it only knows clients it has heard from lately. A client that
 // is merely asleep still holds a lease, and placing it by which range its
 // address falls in is the difference between a map of the household and a map
 // of whatever happens to be awake.
@@ -50,7 +50,7 @@ type NetworkView interface {
 // The distinction is not cosmetic here — this is the value that reaches the
 // client list and the topology map as "which network is this on", so naming it
 // by kernel interface meant the operator called a network `lan` everywhere
-// except the one screen where they look for their devices.
+// except the one screen where they look for their clients.
 type Network struct {
 	// Name is the network's name, and what a placed device reports.
 	Name string
@@ -87,7 +87,7 @@ func place(addr netip.Addr, networks []Network) (string, bool) {
 
 // placeInterface returns the name of the network an interface carries.
 //
-// A device seen on an interface that carries no network is left unplaced rather
+// A client seen on an interface that carries no network is left unplaced rather
 // than reported as being on an interface. That is the same rule the range
 // fallback follows and the one the field's own contract states: filing a client
 // under a plausible-looking guess is the failure mode to avoid, and "bridge0"
@@ -126,7 +126,7 @@ const (
 	OriginNone Origin = ""
 )
 
-// History is what the router remembers about devices that are not here now:
+// History is what the router remembers about clients that are not here now:
 // when it last heard them, and the name they last announced.
 //
 // It is an interface rather than *Seen so that the join can be exercised
@@ -226,7 +226,7 @@ func (r Resolved) DisplayName() string {
 // year that is currently powered off, the guest phone nobody has named, and the
 // reservation made for a client that has not connected yet.
 //
-// History adds names and times to those devices, never devices to the list: a
+// History adds names and times to those clients, never clients to the list: a
 // MAC nobody described, saw or reserved is not a client the operator has here,
 // and remembering every randomised address a phone ever used would be a list of
 // everything rather than a map of the network.
@@ -250,7 +250,7 @@ func Build(cfg Config, sightings []Sighting, fixed map[string]string, networks [
 	}
 
 	// Sorted by the name the operator reads, not by presence. Sorting online
-	// devices first would reorder the whole list every time a phone slept,
+	// clients first would reorder the whole list every time a phone slept,
 	// which is the row-jumping that makes a table impossible to click in.
 	slices.SortStableFunc(out, func(a, b Resolved) int {
 		an, bn := strings.ToLower(a.DisplayName()), strings.ToLower(b.DisplayName())
@@ -279,7 +279,7 @@ func resolve(mac string, cfg Config, presence map[string]Presence, fixed map[str
 	}
 
 	// Which network the client is on, preferring what a source actually saw.
-	// The neighbour table only knows devices it has heard from lately, so the
+	// The neighbour table only knows clients it has heard from lately, so the
 	// range fallback is what keeps a sleeping phone on the map — and the two are
 	// complementary rather than redundant: ARP is the only thing that can place
 	// a statically-addressed device, whose address sits outside every pool.

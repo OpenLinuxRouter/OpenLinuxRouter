@@ -79,7 +79,7 @@ func TestVendorKeysAreSlugs(t *testing.T) {
 }
 
 // Two names may share a key — a vendor with several spellings is still one
-// vendor — but a key must not be spelled two ways, or half the devices go to
+// vendor — but a key must not be spelled two ways, or half the clients go to
 // one filename and half to another.
 func TestVendorKeysAreDistinctPerName(t *testing.T) {
 	seen := map[VendorKey]string{}

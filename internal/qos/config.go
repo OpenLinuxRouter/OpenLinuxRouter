@@ -51,7 +51,7 @@ type legacyConfig struct {
 	Devices      []Client `json:"devices,omitempty"`
 }
 
-// HasLegacyKeys reports whether a stored subtree still uses the old `clients`
+// HasLegacyKeys reports whether a stored subtree still uses the old `devices`
 // key, so the daemon can rewrite it once.
 func HasLegacyKeys(raw []byte) bool {
 	var probe struct {

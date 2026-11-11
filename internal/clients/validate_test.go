@@ -129,8 +129,8 @@ func TestValidateAddressesProblemsToTheOffendingField(t *testing.T) {
 	if res.OK() {
 		t.Fatal("expected an error")
 	}
-	if got := res.Errors[0].Path; got != "devices[1].mac" {
-		t.Errorf("Path = %q, want %q so a UI can attach it to the field", got, "devices[1].mac")
+	if got := res.Errors[0].Path; got != "clients[1].mac" {
+		t.Errorf("Path = %q, want %q so a UI can attach it to the field", got, "clients[1].mac")
 	}
 }
 

@@ -151,7 +151,7 @@ func TestValidateGroups(t *testing.T) {
 		{
 			name: "device names a group that does not exist",
 			cfg:  Config{Clients: []Client{{MAC: nasMAC, Group: "Serving"}}},
-			path: "devices[0].group",
+			path: "clients[0].group",
 		},
 		{
 			name: "empty group name",
@@ -200,7 +200,7 @@ func TestPlanListsGroupChanges(t *testing.T) {
 	}
 	got := strings.Join(kinds, "; ")
 	for _, want := range []string{
-		"update devices[" + nasMAC + "]",
+		"update clients[" + nasMAC + "]",
 		"create groups[HomeLab]",
 		"delete groups[Serving]",
 	} {
