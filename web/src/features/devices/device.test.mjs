@@ -58,8 +58,10 @@ test('speeds, counters and uptimes read the way an operator says them', () => {
 test('the equipment words name the adapter and every role a box carries', () => {
   assert.equal(adapterLabel('mercury'), 'Mercury')
   assert.equal(adapterLabel('openwrt'), 'OpenWrt')
+  assert.equal(adapterLabel('huawei'), 'Huawei ONT')
   assert.deepEqual(roleLabels({ id: 'core', adapter: 'mercury', address: 'http://x', roles: ['ap', 'switch'] }), ['Switch', 'Access point'])
   assert.deepEqual(roleLabels({ id: 'ap', adapter: 'openwrt', address: 'http://x' }), [])
+  assert.deepEqual(roleLabels({ id: 'ont', adapter: 'huawei', address: 'http://x', roles: ['ont', 'router'] }), ['ONT', 'Router'])
 })
 
 test('kinds and port IDs keep the device’s own names when the contract has none', () => {

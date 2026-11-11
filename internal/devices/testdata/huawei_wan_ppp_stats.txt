@@ -1,0 +1,3 @@
+function() {
+  return new Array(new WaninfoStats("InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Stats","387857685","301408669","2465325","2017320","2465325","2017320","0","0","0","0"),new WaninfoStats("InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2.WANPPPConnection.1.Stats","1045140336","3546344634","649403703","3833440643","649403702","3833440643","0","0","1","0"),new WaninfoStats("InternetGatewayDevice.WANDevice.1.WANConnectionDevice.3.WANPPPConnection.1.Stats","0","20965","0","177","0","177","0","0","0","0"),new WaninfoStats("InternetGatewayDevice.WANDevice.1.WANConnectionDevice.5.WANPPPConnection.1.Stats","157726235","86160748","1845836","1336556","1586852","1336556","258983","0","1","0"),null);
+}

@@ -36,6 +36,7 @@ export function DevicesPage() {
   const [dialog, setDialog] = useState<'add' | null>(null)
   const devices = config.data?.devices ?? []
   const types: DeviceType[] = [
+    { label: t('Huawei fiber ONT'), adapter: 'huawei', roles: ['ont'] },
     { label: t('Mercury switch'), adapter: 'mercury', roles: ['switch'] },
     { label: t('OpenWrt access point'), adapter: 'openwrt', roles: ['ap'] },
     { label: t('OpenWrt router'), adapter: 'openwrt', roles: ['router'] },

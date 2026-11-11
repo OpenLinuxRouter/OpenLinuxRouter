@@ -17,7 +17,7 @@ const ModuleName = "devices"
 type Device struct {
 	ID       string `json:"id"`
 	Name     string `json:"name,omitempty"`
-	Adapter  string `json:"adapter" jsonschema:"enum=mercury,enum=openwrt"`
+	Adapter  string `json:"adapter" jsonschema:"enum=mercury,enum=openwrt,enum=huawei"`
 	Address  string `json:"address"`
 	Username string `json:"username,omitempty"`
 	// Password is the management credential stored in the inventory. Every read
@@ -63,6 +63,9 @@ const (
 	Router Role = "router"
 	Switch Role = "switch"
 	AP     Role = "ap"
+	// OpticalNetworkTerminal is the fiber modem itself: the box the provider
+	// hands over, which terminates the line and usually routes one WAN.
+	OpticalNetworkTerminal Role = "ont"
 )
 
 type Config struct {
@@ -230,7 +233,90 @@ type Snapshot struct {
 	Radios       []Radio               `json:"radios,omitempty"`
 	Wireless     []WirelessNetwork     `json:"wireless,omitempty"`
 	Associations []Association         `json:"associations,omitempty"`
+	ONT          *ONT                  `json:"ont,omitempty"`
 }
+
+// ONT is what a fiber gateway reports about the line it terminates, which no
+// other device family here can see: the optical budget at the far end and the
+// carrier services riding on it.
+type ONT struct {
+	PON     PON             `json:"pon"`
+	Optical *Optical        `json:"optical,omitempty"`
+	Health  *ONTHealth      `json:"health,omitempty"`
+	WAN     []WANConnection `json:"wan,omitempty"`
+	// Customization is the carrier build the firmware was made for, as the
+	// device names it (for example BJUNICOM). It says which pages exist, not
+	// which network the ONT is on.
+	Customization string `json:"customization,omitempty"`
+}
+
+// PON is the passive-optical line itself, separately from the transceiver.
+type PON struct {
+	Mode       string `json:"mode,omitempty"`
+	State      string `json:"state,omitempty"`
+	Registered *bool  `json:"registered,omitempty"`
+}
+
+// Optical is one transceiver reading. Ranges are the vendor's own acceptable
+// window for this ONT, reported rather than baked in: a GPON ONT and a 10G-EPON
+// ONT do not share them.
+type Optical struct {
+	LinkUp         *bool        `json:"link_up,omitempty"`
+	RXDBm          *float64     `json:"rx_dbm,omitempty"`
+	TXDBm          *float64     `json:"tx_dbm,omitempty"`
+	RXRangeDBm     *SignalRange `json:"rx_range_dbm,omitempty"`
+	TXRangeDBm     *SignalRange `json:"tx_range_dbm,omitempty"`
+	TemperatureC   *float64     `json:"temperature_c,omitempty"`
+	VoltageMV      *uint64      `json:"voltage_mv,omitempty"`
+	CurrentMA      *uint64      `json:"current_ma,omitempty"`
+	ModuleVendor   string       `json:"module_vendor,omitempty"`
+	ModuleSerial   string       `json:"module_serial,omitempty"`
+	DateCode       string       `json:"date_code,omitempty"`
+	TXWavelengthNM *uint64      `json:"tx_wavelength_nm,omitempty"`
+	RXWavelengthNM *uint64      `json:"rx_wavelength_nm,omitempty"`
+	LOS            *bool        `json:"los,omitempty"`
+}
+
+type SignalRange struct {
+	Min float64 `json:"min"`
+	Max float64 `json:"max"`
+}
+
+// ONTHealth is the control-plane load an ONT reports on its own status page.
+type ONTHealth struct {
+	CPUPercent    *float64 `json:"cpu_percent,omitempty"`
+	MemoryPercent *float64 `json:"memory_percent,omitempty"`
+	NATSessions   *uint64  `json:"nat_sessions,omitempty"`
+}
+
+// WANConnection is one carrier service the ONT terminates. Traffic counters use
+// the ONT's own perspective: RX is what arrived from the carrier.
+type WANConnection struct {
+	// Path is the device-local instance path, which is also the join key for
+	// the counters and addresses reported on separate pages.
+	Path          string   `json:"path"`
+	Name          string   `json:"name,omitempty"`
+	Service       string   `json:"service,omitempty"`
+	Interface     string   `json:"interface,omitempty"`
+	Status        string   `json:"status,omitempty"`
+	MAC           string   `json:"mac,omitempty"`
+	Username      string   `json:"username,omitempty"`
+	VLAN          *uint64  `json:"vlan,omitempty"`
+	Priority      *uint64  `json:"priority,omitempty"`
+	Address       string   `json:"address,omitempty"`
+	Gateway       string   `json:"gateway,omitempty"`
+	DNS           []string `json:"dns,omitempty"`
+	IPv6          []string `json:"ipv6,omitempty"`
+	IPv6Prefix    string   `json:"ipv6_prefix,omitempty"`
+	UptimeSeconds *uint64  `json:"uptime_seconds,omitempty"`
+	RXBytes       *uint64  `json:"rx_bytes,omitempty"`
+	TXBytes       *uint64  `json:"tx_bytes,omitempty"`
+	RXPackets     *uint64  `json:"rx_packets,omitempty"`
+	TXPackets     *uint64  `json:"tx_packets,omitempty"`
+}
+
+// Valid reports whether a row is a connection rather than list filler.
+func (c WANConnection) Valid() bool { return c.Path != "" && c.Name != "" }
 
 // Lookup results describe reachability, not proof of a direct cable.
 type FDBQuery struct {

@@ -1,0 +1,10 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<script type="text/javascript">
+var intMax = 4294967296;
+var PortConfigInfos = new Array(new stConfigPort("InternetGatewayDevice.DeviceInfo","Optical","10G\x20EPON","1056769"),null);
+var userEthInfos = new Array(new LANStats("InternetGatewayDevice.X_HW_DEBUG.AMP.LANPort.1.Statistics","228716396","5","3833839092","3984","0","0","716037753","8","1449465224","6944","0","0"),new LANStats("InternetGatewayDevice.X_HW_DEBUG.AMP.LANPort.2.Statistics","0","0","0","0","0","0","0","0","0","0","0","0"),new LANStats("InternetGatewayDevice.X_HW_DEBUG.AMP.LANPort.3.Statistics","0","0","0","0","0","0","0","0","0","0","0","0"),new LANStats("InternetGatewayDevice.X_HW_DEBUG.AMP.LANPort.4.Statistics","0","0","0","0","0","0","0","0","0","0","0","0"),null);
+var geInfos = new Array(new GEInfo("InternetGatewayDevice.X_HW_DEBUG.AMP.LANPort.1.CommonConfig","1","3","1","0"),new GEInfo("InternetGatewayDevice.X_HW_DEBUG.AMP.LANPort.2.CommonConfig","0","0","0","0"),new GEInfo("InternetGatewayDevice.X_HW_DEBUG.AMP.LANPort.3.CommonConfig","0","0","0","0"),new GEInfo("InternetGatewayDevice.X_HW_DEBUG.AMP.LANPort.4.CommonConfig","0","0","0","0"),null);
+var DeviceLanMACs = new Array(new DeviceLanMAC("InternetGatewayDevice.DeviceInfo","9C\x3aA2\x3aF4\x3a11\x3a22\x3a30","9C\x3aA2\x3aF4\x3a11\x3a22\x3a39"),null);
+</script>
+</head><body></body></html>

@@ -13,8 +13,8 @@
  * an atomic reading of the hardware.
  */
 
-export type Adapter = 'mercury' | 'openwrt'
-export type DeviceRole = 'router' | 'switch' | 'ap'
+export type Adapter = 'mercury' | 'openwrt' | 'huawei'
+export type DeviceRole = 'router' | 'switch' | 'ap' | 'ont'
 
 export interface Device {
   id: string
@@ -180,6 +180,8 @@ export interface Snapshot {
   radios?: Radio[]
   wireless?: WirelessNetwork[]
   associations?: Association[]
+  /** Present only for a device that terminates a fiber line. */
+  ont?: ONT
 }
 
 /**
@@ -204,4 +206,75 @@ export interface ScanResult {
   radio_id: string
   observed_at: string
   neighbours: Neighbour[]
+}
+
+/** The window an ONT publishes for one optical reading, in dBm. */
+export interface SignalRange {
+  min: number
+  max: number
+}
+
+/**
+ * One transceiver reading. The ranges come from the device, not from this app:
+ * a GPON line and a 10G-EPON line do not share an acceptable receive window.
+ */
+export interface OpticalReading {
+  link_up?: boolean
+  rx_dbm?: number
+  tx_dbm?: number
+  rx_range_dbm?: SignalRange
+  tx_range_dbm?: SignalRange
+  temperature_c?: number
+  voltage_mv?: number
+  current_ma?: number
+  module_vendor?: string
+  module_serial?: string
+  date_code?: string
+  tx_wavelength_nm?: number
+  rx_wavelength_nm?: number
+  los?: boolean
+}
+
+export interface ONTPon {
+  mode?: string
+  state?: string
+  registered?: boolean
+}
+
+export interface ONTHealth {
+  cpu_percent?: number
+  memory_percent?: number
+  nat_sessions?: number
+}
+
+/** One carrier service the ONT terminates. RX is what arrived from the carrier. */
+export interface WANConnection {
+  path: string
+  name?: string
+  service?: string
+  interface?: string
+  status?: string
+  mac?: string
+  username?: string
+  vlan?: number
+  priority?: number
+  address?: string
+  gateway?: string
+  dns?: string[]
+  ipv6?: string[]
+  ipv6_prefix?: string
+  uptime_seconds?: number
+  rx_bytes?: number
+  tx_bytes?: number
+  rx_packets?: number
+  tx_packets?: number
+}
+
+/** What a fiber gateway reports about the line it terminates. */
+export interface ONT {
+  pon: ONTPon
+  optical?: OpticalReading
+  health?: ONTHealth
+  wan?: WANConnection[]
+  customization?: string
 }

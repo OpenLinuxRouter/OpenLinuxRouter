@@ -1,0 +1,9 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<script type="text/javascript">
+var opticInfos = new Array(new stOpticInfo("InternetGatewayDevice.X_HW_DEBUG.AMP.Optic","ok","4\x2e05\x20","\x2d13\x2e98","3310","56","16","\x2d\x2d","\x2d\x2d","HUAWEI\x20\x20\x20\x20\x20\x20\x20\x20\x20","2437L0000001\x20\x20\x20","241031","1310","1490","20","0"),null);
+var ontPonMode = 'epon';
+var ontXGMode = 'Asymmetric\x2010g\x2depon';
+var opticTxRxRef = '0.6-5.6dBm:-28.5--10.0dBm';
+</script>
+</head><body></body></html>

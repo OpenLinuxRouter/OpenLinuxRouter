@@ -18,7 +18,7 @@ var deviceID = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$`)
 var envName = regexp.MustCompile(`^[A-Z_][A-Z0-9_]{0,127}$`)
 
 func (Role) JSONSchema() *jsonschema.Schema {
-	return &jsonschema.Schema{Type: "string", Enum: []any{string(Router), string(Switch), string(AP)}}
+	return &jsonschema.Schema{Type: "string", Enum: []any{string(Router), string(Switch), string(AP), string(OpticalNetworkTerminal)}}
 }
 
 func UnmarshalConfig(data []byte) (Config, error) {
@@ -54,7 +54,7 @@ func (c Config) Validate() error {
 			return fmt.Errorf("%w: device IDs must be unique and contain 1–64 letters, digits, underscores or hyphens", ErrInvalid)
 		}
 		seen[d.ID] = true
-		if d.Adapter != "mercury" && d.Adapter != "openwrt" {
+		if d.Adapter != "mercury" && d.Adapter != "openwrt" && d.Adapter != "huawei" {
 			return fmt.Errorf("%w: unknown adapter for device %s", ErrInvalid, d.ID)
 		}
 		u, err := url.Parse(d.Address)
@@ -74,7 +74,7 @@ func (c Config) Validate() error {
 			return fmt.Errorf("%w: device %s credential is too long", ErrInvalid, d.ID)
 		}
 		for _, r := range d.Roles {
-			if r != Router && r != Switch && r != AP {
+			if r != Router && r != Switch && r != AP && r != OpticalNetworkTerminal {
 				return fmt.Errorf("%w: unknown role for device %s", ErrInvalid, d.ID)
 			}
 		}

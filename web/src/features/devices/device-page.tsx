@@ -15,7 +15,7 @@ import { ListEmpty } from '@/components/ui/list'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusInline } from '@/components/ui/status'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { state } from '@/lib/state'
+import { healthOf, state } from '@/lib/state'
 import { cn, formatBytes } from '@/lib/utils'
 
 import { DeviceDialog, type DeviceDraft } from './device-dialog'
@@ -37,9 +37,9 @@ import {
   vlanValid,
 } from './device'
 import { useDeviceEditor, useFDBLookup, useDevicesConfig, useNetworkSnapshot } from './queries'
-import type { Collection, Device, Port, Snapshot, VLAN } from './types'
+import type { Collection, Device, Port, Snapshot, VLAN, WANConnection } from './types'
 
-type Tab = 'overview' | 'ports' | 'vlans' | 'mac'
+type Tab = 'overview' | 'ports' | 'ont' | 'vlans' | 'mac'
 
 /**
  * One box in the inventory, read on demand.
@@ -109,7 +109,7 @@ export function DevicePage() {
       />
 
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <Tabs tab={tab} onChange={setTab} />
+        <Tabs tab={tab} onChange={setTab} fiber={data?.ont != null} />
         {observed && <p className="pb-2 text-xs text-muted-foreground">{t('Read {time}', { time: clock(observed) })}</p>}
       </div>
 
@@ -119,9 +119,10 @@ export function DevicePage() {
         <PageError error={snapshot.error} title={t('Could not read this device')} />
       ) : data ? (
         tab === 'ports' ? <PortsTab snapshot={data} />
-          : tab === 'vlans' ? <VLANsTab snapshot={data} />
-            : tab === 'mac' ? <MACLookupTab id={device.id} snapshot={data} />
-              : <OverviewTab device={device} snapshot={data} />
+          : tab === 'ont' ? <ONTTab snapshot={data} />
+            : tab === 'vlans' ? <VLANsTab snapshot={data} />
+              : tab === 'mac' ? <MACLookupTab id={device.id} snapshot={data} />
+                : <OverviewTab device={device} snapshot={data} />
       ) : null}
 
       {dialog && (
@@ -139,7 +140,7 @@ export function DevicePage() {
   )
 }
 
-function Tabs({ tab, onChange }: { tab: Tab; onChange: (tab: Tab) => void }) {
+function Tabs({ tab, onChange, fiber }: { tab: Tab; onChange: (tab: Tab) => void; fiber: boolean }) {
   useLocale()
   const items: { id: Tab; label: string }[] = [
     { id: 'overview', label: t('Overview') },
@@ -147,6 +148,8 @@ function Tabs({ tab, onChange }: { tab: Tab; onChange: (tab: Tab) => void }) {
     { id: 'vlans', label: 'VLAN' },
     { id: 'mac', label: t('MAC lookup') },
   ]
+  // Only a box that terminates a fiber line has a line to report.
+  if (fiber) items.splice(2, 0, { id: 'ont', label: t('Fiber line') })
   return (
     <div role="tablist" aria-label={t('Device views')} className="flex gap-1 border-b border-border">
       {items.map(item => (
@@ -262,6 +265,8 @@ function CollectionRead({ name, collection }: { name: string; collection: Collec
 const COLLECTION_LABELS: Record<string, string> = {
   identity: 'Identity',
   ports: 'Ports',
+  optical: 'Optical module',
+  wan: 'WAN services',
   statistics: 'Counter statistics',
   vlans: 'VLANs',
   pvids: 'Port PVIDs',
@@ -273,7 +278,7 @@ const COLLECTION_LABELS: Record<string, string> = {
 }
 
 /** The sections in the order a reader looks for them, not alphabetically. */
-const COLLECTION_ORDER = ['identity', 'ports', 'statistics', 'vlans', 'pvids', 'fdb', 'neighbors', 'radios', 'wireless', 'associations']
+const COLLECTION_ORDER = ['identity', 'ports', 'optical', 'wan', 'statistics', 'vlans', 'pvids', 'fdb', 'neighbors', 'radios', 'wireless', 'associations']
 
 function collectionRank(name: string): number {
   const index = COLLECTION_ORDER.indexOf(name)
@@ -497,6 +502,176 @@ function MACLookupTab({ id, snapshot }: { id: string; snapshot: Snapshot }) {
 }
 
 /** A section this read could not obtain, with the adapter's own reason. */
+/**
+ * What the fiber line delivers, and what rides on it.
+ *
+ * Every reading comes with the window the ONT publishes for its own optics, so
+ * a receive power is only called out when it falls outside the range the device
+ * reports — not against a number this page invented. Nothing here writes to the
+ * ONT; the carrier's own service pages are the only source.
+ */
+function ONTTab({ snapshot }: { snapshot: Snapshot }) {
+  useLocale()
+  const ont = snapshot.ont
+  if (!ont) return <ListEmpty>{t('This device did not report its fiber line.')}</ListEmpty>
+
+  const registered = ont.pon.registered === true
+    ? state('Connected')
+    : ont.pon.registered === false ? state('Down') : state('Unknown')
+  const optical = ont.optical
+  const opticalRead = snapshot.collections.optical
+  const wanRead = snapshot.collections.wan
+  const wan = ont.wan ?? []
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="gap-0 py-0">
+          <div className="space-y-2 p-5">
+            <Heading as="h2" size="sm">{t('Line')}</Heading>
+            <dl className="divide-y divide-border/60">
+              <Fact label={t('PON mode')} value={ont.pon.mode} />
+              <Fact
+                label={t('Registration')}
+                value={
+                  <span className="flex items-center justify-end gap-2">
+                    {ont.pon.state && <span className="text-muted-foreground">{ont.pon.state}</span>}
+                    <StatusInline tone={registered.tone}>{registered.label}</StatusInline>
+                  </span>
+                }
+              />
+              <Fact label={t('Carrier build')} value={ont.customization} />
+              {optical?.los === true && (
+                <Fact label={t('Signal lost')} value={<StatusInline tone={healthOf('fault', t('LOS flagged')).tone}>{t('LOS flagged')}</StatusInline>} />
+              )}
+              <Fact label={t('CPU usage')} value={percentText(ont.health?.cpu_percent)} />
+              <Fact label={t('Memory usage')} value={percentText(ont.health?.memory_percent)} />
+              <Fact label={t('NAT sessions')} value={ont.health?.nat_sessions != null ? formatCount(ont.health.nat_sessions) : undefined} />
+            </dl>
+          </div>
+        </Card>
+
+        <Card className="gap-0 py-0">
+          <div className="space-y-2 p-5">
+            <div className="flex items-baseline justify-between gap-3">
+              <Heading as="h2" size="sm">{t('Optical module')}</Heading>
+              {optical?.module_vendor && <span className="text-xs text-muted-foreground">{optical.module_vendor}</span>}
+            </div>
+            {opticalRead && opticalRead.state !== 'ok' ? (
+              <Unread collection={opticalRead} what={t('optical module')} />
+            ) : (
+              <dl className="divide-y divide-border/60">
+                <Reading label={t('Receive power')} value={optical?.rx_dbm} range={optical?.rx_range_dbm} unit="dBm" />
+                <Reading label={t('Transmit power')} value={optical?.tx_dbm} range={optical?.tx_range_dbm} unit="dBm" />
+                <Fact label={t('Temperature')} value={optical?.temperature_c != null ? `${optical.temperature_c} °C` : undefined} />
+                <Fact label={t('Voltage')} value={optical?.voltage_mv != null ? `${optical.voltage_mv} mV` : undefined} />
+                <Fact label={t('Bias current')} value={optical?.current_ma != null ? `${optical.current_ma} mA` : undefined} />
+                <Fact label={t('Wavelengths')} value={wavelengths(optical)} />
+                <Fact label={t('Module serial')} value={optical?.module_serial} />
+                <Fact label={t('Manufactured')} value={optical?.date_code} />
+              </dl>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <Heading as="h2" size="sm">{t('WAN services')}</Heading>
+          <p className="text-xs text-muted-foreground">{t('Received and sent are counted from the ONT, so received is what arrived from the carrier.')}</p>
+        </div>
+        {wanRead && wanRead.state !== 'ok' ? (
+          <Unread collection={wanRead} what={t('WAN services')} />
+        ) : wan.length === 0 ? (
+          <ListEmpty>{t('This ONT reported no WAN connection.')}</ListEmpty>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('Connection')}</TableHead>
+                <TableHead>{t('State')}</TableHead>
+                <TableHead className="hidden text-right sm:table-cell">{t('VLAN / priority')}</TableHead>
+                <TableHead className="text-right">{t('Address')}</TableHead>
+                <TableHead className="hidden text-right md:table-cell">{t('Uptime')}</TableHead>
+                <TableHead className="hidden text-right md:table-cell">{t('Received')}</TableHead>
+                <TableHead className="hidden text-right md:table-cell">{t('Sent')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {wan.map(connection => <WANRow key={connection.path} connection={connection} />)}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Fact({ label, value }: { label: string; value?: React.ReactNode }) {
+  if (value === undefined || value === null || value === '') return null
+  return (
+    <div className="grid min-h-9 grid-cols-[8rem_minmax(0,1fr)] items-center gap-3 py-1 text-sm">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 text-right [overflow-wrap:anywhere]">{value}</dd>
+    </div>
+  )
+}
+
+/** A reading beside the window the device itself considers acceptable. */
+function Reading({ label, value, range, unit }: { label: string; value?: number; range?: { min: number; max: number }; unit: string }) {
+  useLocale()
+  const outside = value != null && range != null && (value < range.min || value > range.max)
+  const verdict = outside ? healthOf('warn', t('Outside the range')) : undefined
+  return (
+    <Fact
+      label={label}
+      value={
+        <span className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+          <span className="tabular-nums">{value != null ? `${value} ${unit}` : '—'}</span>
+          {range && <span className="text-xs text-muted-foreground">{range.min} – {range.max} {unit}</span>}
+          {verdict && <StatusInline tone={verdict.tone}>{verdict.label}</StatusInline>}
+        </span>
+      }
+    />
+  )
+}
+
+function WANRow({ connection }: { connection: WANConnection }) {
+  useLocale()
+  const connected = connection.status === 'Connected'
+  const status = connected ? state('Connected') : connection.status === 'Disconnected' ? healthOf('off', t('Disconnected')) : state('Unknown')
+  const vlan = connection.vlan != null ? connection.priority != null ? `${connection.vlan}/${connection.priority}` : String(connection.vlan) : undefined
+  return (
+    <TableRow>
+      <TableCell>
+        <div className="font-medium">{connection.service || connection.name || '—'}</div>
+        <div className="font-mono text-[0.6875rem] text-muted-foreground">{connection.name ?? connection.path}</div>
+      </TableCell>
+      <TableCell>
+        <StatusInline tone={status.tone}>{status.label}</StatusInline>
+        {connection.interface && <div className="text-[0.6875rem] text-muted-foreground">{connection.interface}</div>}
+      </TableCell>
+      <TableCell className="hidden text-right tabular-nums sm:table-cell">{vlan ?? '—'}</TableCell>
+      <TableCell className="text-right">
+        <div className="tabular-nums">{connection.address ?? '—'}</div>
+        {connection.ipv6_prefix && <div className="font-mono text-[0.6875rem] text-muted-foreground">{connection.ipv6_prefix}</div>}
+      </TableCell>
+      <TableCell className="hidden text-right tabular-nums md:table-cell">{connection.uptime_seconds != null ? formatUptime(connection.uptime_seconds) : '—'}</TableCell>
+      <TableCell className="hidden text-right tabular-nums md:table-cell">{counters(connection.rx_bytes, connection.rx_packets)}</TableCell>
+      <TableCell className="hidden text-right tabular-nums md:table-cell">{counters(connection.tx_bytes, connection.tx_packets)}</TableCell>
+    </TableRow>
+  )
+}
+
+function percentText(value?: number): string | undefined {
+  return value != null ? `${value}%` : undefined
+}
+
+function wavelengths(optical?: { tx_wavelength_nm?: number; rx_wavelength_nm?: number }): string | undefined {
+  if (optical?.tx_wavelength_nm == null && optical?.rx_wavelength_nm == null) return undefined
+  return `${optical?.tx_wavelength_nm ?? '—'} / ${optical?.rx_wavelength_nm ?? '—'} nm`
+}
+
 function Unread({ collection, what }: { collection: Collection; what: string }) {
   useLocale()
   const health = state(collectionWord(collection.state))
@@ -541,7 +716,7 @@ function PageError({ error, title }: { error: unknown; title: string }) {
 }
 
 function tabOf(value: string | null): Tab {
-  if (value === 'ports' || value === 'vlans' || value === 'mac') return value
+  if (value === 'ports' || value === 'ont' || value === 'vlans' || value === 'mac') return value
   return 'overview'
 }
 

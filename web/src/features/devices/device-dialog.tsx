@@ -38,9 +38,11 @@ export interface DeviceType {
 
 const EMPTY = { id: '', name: '', address: '', username: '', password: '' }
 
-/** OpenWrt signs in as root; Mercury's account is whatever its admin set. */
+/** OpenWrt signs in as root, an ONT as its normal user; Mercury's account is whatever its admin set. */
 function defaultUsername(adapter: Adapter): string {
-  return adapter === 'openwrt' ? 'root' : ''
+  if (adapter === 'openwrt') return 'root'
+  if (adapter === 'huawei') return 'user'
+  return ''
 }
 
 /**

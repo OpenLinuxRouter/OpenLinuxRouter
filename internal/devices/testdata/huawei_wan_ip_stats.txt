@@ -1,0 +1,3 @@
+function() {
+  return new Array(new WaninfoStats("InternetGatewayDevice.WANDevice.1.WANConnectionDevice.4.WANIPConnection.1.Stats","451078867","435991564","2530384","1036824","1571854","1036824","958525","0","5","0"),null);
+}

@@ -1,0 +1,18 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<script type="text/javascript">
+var ontEPONInfos = new Array(new ONTInfo("InternetGatewayDevice.X_HW_DEBUG.OAM.ONT","0","ONLINE"),null);
+var ontPonMode = 'epon';
+var deviceInfos = new Array(new stDeviceInfo("InternetGatewayDevice.DeviceInfo","48575443A1B2C3D4","3A07\x2eC","V5R023C10S328","V271\x2d20","HWTC","2025\x2d08\x2d31\x5f09\x3a19\x3a55\x20","9C\x3aA2\x3aF4\x3a11\x3a22\x3a30","OptiXstar\x20V271\x2d20\x20Asymmetric\x2010G\x20EPON\x20Terminal\x20\x28PRX\x2fPRODUCT\x20ID\x3a2150080000AAAA000000\x29","2150080000AAAA000000\x2eCC02","","00259E\x2d01FFFFFFFF023FFF19A1B2C3D4E5F6","0","0","9C\x3aA2\x3aF4\x3a11\x3a22\x3a31\x0d\x0a9C\x3aA2\x3aF4\x3a11\x3a22\x3a32\x0d\x0a9C\x3aA2\x3aF4\x3a11\x3a22\x3a33\x0d\x0a9C\x3aA2\x3aF4\x3a11\x3a22\x3a34\x0d\x0a9C\x3aA2\x3aF4\x3a11\x3a22\x3a35\x0d\x0a9C\x3aA2\x3aF4\x3a11\x3a22\x3a36\x0d\x0a9C\x3aA2\x3aF4\x3a11\x3a22\x3a37\x0d\x0a9C\x3aA2\x3aF4\x3a11\x3a22\x3a38\x0d\x0a"),null);
+var oui = '00259E';
+var cpuUsed = '14%';
+var memUsed = '27%';
+var customizeDes = 'BJUNICOM';
+var opticInfo = '\x2d13\x2e98'; 
+    var dev_uptime = '9958197';
+    var dev_uptime = '9958197';
+    var dev_uptime = '9958197';
+    var dev_uptime = '';
+var NatSessionInfo = '1799 / 65536';
+</script>
+</head><body></body></html>

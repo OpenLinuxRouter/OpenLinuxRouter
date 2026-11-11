@@ -42,7 +42,7 @@ func NewService(store *core.Store) *Service {
 		}
 		return value, nil
 	}
-	s := &Service{Store: store, Adapters: map[string]Adapter{"mercury": &Mercury{Password: password}, "openwrt": &OpenWrt{Password: password}}, pending: map[string]pendingOperation{}}
+	s := &Service{Store: store, Adapters: map[string]Adapter{"mercury": &Mercury{Password: password}, "openwrt": &OpenWrt{Password: password}, "huawei": &Huawei{Password: password}}, pending: map[string]pendingOperation{}}
 	for i := range s.lanes {
 		s.lanes[i] = core.NewLock()
 	}

@@ -4,7 +4,7 @@
 
 ## Identity and types
 
-A configured device has an operator-assigned stable `id` (1–64 ASCII letters, digits, underscores or hyphens, starting with a letter/digit), optional name, adapter (`mercury` or `openwrt`), HTTP(S) management origin, username, password environment reference and optional roles. Roles are a set of `router`, `switch`, `ap`: a single device may have several. An IP address, interface MAC or SSID is not a hardware identity. Manufacturer/model/firmware/MACs/uptime are observations, separate from the inventory.
+A configured device has an operator-assigned stable `id` (1–64 ASCII letters, digits, underscores or hyphens, starting with a letter/digit), optional name, adapter (`mercury`, `openwrt` or `huawei`), HTTP(S) management origin, username, password environment reference and optional roles. Roles are a set of `router`, `switch`, `ap`, `ont`: a single device may have several. A fiber ONT is usually `ont` and `router` at once, because it terminates the line and routes one WAN. An IP address, interface MAC or SSID is not a hardware identity. Manufacturer/model/firmware/MACs/uptime are observations, separate from the inventory.
 
 Port, radio and wireless network IDs are scoped to the managed device. References must carry the device ID across devices. Mercury port IDs are decimal strings (`1` through `9`); OpenWrt uses netifd interface names. Names may change if the underlying platform renames an interface. Do not infer stable hardware identity from OpenWrt ifindex or interface name alone.
 
@@ -26,6 +26,7 @@ A snapshot contains:
 | Radios | ID, administrative enabled, band, runtime channel and channel width when known, the standards the driver advertises, noise floor, transmit power, country and recent channel utilization. `configured_width_mhz` separately reports the netifd configured width. |
 | Wireless networks | Unique device-local ID, radio/interface IDs, SSID, BSSID, mode, encryption mode (never key), and netifd logical network names. An SSID can occur on many radios/APs. |
 | Associations | Client MAC, wireless network and radio IDs, signal and average signal dBm, noise, connected and inactive time, directional link rates, MCS and width, expected throughput, retries, failed transmissions, bytes and packets, transmit airtime, MFP and WMM state. Link rate is not throughput. Missing counters stay unknown. |
+| ONT | PON mode, registration state, and — from the transceiver — receive and transmit power with the device's own acceptable window, temperature, voltage, bias current, module vendor/serial/date code, wavelengths and LOS. Health: CPU, memory and NAT session count. WAN: one row per carrier service with VLAN and priority, interface (PPPoE/DHCP/static), IPv4 address, gateway and DNS, IPv6 addresses and delegated prefix, uptime and RX/TX counters. Present only for a device that terminates a fiber line. |
 | Scan | On request and outside the snapshot: one radio's neighbours — BSSID, optional SSID, primary channel, width, signal, transport family and security family. Duplicates by BSSID are collapsed and rows arrive in channel order. A scan is a dated sample taken while the radio was off its channel, never current neighbourhood state. |
 
 Missing optional metrics mean unknown/unavailable, not zero or false. `ok` with no rows means a successfully observed empty inventory. An absent row array with `unsupported` or `error` is not an empty network. Counts are unsigned 64-bit integers; consumers must preserve integer precision. RX/TX always use the reporting port/AP's own receive/transmit perspective. Counters may reset/wrap; no width or uninterrupted continuity is promised. Mercury RX/TX packet totals count good packets with errors separate, not cumulative bytes.
@@ -34,7 +35,7 @@ HTTP calls are sequential observations, not an atomic hardware snapshot. Timesta
 
 ## Capability vocabulary
 
-Initial canonical keys are `identity.read`, `ports.read`, `statistics.read`, `vlans.read`, `pvids.read`, `fdb.lookup`, `fdb.list`, `neighbors.read`, `radios.read`, `wireless.read`, `associations.read`, `ports.configure`, `vlans.configure`, `wireless.configure`, `poe.configure`, `device.reboot`, `client.disconnect`.
+Initial canonical keys are `identity.read`, `ports.read`, `statistics.read`, `vlans.read`, `pvids.read`, `fdb.lookup`, `fdb.list`, `neighbors.read`, `radios.read`, `wireless.read`, `associations.read`, `optical.read`, `wan.read`, `ports.configure`, `vlans.configure`, `wireless.configure`, `poe.configure`, `device.reboot`, `client.disconnect`.
 
 `unsupported` means unavailable through this implemented adapter/API or current permission set, not a claim about all capabilities of the hardware. `unknown` means observation could not establish the answer. Missing capability keys must be treated as unsupported by a client. Device-wide operation support means at least one suitable target; preview revalidates the exact target and permissions.
 
@@ -67,6 +68,25 @@ Stock portable ubus does not expose the bridge FDB, switch VLAN/PVID table or LL
 Only `client.disconnect` is implemented as a remote mutation. It validates a unicast MAC and an observed AP interface, reads hostapd status, checks `del_client` method signature and checks session ACL permission. It sends `addr`, `deauth: true`, `reason: 5`, `ban_time: 0`. This disconnects rather than permanently blocks a client; it may reconnect immediately. SSID/channel/VLAN/port configuration and reboot are not implemented.
 
 OpenWrt protocol fixtures are synthetic, matching the supported stock API shapes; this change has no live-device compatibility claim. An actual firmware/account combination should be checked with a snapshot before relying on its reported capabilities.
+
+## Huawei ONT
+
+Adapter `huawei` reads the web management pages of a Huawei fiber ONT: the OptiXstar line and the HG-series before it. The pages are the carrier-customized ones (`BJUNICOM`, `GDCU`, `JSCU` …); the build only changes branding and which menu entries are hidden, not the status trees this adapter reads. The adapter is therefore named for the vendor, not for the operator that shipped the box.
+
+Login is the challenge the ONT's own `login.asp` performs: `POST /asp/GetRandCount.asp` returns a single-use token, and `POST /login.cgi` answers `UserName`, base64 `PassWord`, `Language` and `x.X_HW_Token`, replying with a session cookie whose name differs between the HTTP and HTTPS UI (`Cookie` / `CookieHttp`). The adapter holds that cookie explicitly rather than in a jar, sends no cookie to the token request, and follows no redirect. A rejected login is reported once and never retried in a loop: each retry spends one of the ONT's three attempts and starts a one-minute lockout. Username defaults to `user`, the normal-user account; the admin account (`CUAdmin` on most carrier builds) is not needed for status pages.
+
+Each status page publishes its table as JavaScript constructor calls, for example `new stDeviceInfo(...)` or `new WanPPP(...)`. The adapter reads the argument lists as data through a bounded scanner — quoted strings with `\xNN` escapes, bare numbers, at most 256 rows of 128 arguments in a 4 MiB page — and never evaluates the page. Field positions are the constructor's own published order; a page with too few arguments is reported as unreadable instead of being guessed at.
+
+Pages read, each a separate collection:
+
+- `/html/ssmp/deviceinfo/deviceinfo.asp` — model, serial, hardware/software version, MACs, uptime, PON mode and state, customisation code, CPU/memory/NAT.
+- `/html/amp/opticinfo/opticinfo.asp` — transceiver readings plus the `opticTxRxRef` window, parsed from the page's own notation (`0.6-5.6dBm:-28.5--10.0dBm`).
+- `/html/amp/ethinfo/ethinfo.asp` — four LAN ports from `geInfos` joined with `LANStats` counters on the `LANPort.N` index, and the uplink mode from `stConfigPort`. Counters are 32-bit pairs recombined; a pair that would overflow is reported absent, not wrapped.
+- `/html/bbsp/common/wan_list_cache_wan.asp` — the WAN list, joined by instance path with `get_wan_list_ipwanstat.asp` / `get_wan_list_pppwanstat.asp` counters and with `wan_list_cache_wanipv6.asp` addresses and prefixes (joined on the PVC's MAC, the only field both views carry).
+
+The PON link appears as a `fiber` port ahead of the Ethernet ports, because its state comes from the transceiver rather than the Ethernet table. PPPoE passwords arrive as the ONT's own placeholder text and are dropped; usernames are kept because they identify the service. Wireless, VLAN, MAC-table and neighbour reads are not claimed: this firmware has no such API, and a snapshot with no radios must not look like a device whose radios were off.
+
+The page layout and constructor order were captured from an OptiXstar V271-20 on `V5R023C10S328` (Beijing Unicom build) reachable over HTTP. Fixtures are trimmed and sanitised: serial numbers, MACs, addresses, IPv6 prefixes, module serial and BRAS name are replaced, and the PPPoE password is already the device's own redaction. Firmware that reorders a constructor is detected as an unreadable section, not silently misread.
 
 ## Web page
 

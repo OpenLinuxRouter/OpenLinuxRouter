@@ -12,10 +12,13 @@ import type { Capability, Collection, Device, Port } from './types'
  */
 
 export function adapterLabel(adapter: Device['adapter']): string {
-  return adapter === 'mercury' ? 'Mercury' : 'OpenWrt'
+  if (adapter === 'mercury') return 'Mercury'
+  if (adapter === 'huawei') return 'Huawei ONT'
+  return 'OpenWrt'
 }
 
 export function roleLabel(role: NonNullable<Device['roles']>[number]): string {
+  if (role === 'ont') return 'ONT'
   if (role === 'switch') return 'Switch'
   if (role === 'ap') return 'Access point'
   return 'Router'
@@ -23,7 +26,7 @@ export function roleLabel(role: NonNullable<Device['roles']>[number]): string {
 
 /** The roles written on the inventory entry, in the order people name them. */
 export function roleLabels(device: Device): string[] {
-  const order = ['router', 'switch', 'ap'] as const
+  const order = ['ont', 'router', 'switch', 'ap'] as const
   return order.filter((role) => device.roles?.includes(role)).map(roleLabel)
 }
 
