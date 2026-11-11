@@ -1230,7 +1230,7 @@ export interface IngressServiceView {
   /** Rendered by the daemon rather than assembled here, so the client does not
    *  have to fetch the local domain to know what a service's address is. */
   url: string
-  device?: string
+  client?: string
   host?: string
   port: number
   scheme: UpstreamScheme

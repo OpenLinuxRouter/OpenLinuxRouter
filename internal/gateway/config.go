@@ -52,6 +52,11 @@ const ModuleName = "gateway"
 // Fields without `omitempty` are reflected as schema-required (design.md §10,
 // config format), so the tags are load-bearing.
 type Config struct {
+	// Legacy records that a stored document still called its per-client
+	// overrides `devices`, the word this module used before the two inventories
+	// were told apart. Never serialised, so one save writes the current shape.
+	Legacy bool `json:"-"`
+
 	LatencyTarget string              `json:"latency_target,omitempty"`
 	LatencySites  []CustomLatencySite `json:"latency_sites"`
 	// LatencyCommon holds only the operator's exit overrides for the catalog
@@ -130,12 +135,12 @@ type Config struct {
 	// changed is that there is now somewhere in olr to go and set it.
 	Default string `json:"default,omitempty"`
 
-	// Stats controls per-device and per-exit byte accounting (§7.1).
+	// Stats controls per-client and per-exit byte accounting (§7.1).
 	//
 	// Nil means on. It is deliberately **not** governed by Enabled: §7.1 is
 	// explicit that the accounting table does not depend on the routing one —
 	// with no policy installed every packet carries mark 0 and the same
-	// structure degrades to plain per-device totals. So a box that only wants
+	// structure degrades to plain per-client totals. So a box that only wants
 	// to know who is using the bandwidth gets that without routing anything.
 	//
 	// A switch exists because §7.5 asks for one. What it turns off is modest
@@ -162,7 +167,7 @@ type Config struct {
 	IPv6Forwarding *IPv6Forwarding `json:"ipv6_forwarding,omitempty"`
 
 	// Interfaces assigns an exit per network — §2.5's first tier of the ladder,
-	// refined by device overrides below.
+	// refined by client overrides below.
 	//
 	// Keyed by kernel interface name rather than by a network, matching
 	// internal/dhcp's pools and for the reason internal/dns states in as many
@@ -172,9 +177,9 @@ type Config struct {
 	// does not.
 	Interfaces []Assignment `json:"interfaces,omitempty"`
 
-	// Devices override the network choice by source MAC. An empty exit
+	// Clients override the network choice by source MAC. An empty exit
 	// explicitly takes the box's normal route; absence inherits the network.
-	Devices []DeviceAssignment `json:"devices,omitempty"`
+	Clients []ClientAssignment `json:"clients,omitempty"`
 
 	// Destinations override source assignments; longest prefix wins.
 	Destinations []DestinationAssignment `json:"destinations,omitempty"`
@@ -193,7 +198,7 @@ type IPv6Forwarding bool
 
 // Assignment is one rung of the ladder: this source uses that exit.
 //
-// Devices now refine this field through Config.Devices; groups are later.
+// Clients now refine this field through Config.Clients; groups are later.
 type Assignment struct {
 	// Interface is the source network, named by its kernel interface.
 	Interface string `json:"interface"`
@@ -206,8 +211,8 @@ type Assignment struct {
 	Exit string `json:"exit,omitempty"`
 }
 
-// DeviceAssignment is a device-specific override, keyed by canonical MAC.
-type DeviceAssignment struct {
+// ClientAssignment is a client-specific override, keyed by canonical MAC.
+type ClientAssignment struct {
 	MAC  string `json:"mac"`
 	Exit string `json:"exit,omitempty"`
 }
@@ -581,7 +586,7 @@ func (c Config) InUse(name string) bool {
 			return true
 		}
 	}
-	for _, a := range c.Devices {
+	for _, a := range c.Clients {
 		if a.Exit == name {
 			return true
 		}
@@ -589,7 +594,7 @@ func (c Config) InUse(name string) bool {
 	return false
 }
 
-// UsedBy lists the interfaces and device MACs assigned to this exit, sorted.
+// UsedBy lists the interfaces and client MACs assigned to this exit, sorted.
 func (c Config) UsedBy(name string) []string {
 	if name == "" {
 		return nil
@@ -605,7 +610,7 @@ func (c Config) UsedBy(name string) []string {
 			out = append(out, a.Interface)
 		}
 	}
-	for _, a := range c.Devices {
+	for _, a := range c.Clients {
 		if a.Exit == name {
 			out = append(out, a.MAC)
 		}
@@ -623,12 +628,41 @@ func UnmarshalConfig(data []byte) (Config, error) {
 	dec := json.NewDecoder(strings.NewReader(string(data)))
 	dec.DisallowUnknownFields()
 
-	var c Config
-	if err := dec.Decode(&c); err != nil {
+	var l legacyConfig
+	if err := dec.Decode(&l); err != nil {
 		return Config{}, fmt.Errorf("parsing gateway config: %w", err)
+	}
+	c := l.Config
+	if l.Devices != nil {
+		if c.Clients != nil {
+			return Config{}, fmt.Errorf("parsing gateway config: both clients and devices are present")
+		}
+		c.Clients = l.Devices
+		c.Legacy = true
 	}
 	c.Normalize()
 	return c, nil
+}
+
+// legacyConfig is this module's subtree as an older olr wrote it, when the
+// per-client overrides were called `devices`.
+type legacyConfig struct {
+	Config
+	Devices []ClientAssignment `json:"devices,omitempty"`
+}
+
+// HasLegacyKeys reports whether a stored subtree still calls its per-client
+// overrides `devices`, the word this module used before the two inventories
+// were told apart.
+func HasLegacyKeys(raw []byte) bool {
+	var probe struct {
+		Clients json.RawMessage `json:"clients"`
+		Devices json.RawMessage `json:"devices"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return false
+	}
+	return probe.Devices != nil && probe.Clients == nil
 }
 
 // MarshalConfig renders intent for the store.
@@ -729,19 +763,19 @@ func (c *Config) Normalize() {
 		c.Interfaces[i].Interface = strings.TrimSpace(c.Interfaces[i].Interface)
 		c.Interfaces[i].Exit = strings.TrimSpace(c.Interfaces[i].Exit)
 	}
-	for i := range c.Devices {
-		c.Devices[i].MAC = strings.TrimSpace(c.Devices[i].MAC)
-		if mac, err := core.NormalizeMAC(c.Devices[i].MAC); err == nil {
-			c.Devices[i].MAC = mac
+	for i := range c.Clients {
+		c.Clients[i].MAC = strings.TrimSpace(c.Clients[i].MAC)
+		if mac, err := core.NormalizeMAC(c.Clients[i].MAC); err == nil {
+			c.Clients[i].MAC = mac
 		}
-		c.Devices[i].Exit = strings.TrimSpace(c.Devices[i].Exit)
+		c.Clients[i].Exit = strings.TrimSpace(c.Clients[i].Exit)
 	}
 
 	slices.SortStableFunc(c.Exits, func(a, b Exit) int { return strings.Compare(a.Name, b.Name) })
 	slices.SortStableFunc(c.Interfaces, func(a, b Assignment) int {
 		return strings.Compare(a.Interface, b.Interface)
 	})
-	slices.SortStableFunc(c.Devices, func(a, b DeviceAssignment) int {
+	slices.SortStableFunc(c.Clients, func(a, b ClientAssignment) int {
 		return strings.Compare(a.MAC, b.MAC)
 	})
 
@@ -811,25 +845,25 @@ func (c *Config) SetDevice(mac, exit string) {
 	if norm, err := core.NormalizeMAC(mac); err == nil {
 		mac = norm
 	}
-	for i := range c.Devices {
-		if c.Devices[i].MAC == mac {
-			c.Devices[i].Exit = exit
+	for i := range c.Clients {
+		if c.Clients[i].MAC == mac {
+			c.Clients[i].Exit = exit
 			c.Normalize()
 			return
 		}
 	}
-	c.Devices = append(c.Devices, DeviceAssignment{MAC: mac, Exit: exit})
+	c.Clients = append(c.Clients, ClientAssignment{MAC: mac, Exit: exit})
 	c.Normalize()
 }
 
-// RemoveDevice returns the device to its network's setting.
-func (c *Config) RemoveDevice(mac string) bool {
+// RemoveClient returns the device to its network's setting.
+func (c *Config) RemoveClient(mac string) bool {
 	if norm, err := core.NormalizeMAC(mac); err == nil {
 		mac = norm
 	}
-	for i, a := range c.Devices {
+	for i, a := range c.Clients {
 		if a.MAC == mac {
-			c.Devices = append(c.Devices[:i], c.Devices[i+1:]...)
+			c.Clients = append(c.Clients[:i], c.Clients[i+1:]...)
 			return true
 		}
 	}
@@ -878,9 +912,9 @@ func (c *Config) Rename(from, to string) bool {
 			c.Interfaces[i].Exit = to
 		}
 	}
-	for i := range c.Devices {
-		if c.Devices[i].Exit == from {
-			c.Devices[i].Exit = to
+	for i := range c.Clients {
+		if c.Clients[i].Exit == from {
+			c.Clients[i].Exit = to
 		}
 	}
 	for i := range c.LatencySites {
@@ -899,7 +933,7 @@ func (c *Config) Rename(from, to string) bool {
 
 // Empty reports whether anything has been configured at all.
 func (c Config) Empty() bool {
-	return len(c.Destinations) == 0 && len(c.Exits) == 0 && len(c.Interfaces) == 0 && len(c.Devices) == 0 && c.Default == "" &&
+	return len(c.Destinations) == 0 && len(c.Exits) == 0 && len(c.Interfaces) == 0 && len(c.Clients) == 0 && c.Default == "" &&
 		len(c.Forwards) == 0
 }
 

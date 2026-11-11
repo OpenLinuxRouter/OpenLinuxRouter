@@ -6,7 +6,7 @@ is yours, and who the certificate authority should contact.
 certificate is for: publishing grafana under home.example.com means a
 record you create in your own DNS and a certificate for
 *.home.example.com. It is deliberately not the resolver's local domain
-(`olr dns set --local-domain`), which names the devices in this house.
+(`olr dns set --local-domain`), which names the clients in this house.
 
 Usage:
   olr ingress set [flags]

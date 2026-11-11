@@ -8,8 +8,8 @@ import { ActivityTotal, ClientActivity } from '@/features/clients/activity'
 import { ClientInlineEditor } from '@/features/clients/client-inline-editor'
 import { useClientList } from '@/features/clients/queries'
 import { useGatewayTraffic } from '@/features/gateway/queries'
-import { ClientServices } from '@/features/ingress/device-services'
-import { ClientPolicy } from '@/features/qos/device-policy'
+import { ClientServices } from '@/features/ingress/client-services'
+import { ClientPolicy } from '@/features/qos/client-policy'
 import { useTrafficView } from '@/features/topology/traffic'
 
 export function ClientPage() {

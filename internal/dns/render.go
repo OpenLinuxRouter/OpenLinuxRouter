@@ -76,7 +76,7 @@ type Paths struct {
 	// touching unbound or the relay listener.
 	Routes string
 	// LeaseFile is dnsmasq's observed IPv4 lease database. The relay reads it
-	// at a bounded cadence to identify a querying device, never to set intent.
+	// at a bounded cadence to identify a querying client, never to set intent.
 	LeaseFile string
 
 	// HijackNFT is the nftables ruleset the relay's unit loads once the relay
@@ -395,21 +395,21 @@ func (b Backend) renderRoutes(c Config) ([]byte, error) {
 					r.Networks = append(r.Networks, dnsrelay.RouteNetwork{Prefix: n.IPv4.Subnet.Masked(), Exit: name})
 				}
 			}
-			for _, d := range g.Devices {
-				entry := dnsrelay.RouteDevice{MAC: d.MAC, Exit: d.Exit}
+			for _, d := range g.Clients {
+				entry := dnsrelay.RouteClient{MAC: d.MAC, Exit: d.Exit}
 				for _, n := range l.Networks {
 					if len(n.Members) > 0 && n.IPv4 != nil && n.IPv4.Subnet.IsValid() {
 						entry.Prefixes = append(entry.Prefixes, n.IPv4.Subnet.Masked())
 					}
 				}
-				r.Devices = append(r.Devices, entry)
+				r.Clients = append(r.Clients, entry)
 			}
 		}
 	}
 	// Keep the file even with no exits: the relay requires one when this
 	// feature is wired, and a missing file is a visible incomplete apply.
 	sort.Slice(r.Exits, func(i, j int) bool { return r.Exits[i].Name < r.Exits[j].Name })
-	sort.Slice(r.Devices, func(i, j int) bool { return r.Devices[i].MAC < r.Devices[j].MAC })
+	sort.Slice(r.Clients, func(i, j int) bool { return r.Clients[i].MAC < r.Clients[j].MAC })
 	sort.Slice(r.Networks, func(i, j int) bool { return r.Networks[i].Prefix.String() < r.Networks[j].Prefix.String() })
 	data, err := dnsrelay.MarshalRoutes(r)
 	if err != nil {
@@ -424,7 +424,7 @@ func (b Backend) renderRoutes(c Config) ([]byte, error) {
 // public name.
 //
 // This is anti-DNS-rebinding: a name on the internet resolving to an address on
-// your LAN is how a web page reaches a device it should not be able to. unbound
+// your LAN is how a web page reaches a client it should not be able to. unbound
 // configures none of these by default, so leaving the list out would mean
 // leaving the defence off.
 //
@@ -438,7 +438,7 @@ func (b Backend) renderRoutes(c Config) ([]byte, error) {
 //
 // The insurance is close to free. 198.18.0.0/15 is the RFC 2544 benchmarking
 // range: it is not routed on the internet and it is not on anybody's LAN, so it
-// is not a path to a device the way the ranges below are. Leaving it out gives
+// is not a path to a client the way the ranges below are. Leaving it out gives
 // up almost no rebinding protection and avoids silently breaking a setup that
 // is none of our business. Whoever adds "the missing one" to this list should
 // know they are choosing the other side of that trade.
@@ -576,7 +576,7 @@ func renderPrivateDomains(s *strings.Builder, c Config) {
 // restarts the resolver and flushes its cache. That is ImpactRestart and not
 // ImpactDisruptive — plan.go's vocabulary is explicit that a bounce costs
 // milliseconds because DNS clients retry unprompted. It is still the one thing
-// to revisit if naming devices becomes a daily activity: a separate included
+// to revisit if naming clients becomes a daily activity: a separate included
 // file would make it a reload, at the cost of a mechanism nothing else needs.
 func renderLocalNames(s *strings.Builder, c Config) {
 	if len(c.Hosts) == 0 {
@@ -590,7 +590,7 @@ func renderLocalNames(s *strings.Builder, c Config) {
     # "static" means unbound answers the whole zone and never forwards any of
     # it. Both halves matter: a name we publish is answered without asking
     # anybody, and a name under it that we do not publish gets an authoritative
-    # NXDOMAIN instead of leaking what the devices in this house are called to
+    # NXDOMAIN instead of leaking what the clients in this house are called to
     # whichever resolver is upstream.
     local-zone: "%s." static
 `, domain)
@@ -780,9 +780,9 @@ table inet %[2]s {
 	s.WriteString(`    chain prerouting {
         type nat hook prerouting priority dstnat; policy accept;
 
-        # DHCP option 6 is advice; this is enforcement. A device that ignored
+        # DHCP option 6 is advice; this is enforcement. A client that ignored
         # it — or upgraded itself to a hardcoded public resolver, which
-        # browsers and Apple devices now do by default — is not merely
+        # browsers and Apple clients now do by default — is not merely
         # unlogged. The proxy that was meant to route it by domain never sees a
         # name it recognises, so domain policy silently stops applying
         # (docs/dns.md §2.2).

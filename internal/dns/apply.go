@@ -500,7 +500,7 @@ func (a Applier) ApplyChecked(ctx context.Context, desired Config, check func(Pl
 // serviceOrder sequences the two units.
 //
 // Coming up, the resolver goes first: a relay whose upstream is not answering
-// serves SERVFAIL to every device on the network, and a SERVFAIL is cached.
+// serves SERVFAIL to every client on the network, and a SERVFAIL is cached.
 // Going down, the order reverses for the mirror of the same reason — the relay
 // stops accepting queries before the thing behind it disappears, so nobody is
 // handed a failure that looks like a broken name rather than a stopped service.

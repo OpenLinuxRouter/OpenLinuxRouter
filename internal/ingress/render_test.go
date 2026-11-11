@@ -55,7 +55,7 @@ func TestRenderPublishesOneWildcardSite(t *testing.T) {
 		t.Errorf("expected a host matcher:\n%s", got)
 	}
 	if !strings.Contains(got, "reverse_proxy 192.168.1.50:3000") {
-		t.Errorf("expected the device's address resolved into the target:\n%s", got)
+		t.Errorf("expected the client's address resolved into the target:\n%s", got)
 	}
 }
 

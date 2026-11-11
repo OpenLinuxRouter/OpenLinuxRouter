@@ -2,7 +2,7 @@ import type { ClientRow } from '@/lib/api-types'
 import type { IngressConfig, Service } from '@/lib/config-types'
 
 /** Only attach a manually addressed service when its target identifies one device. */
-export function servicesByDevice(config: IngressConfig | undefined, devices: ClientRow[]): Map<string, Service[]> {
+export function servicesByClient(config: IngressConfig | undefined, devices: ClientRow[]): Map<string, Service[]> {
   const result = new Map<string, Service[]>()
   if (!config?.enabled) return result
 
@@ -22,8 +22,8 @@ export function servicesByDevice(config: IngressConfig | undefined, devices: Cli
   }
 
   for (const service of config.services ?? []) {
-    const mac = service.upstream.device
-      ? byName.get(service.upstream.device.toLowerCase())
+    const mac = service.upstream.client
+      ? byName.get(service.upstream.client.toLowerCase())
       : byAddress.has(service.upstream.host ?? '')
         ? byAddress.get(service.upstream.host ?? '')
         : byName.get((service.upstream.host ?? '').toLowerCase())
@@ -36,7 +36,7 @@ export function servicesByDevice(config: IngressConfig | undefined, devices: Cli
 /**
  * The services one target is the upstream of, on that target's own page.
  *
- * Looser than `servicesByDevice` on purpose: that one decides which device a
+ * Looser than `servicesByClient` on purpose: that one decides which device a
  * manually addressed service belongs to *among all of them* and refuses when the
  * answer is ambiguous, while this one is asked about a device already named by
  * the URL, so its addresses and its stored name are answers rather than
@@ -55,8 +55,8 @@ export function servicesOf(
   const addresses = new Set((target.addresses ?? []).filter(Boolean).map((address) => address.toLowerCase()))
   return (services ?? []).filter((service) => {
     const upstream = service.upstream
-    if (mac && upstream.device?.toLowerCase() === mac) return true
-    if (target.name && upstream.device === target.name) return true
+    if (mac && upstream.client?.toLowerCase() === mac) return true
+    if (target.name && upstream.client === target.name) return true
     return Boolean(upstream.host && addresses.has(upstream.host.toLowerCase()))
   })
 }

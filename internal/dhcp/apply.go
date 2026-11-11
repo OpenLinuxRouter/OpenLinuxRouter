@@ -386,7 +386,7 @@ func (a Applier) ApplyChecked(ctx context.Context, desired Config, check func(Pl
 		// a lease" would be convergence and would freeze every other module.
 		//
 		// It is worth the wall-clock. A DHCP server that died is invisible for
-		// hours and then breaks every device at once as leases expire, and it is
+		// hours and then breaks every client at once as leases expire, and it is
 		// the one failure the lockout guard (§5.5) does not cover — the operator
 		// keeps their own session throughout.
 		if desired.Enabled && action != ActionStop {

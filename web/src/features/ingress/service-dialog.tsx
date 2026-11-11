@@ -73,7 +73,7 @@ export function ServiceDialog({
   useLocale()
   const empty = initialUpstream ? { ...EMPTY, upstream: initialUpstream } : EMPTY
   const [draft, setDraft] = useState<Service>(initial ?? empty)
-  const [target, setTarget] = useState<string>(initial?.upstream.device ?? initialUpstream?.device ?? MANUAL)
+  const [target, setTarget] = useState<string>(initial?.upstream.client ?? initialUpstream?.client ?? MANUAL)
   const [saving, setSaving] = useState(false)
   const editing = initial !== undefined
 
@@ -103,7 +103,7 @@ export function ServiceDialog({
       // Client and host are alternatives and the daemon refuses both at once, so
       // choosing one clears the other here rather than letting a stale value ride
       // along into a validation error about a field the operator cannot see.
-      upstream: { ...d.upstream, device: next === MANUAL ? '' : next, host: '' },
+      upstream: { ...d.upstream, client: next === MANUAL ? '' : next, host: '' },
     }))
   }
 
@@ -123,7 +123,7 @@ export function ServiceDialog({
       onOpenChange={(next) => {
         if (!next) {
           setDraft(initial ?? empty)
-          setTarget(initial?.upstream.device ?? initialUpstream?.device ?? MANUAL)
+          setTarget(initial?.upstream.client ?? initialUpstream?.client ?? MANUAL)
         }
         onOpenChange(next)
       }}
@@ -340,7 +340,7 @@ export function ServiceDialog({
                     icon: draft.icon || undefined,
                     upstream: {
                       ...draft.upstream,
-                      device: target === MANUAL ? undefined : target,
+                      client: target === MANUAL ? undefined : target,
                       host: target === MANUAL ? (draft.upstream.host ?? '').trim() : undefined,
                       request_headers: draft.upstream.request_headers?.map((h) => ({
                         name: h.name.trim(), value: h.remove ? undefined : h.value ?? '', remove: h.remove || undefined,

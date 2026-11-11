@@ -10,7 +10,7 @@ import (
 //
 // Declared here by the consumer, and adapted in internal/daemon, which is the
 // pattern dhcp uses for LinkView: `ingress` imports neither `dns` nor
-// `devices`, states exactly the facts it needs, and never keeps a copy of
+// `clients`, states exactly the facts it needs, and never keeps a copy of
 // either (design.md §4.1).
 
 // DNSView is the window onto the `dns` module.
@@ -30,28 +30,28 @@ type DNSView interface {
 	LocalDomain() string
 }
 
-// DeviceView is the window onto the `devices` module.
+// ClientView is the window onto the `clients` module.
 //
 // Address resolution is read-through per request rather than cached, for the
 // same reason dhcp reads link per request: a cached address is a copy, and a
 // copy of something that changes is drift waiting for a lease to expire.
-type DeviceView interface {
-	// Device returns what is known about a device, or ErrNoSuchDevice.
-	Device(name string) (DeviceInfo, error)
+type ClientView interface {
+	// Client returns what is known about a client, or ErrNoSuchClient.
+	Client(name string) (ClientInfo, error)
 }
 
-// DeviceInfo is the subset of a device's state that publishing depends on.
-type DeviceInfo struct {
+// ClientInfo is the subset of a client's state that publishing depends on.
+type ClientInfo struct {
 	// MAC is the stable identity; Name is only a label.
 	MAC string `json:"mac,omitempty"`
-	// Name is the device's name in the `devices` module.
+	// Name is the client's name in the `clients` module.
 	Name string `json:"name,omitempty"`
 
-	// Addr is where the device is right now.
+	// Addr is where the client is right now.
 	Addr netip.Addr `json:"address,omitempty"`
 
 	// Fixed reports whether Addr is a fixed address owned by `dhcp`, as
-	// opposed to whatever the device happens to hold from a dynamic pool.
+	// opposed to whatever the client happens to hold from a dynamic pool.
 	//
 	// This is the difference between a published service that keeps working and
 	// one that quietly proxies to a stranger's laptop after a lease turns over,
@@ -62,25 +62,25 @@ type DeviceInfo struct {
 	Fixed bool `json:"fixed"`
 }
 
-// ResolveDeviceReferences upgrades legacy names when they still identify a
-// device. Unknown references stay visible so they can be repaired explicitly.
-func (c *Config) ResolveDeviceReferences(devices DeviceView) {
-	if devices == nil {
+// ResolveClientReferences upgrades legacy names when they still identify a
+// client. Unknown references stay visible so they can be repaired explicitly.
+func (c *Config) ResolveClientReferences(clients ClientView) {
+	if clients == nil {
 		return
 	}
 	for i := range c.Services {
 		u := &c.Services[i].Upstream
-		if u.Device == "" {
+		if u.Client == "" {
 			continue
 		}
-		if info, err := devices.Device(u.Device); err == nil && info.MAC != "" {
-			u.Device = info.MAC
+		if info, err := clients.Client(u.Client); err == nil && info.MAC != "" {
+			u.Client = info.MAC
 		}
 	}
 }
 
-// ErrNoSuchDevice is returned by DeviceView.Device for an unknown name.
-var ErrNoSuchDevice = errors.New("no such device")
+// ErrNoSuchClient is returned by ClientView.Client for an unknown name.
+var ErrNoSuchClient = errors.New("no such client")
 
 // StaticDNS is a DNSView backed by literal values, for tests.
 type StaticDNS struct {
@@ -90,17 +90,17 @@ type StaticDNS struct {
 // LocalDomain implements DNSView.
 func (s StaticDNS) LocalDomain() string { return s.Domain }
 
-// StaticDevices is a DeviceView backed by a map, for tests.
+// StaticClients is a ClientView backed by a map, for tests.
 //
 // The validation rules are the largest thing in this module and none of them
 // need a network to exercise, which is what §5.3.1 is for.
-type StaticDevices map[string]DeviceInfo
+type StaticClients map[string]ClientInfo
 
-// Device implements DeviceView.
-func (s StaticDevices) Device(name string) (DeviceInfo, error) {
+// Client implements ClientView.
+func (s StaticClients) Client(name string) (ClientInfo, error) {
 	info, ok := s[name]
 	if !ok {
-		return DeviceInfo{}, fmt.Errorf("%q: %w", name, ErrNoSuchDevice)
+		return ClientInfo{}, fmt.Errorf("%q: %w", name, ErrNoSuchClient)
 	}
 	if info.Name == "" {
 		info.Name = name

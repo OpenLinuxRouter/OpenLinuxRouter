@@ -150,7 +150,7 @@ func (s StaticLinks) Interfaces() ([]LinkInfo, error) {
 // DerivedNotes describes what the module filled in for a caller who did not say.
 //
 // Two things, both of which have to be said out loud rather than done quietly
-// (design.md §5.6): the wildcard default, and the address devices that dial in
+// (design.md §5.6): the wildcard default, and the address clients that dial in
 // are told to use. The second is not a default at all — it is the other half of
 // a promise `remote` made when it printed a client configuration (dialin.go) —
 // but it is still an address this module answers on without the operator naming
@@ -168,7 +168,7 @@ func DerivedNotes(c Config, _ LinkView, dialIn DialInView) []string {
 	// function's: it builds sentences for a preview, and a plan that cannot be
 	// rendered has already failed by the time anybody reads them.
 	if service, err := ServiceListen(c, dialIn); err == nil && len(service) > 0 {
-		out = append(out, fmt.Sprintf("answering DNS on %s for devices that dial in", joinAddrPorts(service)))
+		out = append(out, fmt.Sprintf("answering DNS on %s for clients that dial in", joinAddrPorts(service)))
 	}
 	return out
 }

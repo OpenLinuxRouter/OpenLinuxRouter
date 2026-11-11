@@ -19,7 +19,7 @@ five-category assessment, measurement catalog, data model and staged delivery.
 - **UX first.** UniFi-grade or better. Simplicity over feature count.
   Explicitly *not* chasing enterprise capability.
 - **Progressive disclosure.** The default surface speaks the operator's
-  vocabulary — networks, devices, fixed addresses — not the daemon's. Every
+  vocabulary — networks, clients, fixed addresses — not the daemon's. Every
   mechanism underneath stays reachable, through an advanced view, a declared
   escape hatch (§3.2 rule 5), or plain Linux. **We hide complexity; we never
   hide capability.** This is the rule that reconciles "UX first" with "we do not
@@ -334,7 +334,7 @@ more `olr internal …` entry point — never a goroutine, because:
   build. As a unit it is free, and §5.4's "is the backend alive" stays one
   uniform D-Bus query with no special case.
 - **It is the most dangerous code on the box.** A DHCP server binds `:67` and
-  parses unauthenticated packets from every device on the LAN. `olrd` holds
+  parses unauthenticated packets from every client on the LAN. `olrd` holds
   `CAP_NET_ADMIN` and the admin API. They must not share an address space.
 - **§3.2's module rules stay uniform** — render config, reload unit, read
   status. One shape, no exceptions.
@@ -375,7 +375,7 @@ This is a deliberate trade and not a gap nobody noticed:
   discovered to be wrong months later by an operator whose DNS is down.
 
 What this costs, stated plainly so it is not rediscovered as a surprise:
-`olr-dnsd` parses unauthenticated packets from every device on the LAN and now
+`olr-dnsd` parses unauthenticated packets from every client on the LAN and now
 does so as root. That is the unit to harden first when this is revisited, and
 the one that should get a real test when it is.
 
@@ -406,7 +406,7 @@ freezes every other module.
 This does **not** forbid post-apply verification (§11.5). "Did the unit come up
 and bind?" is bounded and belongs inside apply; "did a client get a lease?" is
 convergence and does not. The line is whether the answer depends on some other
-device on the network deciding to speak.
+client on the network deciding to speak.
 
 **The `dhcp-script` callback bypasses the lock.** It writes *observed* state —
 not config, not revisioned (§4.5) — so it lands on a separate endpoint and
@@ -514,7 +514,7 @@ Bounded list. Not expected to grow much. The object they all key off is the
 | | `devices` | **managed network equipment**: switches, access points and routers olr reads but never configures; brand adapters, capability-gated observations (docs/network-equipment.md) | ✅ |
 | **Services** | `dhcp` | dnsmasq — DHCPv4, DHCPv6 **and RA** (§4.2) | ✅ |
 | | `dns` | unbound — **DNS only** | ✅ |
-| | `qos` | tc — per-device priority and upload/download limits; see docs/qos.md | |
+| | `qos` | tc — per-client priority and upload/download limits; see docs/qos.md | |
 | | `gateway` | **the boundary between the networks this box serves and everything else, in both directions**: static + policy routes and exits (`olr_route`), egress NAT and port forwarding (`olr_nat`), byte accounting (`olr_stat`); later bird (BGP/OSPF). Absorbed the deleted `firewall` module (docs/gateway.md §0, docs/port-forwarding.md) | ✅ |
 | | `firewall` | **native nftables rules**: inspect tables/chains/ordered expressions; edit and persist `inet olr_filter`. Automatic default generation remains available until native rules are saved. The old module of this name was NAT only and moved to `gateway` (docs/firewall.md, docs/port-forwarding.md §0) | ✅ |
 | | `remote` | getting back in from outside: **WireGuard and SOCKS5** built as parallel objects (docs/remote-access.md) | ✅ |
@@ -582,15 +582,15 @@ The `remote → dns` arrow is the one worth spelling out, because the fact at it
 tail is not something `dns` could have inferred. `remote` writes this box's
 dial-in address into every client configuration it prints, and prints it once —
 the file lives on a phone afterwards. A resolver that does not answer there is a
-device that reports "connected" and resolves nothing: both modules internally
+client that reports "connected" and resolves nothing: both modules internally
 consistent, and nobody owning the intersection. So `dns` subscribes to the
 tunnel's address and answers on it, derived rather than pinned, because the
 address is olr's to create and not the operator's to keep correct
 (internal/dns/dialin.go).
 
 The `remote → gateway` arrow is the same shape on the data path. A peer's
-address is on no network `link` serves, so a device on one of them has no route
-back and its reply leaves by whatever gateway that device has. `gateway` reads
+address is on no network `link` serves, so a client on one of them has no route
+back and its reply leaves by whatever gateway that client has. `gateway` reads
 the dial-in subnet and rewrites it to this router's address on each network it
 serves, because a tunnel that connects and reaches nothing is the DNS arrow's
 failure met again — both modules internally consistent, and nobody owning the
@@ -678,13 +678,13 @@ this, and both are structural rather than matters of taste:
   fundamental than DHCPv6.
 - **Android has never implemented DHCPv6, and Google closed the request as
   "Won't Fix (Intended Behavior)."** Any network that relies on stateful DHCPv6
-  silently loses every Android device on it. For our audience that is most of
+  silently loses every Android client on it. For our audience that is most of
   the handsets on the LAN.
 
 So the smallest correct thing is also the most compatible thing. Stateful
 DHCPv6 becomes an advanced mode later, labelled with the Android consequence.
 
-### 4.4 The shared objects: network and device
+### 4.4 The shared objects: network and client
 
 Two objects are referenced by many modules and owned by one. They are the
 reason the module list stays orthogonal without the product feeling like a pile
@@ -764,7 +764,7 @@ policy yet.
 ### 4.5 Own the model, never the state
 
 olr's model is canonical and daemon configuration is a **projection of it**. An
-operator meets a *device*, not dnsmasq's idea of a host, unbound's idea of a
+operator meets a *client*, not dnsmasq's idea of a host, unbound's idea of a
 name and nftables' idea of an address. Parsing a daemon's format dies at the
 module boundary; nothing above it sees "column 4 of the lease file."
 
@@ -1113,7 +1113,7 @@ enforces it; a test fails the build otherwise.
 
 *Writes wait for §6.2's gate.* "An agent proposes, a human reviews the diff" needs
 the disruptive refusal, and only `gateway` implements it — `dhcp`, `dns` and
-`devices` still apply on the first request. Until they do not, publishing a write
+`clients` still apply on the first request. Until they do not, publishing a write
 tool would mean an agent could drop the LAN with nothing to show the approving
 human that it would. The read and plan tools are the half that works today.
 
@@ -1303,14 +1303,14 @@ be the released artefact.
    `firewall` module's zones, which are not being built (docs/port-forwarding.md
    §0).
 3. **Make it safe.** Lockout guard, per-module revisions, impact classification.
-4. **Make it visible.** WebUI shell, `devices` inventory, live throughput.
-   The inventory did move earlier: identity landed with the device list, which
+4. **Make it visible.** WebUI shell, `clients` inventory, live throughput.
+   The inventory did move earlier: identity landed with the client list, which
    is what unblocked the §11.1 fixed-address surface.
 5. **Make it programmable.** OpenAPI publication, MCP server, skills.
    Partly done: the MCP server reads (§6.4, `docs/mcp.md`), and `/api/routes`
    plus `/api/schema` are the two halves an OpenAPI document is a join of.
    Still owed: writes, which wait on §6.2's disruptive gate reaching `dhcp`,
-   `dns` and `devices`; the document itself; skills.
+   `dns` and `clients`; the document itself; skills.
 6. **Then:** `qos`, `remote`, `gateway`, `wifi`.
 
 **`remote` was called `vpn` here until it was built**, and the rename is
@@ -1367,7 +1367,7 @@ belongs to the network, a second and deliberate act.
 ## 10. Open decisions
 
 1. **`access` module split.** Assumed here as three concerns —
-   `firewall` (zones/rules/NAT/forwards), `devices` (inventory, blocking,
+   `firewall` (zones/rules/NAT/forwards), `clients` (inventory, blocking,
    parental), `auth` (who may log into olr, folded into `system`).
    Confirm this matches the intent.
 
@@ -1400,11 +1400,11 @@ belongs to the network, a second and deliberate act.
    retained samples and OLR's own recovery/session records. Flash wear and
    privacy still require bounded retention and batched writes; selecting a
    database does not itself justify writing every DNS query or flow to disk.
-   Explicitly enabled device inspection is a separate, bounded archive described
+   Explicitly enabled client inspection is a separate, bounded archive described
    below; ordinary traffic is not archived by enabling SQLite.
 
-   **Device activity exception:** a bounded sampler now retains up
-   to 90 days of half-hour counter differences for the device-card dot matrix
+   **Client activity exception:** a bounded sampler now retains up
+   to 90 days of half-hour counter differences for the client-card dot matrix
    and the total beneath it, which is that matrix added up rather than the
    kernel's cumulative counter.
    It samples every ten seconds independently of browsers, respects traffic
@@ -1415,13 +1415,13 @@ belongs to the network, a second and deliberate act.
    Missing intervals, resets and initial baselines are
    not counted as zero traffic. Samples crossing half-hour boundaries are
    omitted rather than attributed to the wrong interval. The display joins
-   current device addresses, so address changes can hide earlier samples and
-   reused addresses can include another device's activity. These are sampled
+   current client addresses, so address changes can hide earlier samples and
+   reused addresses can include another client's activity. These are sampled
    volumes, not exact accounting totals. Restart restores retained buckets but
    starts new counter baselines; abrupt termination may lose the latest minute.
 
-   **Continuous device inspection is an explicit retention exception.** Its
-   per-device switch survives stop/start of the control daemon, deployments and
+   **Continuous client inspection is an explicit retention exception.** Its
+   per-client switch survives stop/start of the control daemon, deployments and
    reboots. On packaged Linux systems the proxy is a separate systemd service,
    so an OLR daemon restart can reattach to it without interrupting capture.
    The live mitmweb viewer keeps only its latest 1000 flows in memory, while a
@@ -1432,20 +1432,20 @@ belongs to the network, a second and deliberate act.
    are reported separately from live interception state.
 
    Inspection defaults to 30 days and a **5 GiB total router-wide archive cap
-   shared across all devices**, with oldest-first removal. Operators can set
-   1–365 days and 1 MiB–1 TiB. The UI always exposes retained per-device history,
-   including when another device is active, with search, cursor pagination,
+   shared across all clients**, with oldest-first removal. Operators can set
+   1–365 days and 1 MiB–1 TiB. The UI always exposes retained per-client history,
+   including when another client is active, with search, cursor pagination,
    inline headers/body previews and full native-flow downloads. Clearing a
-   device's saved requests requires confirmation and leaves site activity and
-   other devices' archives intact. Storage-limit controls explicitly name their
-   global scope. Inspection site activity retains per-device samples with
+   client's saved requests requires confirmation and leaves site activity and
+   other clients' archives intact. Storage-limit controls explicitly name their
+   global scope. Inspection site activity retains per-client samples with
    4-hour, 24-hour, 7-day and 30-day views after interception stops or restarts;
    control-daemon downtime remains an unsampled gap. Site activity has its own
-   30-day/64-MiB bound across devices, separate from request archive limits.
+   30-day/64-MiB bound across clients, separate from request archive limits.
    Filesystem overhead and transient files can need additional disk space.
    This does not create a complete browsing history or change the DNS relay's
    recent-memory log.
-   See `docs/device-inspection.md` for setup, API and capture boundaries.
+   See `docs/client-inspection.md` for setup, API and capture boundaries.
 
    Configuration revision history and rollback remain separate, unimplemented
    features. **Intent stays a JSON file** (§3.2 rule 1): "SSH in and read the
@@ -1459,8 +1459,8 @@ belongs to the network, a second and deliberate act.
 
 ### Resolved
 
-- **`devices` owns the inventory, and it is a module of its own.** (was open
-  decision 6, §4.4) `clients` is promoted to v1, renamed to `devices` after the
+- **`clients` owns the inventory, and it is a module of its own.** (was open
+  decision 6, §4.4) `clients` is promoted to v1, renamed to `clients` after the
   object it owns, and grows the intent half: MAC, name, category, model, notes.
   The alternatives both failed on §4.1. Identity in `dhcp` would force
   `gateway` to depend on `dhcp` to write a rule about a laptop, which §4.4
@@ -1468,19 +1468,19 @@ belongs to the network, a second and deliberate act.
   reader would split one object across two owners and leave the join homeless.
 
   Presence stays read-through and arrives via a consumer-declared interface, the
-  way `dhcp` reads `link` through `LinkView`: `devices` never imports `dhcp`, and
+  way `dhcp` reads `link` through `LinkView`: `clients` never imports `dhcp`, and
   the lease adapter is wired in `internal/daemon`. What was going to be the `clients`
   module — conntrack, wifi stations — becomes further presence sources behind
   that same interface rather than a second module with a second name for one
   object.
 
-  **The fixed address does not move.** `dhcp` keeps owning it; the device list
+  **The fixed address does not move.** `dhcp` keeps owning it; the client list
   joins against it per request. §11.1 asked that the *workflow* start from the
-  device, not that the fact change hands — and moving it would have been the
+  client, not that the fact change hands — and moving it would have been the
   private copy §4.1 exists to prevent. This unblocks that surface.
 
-- **The device list reads ARP, from `/proc/net/arp`.** (was open decision 7)
-  The screen is called Devices, so it has to be one: a lease-derived list omits
+- **The client list reads ARP, from `/proc/net/arp`.** (was open decision 7)
+  The screen is called Clients, so it has to be one: a lease-derived list omits
   the statically-addressed printer, and operators notice. Reading the kernel's
   neighbour table costs no new dependency, which is why it beat the netlink
   library — `go.mod` has three direct dependencies and that restraint is worth
@@ -1488,7 +1488,7 @@ belongs to the network, a second and deliberate act.
 
   The cost is stated rather than hidden. `/proc/net/arp` is IPv4-only, so ND
   waits for `link` to bring netlink in properly (milestone 1), and a v6-only
-  client is invisible to both sources until then. A device that neither takes a
+  client is invisible to both sources until then. A client that neither takes a
   lease nor answers ARP is absent until added by hand, and the screen says so
   next to its `as_of` rather than implying the list is complete. On a machine
   with no `/proc/net/arp` at all — every non-Linux developer box — that is
@@ -1640,9 +1640,9 @@ belongs to the network, a second and deliberate act.
   written with the old keys is read as-is and rewritten once when olrd starts.
 
   One consequence, and it is the reason this entry exists rather than being a
-  silent find-and-replace: **the word "group" goes back to sets of devices**,
+  silent find-and-replace: **the word "group" goes back to sets of clients**,
   which is what it was reserved for before the network borrowed it (the concept
-  was called a **tag** in between). A device group is exclusive — each device in
+  was called a **tag** in between). A client group is exclusive — each client in
   exactly one — and carries policy such as the exit (§4.4). Recorded so the next
   reader does not find "group" in an old commit and assume it means a network.
 
@@ -1668,15 +1668,15 @@ Two nouns, both defined in §4.4, neither of them owned here:
 
 - **Network settings** attach to a **network**. `link` owns the network; `dhcp`
   owns what it serves there.
-- **A fixed address** is a property **of a device**, not a standalone row. It is
-  set from the device list, not by typing a MAC into a form. The difference
+- **A fixed address** is a property **of a client**, not a standalone row. It is
+  set from the client list, not by typing a MAC into a form. The difference
   between those two sentences is the difference between the OPNsense experience
   and the UniFi one.
 
 Modelling fixed addresses as a flat MAC→IP table is the failure mode to avoid;
 it is what forces every workflow to start from a hardware address the operator
-has to go and find. `devices` now owns identity (§10, resolved), so this surface
-is unblocked: the device list is where a fixed address is set, with the MAC
+has to go and find. `clients` now owns identity (§10, resolved), so this surface
+is unblocked: the client list is where a fixed address is set, with the MAC
 already known, and `dhcp` still owns the reservation itself.
 
 ### 11.2 Per-network settings
@@ -1703,7 +1703,7 @@ overridable, nothing required. If that command needs four flags, §1's "UX first
 has not been met — this is a test, not an aspiration.
 
 The derived range matters for a second reason: the real collision hazard is not
-a fixed address inside the dynamic range, it is a **statically-configured device**
+a fixed address inside the dynamic range, it is a **statically-configured client**
 inside it, which DHCP will hand to someone else. dnsmasq has no exclusion
 primitive, so the only defence is a range that deliberately leaves a static block
 free. Deriving it gives that for free; asking the operator to type it does not.
@@ -1739,9 +1739,9 @@ rather than a guess.
 | | | |
 |---|---|---|
 | **v1** | per-network `auto\|on\|off`, derived range, fixed addresses, lease/DNS/domain, IPv6 SLAAC+RDNSS | |
-| | pool usage, foreign-DHCP-server detection, recent DHCP events | "why did this device not get an address" is the single most common support question; these three answer it |
+| | pool usage, foreign-DHCP-server detection, recent DHCP events | "why did this client not get an address" is the single most common support question; these three answer it |
 | **v2** | PXE / netboot (`dhcp-boot`) | high demand in *this* audience — Proxmox, netboot.xyz |
-| | deny DHCP to a device (`dhcp-ignore`) | belongs with inventory blocking, not here |
+| | deny DHCP to a client (`dhcp-ignore`) | belongs with inventory blocking, not here |
 | | option 121 static routes, stateful DHCPv6 | escape hatch until then |
 | **Never** | DHCP relay | different object shape; settled once, not revisited |
 | | per-vendor-class options, multiple pools per network | escape hatch, permanently |
@@ -1764,7 +1764,7 @@ rather than a guess.
   on a config it rejects rather than idling.
 - **`dhcp-script` is not wired up.** It is the only real IPC dnsmasq offers, and
   it is what turns leases from a polled file into an event stream — the live
-  device list (§6.3 SSE), the §4.1 lease publish to `dns`, and the event history
+  client list (§6.3 SSE), the §4.1 lease publish to `dns`, and the event history
   above all depend on it. Highest-leverage single item in the module.
 - **Drift is byte-comparison against rendered files,** so changing a comment in
   the renderer marks every deployed install as drifted and schedules a restart on

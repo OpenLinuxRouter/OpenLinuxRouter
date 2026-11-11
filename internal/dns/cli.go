@@ -187,7 +187,7 @@ func showPolicyCommand() *cobra.Command {
 // showHostsCommand lists what this resolver answers for itself.
 //
 // Deliberately a different word from `show names`, which is the observed list —
-// what the devices here looked up. Hosts are the other direction: what this
+// what the clients here looked up. Hosts are the other direction: what this
 // network answers when something looks *it* up. Two words for two things beats
 // one word an operator has to disambiguate by column heading.
 func showHostsCommand() *cobra.Command {
@@ -245,9 +245,9 @@ func showQueriesCommand() *cobra.Command {
 func showNamesCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "names",
-		Short: "List the addresses each device resolved, and for what",
+		Short: "List the addresses each client resolved, and for what",
 		Long: "List the domain-to-address map the relay built from the answers it saw.\n\n" +
-			"This is what makes traffic attributable: a device connecting to a CDN\n" +
+			"This is what makes traffic attributable: a client connecting to a CDN\n" +
 			"address is meaningless on its own, and this says which name it asked for\n" +
 			"to get there. Entries expire at the record's TTL plus a grace period.",
 		Args: cobra.NoArgs,
@@ -417,13 +417,13 @@ func rmCommand() *cobra.Command {
 	return c
 }
 
-// addHostCommand names one device.
+// addHostCommand names one client.
 //
 // The address is an argument rather than a flag because it is usually not
 // optional: a host with no address is a name that exists and answers nothing,
 // which validate refuses. Repeating it gives one name both families.
 //
-// It may be left out for a device that already has a DHCP reservation with this
+// It may be left out for a client that already has a DHCP reservation with this
 // hostname, in which case the address comes from there. That join happens here,
 // in the client, and deliberately not in olrd: a reservation and a local name
 // are two modules' config, there is no cross-module transaction (§5.3.1), and
@@ -438,7 +438,7 @@ func addHostCommand() *cobra.Command {
 			"The name is relative to the local domain: `add host sony-tv 192.168.1.50`\n" +
 			"publishes sony-tv.home.arpa. Writing it out in full works too and means the\n" +
 			"same entry. Give the address twice to publish both an IPv4 and an IPv6 one.\n\n" +
-			"Leave the address out for a device that already has a DHCP reservation under\n" +
+			"Leave the address out for a client that already has a DHCP reservation under\n" +
 			"this name, and it is taken from there — `olr dhcp add reservation` once, then\n" +
 			"`olr dns add host sony-tv`.\n\n" +
 			"This replaces an existing entry outright rather than adding to it, so the\n" +
@@ -474,7 +474,7 @@ func rmHostCommand() *cobra.Command {
 	return c
 }
 
-// reservedAddress finds the address DHCP already hands the device with this
+// reservedAddress finds the address DHCP already hands the client with this
 // hostname.
 //
 // Matched on the name the operator typed in both places. The error names the
@@ -539,7 +539,7 @@ func policyCommand(string) *cobra.Command {
 		Use:   "policy <name>",
 		Short: "Add or replace a policy",
 		Long: "Add or replace a policy: a set of clients and what they may look up.\n\n" +
-			"A policy with no --client is the default one, applying to every device no\n" +
+			"A policy with no --client is the default one, applying to every client no\n" +
 			"other policy claims. The most specific matching network wins, so a policy\n" +
 			"naming one address beats one naming the whole subnet.",
 		Args: cobra.ExactArgs(1),
@@ -906,7 +906,7 @@ func parseAddrPorts(flag string, values []string, defaultPort uint16) ([]netip.A
 }
 
 // parsePrefixes reads networks, accepting a bare address as a host route so
-// that naming one device does not require typing /32.
+// that naming one client does not require typing /32.
 func parsePrefixes(flag string, values []string) ([]netip.Prefix, error) {
 	out := make([]netip.Prefix, 0, len(values))
 	for _, v := range values {

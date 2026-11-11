@@ -12,7 +12,10 @@ import (
 	"github.com/open-linux-router/open-linux-router/internal/core"
 	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/dhcp"
+	"github.com/open-linux-router/open-linux-router/internal/gateway"
+	"github.com/open-linux-router/open-linux-router/internal/ingress"
 	"github.com/open-linux-router/open-linux-router/internal/link"
+	"github.com/open-linux-router/open-linux-router/internal/qos"
 )
 
 // Migrating a 0.2.0 document.
@@ -450,5 +453,66 @@ func TestMigrateLeavesTheEquipmentInventoryAlone(t *testing.T) {
 	}
 	if _, ok := doc.Raw(clients.ModuleName); ok {
 		t.Error("an equipment document was re-keyed as a client inventory")
+	}
+}
+
+// The per-client entries inside other modules moved with the same vocabulary:
+// qos priorities, gateway exit overrides and ingress published services all
+// called the client they name a `device`.
+func TestMigrateRenamesThePerClientEntries(t *testing.T) {
+	const document = `{
+  "qos": {"devices": [{"mac": "aa:bb:cc:dd:ee:ff", "priority": "high"}]},
+  "gateway": {"devices": [{"mac": "aa:bb:cc:dd:ee:ff", "exit": "Proxy"}]},
+  "ingress": {"enabled": false, "services": [{"name": "nas", "upstream": {"device": "nuc", "port": 8080}}]}
+}`
+	path := filepath.Join(t.TempDir(), "olr.json")
+	if err := os.WriteFile(path, []byte(document), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store := core.NewStore(path, qos.ModuleName, gateway.ModuleName, ingress.ModuleName)
+
+	changed, err := migrateDocument(store, testFacts(t, ""), quietLogger())
+	if err != nil {
+		t.Fatalf("migrateDocument: %v", err)
+	}
+	if !changed {
+		t.Fatal("reported no change for a document in the old vocabulary")
+	}
+
+	doc, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	qosCfg, err := qos.FromDocument(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(qosCfg.Clients) != 1 || qosCfg.Clients[0].Priority != qos.High {
+		t.Errorf("qos clients = %+v, want the high-priority entry", qosCfg.Clients)
+	}
+	gwCfg, err := gateway.FromDocument(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(gwCfg.Clients) != 1 || gwCfg.Clients[0].Exit != "Proxy" {
+		t.Errorf("gateway clients = %+v, want the Proxy override", gwCfg.Clients)
+	}
+	inCfg, err := ingress.FromDocument(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(inCfg.Services) != 1 || inCfg.Services[0].Upstream.Client != "nuc" {
+		t.Errorf("ingress upstream = %+v, want the nuc client", inCfg.Services)
+	}
+	if inCfg.Legacy {
+		t.Error("the migrated ingress document still reports a legacy key")
+	}
+
+	changed, err = migrateDocument(store, testFacts(t, ""), quietLogger())
+	if err != nil {
+		t.Fatalf("second migrateDocument: %v", err)
+	}
+	if changed {
+		t.Fatal("the migration rewrote a document already in the current shape")
 	}
 }

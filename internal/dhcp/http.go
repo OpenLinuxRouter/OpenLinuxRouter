@@ -291,7 +291,7 @@ func (h HTTP) postPlan(w http.ResponseWriter, r *http.Request) {
 		// passing it here as well as in problems() reported each one twice: to
 		// the operator through `olr`, and to an agent through MCP, since both
 		// render the envelope with core.ErrorBody.String. Everywhere else in
-		// this module and in dns, devices and routing already passes a fixed
+		// this module and in dns, clients and routing already passes a fixed
 		// summary; this is the same sentence they use.
 		message := err.Error()
 		if len(plan.Validation.Errors) > 0 {

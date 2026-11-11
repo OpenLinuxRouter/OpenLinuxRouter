@@ -27,8 +27,8 @@ type Applier struct {
 	// authoritatively, so that a published domain inside it is refused rather
 	// than silently unresolvable (validate.go).
 	DNS DNSView
-	// Devices is the window onto the devices module.
-	Devices DeviceView
+	// Clients is the window onto the clients module.
+	Clients ClientView
 	// Proxy supervises the backend. Named for what it is rather than
 	// "Service", which in this module is the operator's object — see service.go.
 	Proxy ProxyUnit
@@ -177,7 +177,7 @@ func caddyComplaint(out []byte) string {
 
 // NewApplierAt wires up the Caddy backend, with every rendered path relocated
 // under root. An empty root is the real system.
-func NewApplierAt(store *core.Store, dns DNSView, devices DeviceView, root string) (Applier, error) {
+func NewApplierAt(store *core.Store, dns DNSView, clients ClientView, root string) (Applier, error) {
 	paths := RootedPaths(root)
 	backend := NewCaddy(paths).WithSource(store.Path())
 	proxy, err := NewProxyUnit(backend.Unit())
@@ -187,7 +187,7 @@ func NewApplierAt(store *core.Store, dns DNSView, devices DeviceView, root strin
 	return Applier{
 		Backend: backend,
 		DNS:     dns,
-		Devices: devices,
+		Clients: clients,
 		Proxy:   proxy,
 		Paths:   paths,
 		Store:   store,
@@ -221,7 +221,7 @@ func (a Applier) Load() (Config, error) {
 	}
 	cfg, err := FromDocument(doc)
 	if err == nil {
-		cfg.ResolveDeviceReferences(a.Devices)
+		cfg.ResolveClientReferences(a.Clients)
 	}
 	return cfg, err
 }
@@ -279,7 +279,7 @@ func (a Applier) Plan(ctx context.Context, desired Config) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	return BuildPlan(a.Backend, desired, a.DNS, a.Devices, obs)
+	return BuildPlan(a.Backend, desired, a.DNS, a.Clients, obs)
 }
 
 // Drift reports what has changed underneath stored intent — design.md §5.4 in
@@ -299,7 +299,7 @@ func (a Applier) Apply(ctx context.Context, desired Config) (ApplyResult, error)
 	if err != nil {
 		return ApplyResult{}, err
 	}
-	plan, err := BuildPlan(a.Backend, desired, a.DNS, a.Devices, obs)
+	plan, err := BuildPlan(a.Backend, desired, a.DNS, a.Clients, obs)
 	if err != nil {
 		return ApplyResult{Plan: plan}, err
 	}
@@ -315,7 +315,7 @@ func (a Applier) Apply(ctx context.Context, desired Config) (ApplyResult, error)
 // lands — and "a published name stops answering" is exactly the kind of thing
 // that must not change shape between being shown and being done.
 func (a Applier) ApplyPlanned(ctx context.Context, desired Config, plan Plan) (ApplyResult, error) {
-	desired.ResolveDeviceReferences(a.Devices)
+	desired.ResolveClientReferences(a.Clients)
 	result := ApplyResult{Plan: plan}
 	run := func(description string, fn func() error) error {
 		err := fn()
@@ -357,7 +357,7 @@ func (a Applier) ApplyPlanned(ctx context.Context, desired Config, plan Plan) (A
 		return result, nil
 	}
 
-	rendered, err := a.Backend.Render(desired, a.Devices)
+	rendered, err := a.Backend.Render(desired, a.Clients)
 	if err != nil {
 		return result, err
 	}

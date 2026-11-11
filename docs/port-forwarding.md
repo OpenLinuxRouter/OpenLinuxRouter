@@ -8,7 +8,7 @@ this is a feature document the way `docs/ddns.md` is one of `dial`'s.
 One sentence is the whole feature:
 
 > **Something on the internet connects to this router on a port, and the
-> connection is delivered to one device on your network instead.**
+> connection is delivered to one client on your network instead.**
 
 ## 0. Why this is not a `firewall` module any more
 
@@ -72,25 +72,25 @@ scope of the rule exactly as wide as the operator said it was — and it is the
 same staging argument `gateway:`§2.5 makes: the field becomes a network name
 when `link` grows networks, and the stored document does not change shape.
 
-### 1.2 The destination is an address, not a device
+### 1.2 The destination is an address, not a client
 
-`to` stores `192.168.1.10:80`. It does **not** store a reference to a device in
-the `devices` inventory, and that is a decision rather than an omission.
+`to` stores `192.168.1.10:80`. It does **not** store a reference to a client in
+the `clients` inventory, and that is a decision rather than an omission.
 
 A forward is a kernel rule that has to exist the moment a packet arrives, at
-boot, before any lease has been handed out and while the device is switched off.
-A device reference would have to be resolved to an address at apply time, so the
-rule would either be absent until the device appeared — which is a port that
+boot, before any lease has been handed out and while the client is switched off.
+A client reference would have to be resolved to an address at apply time, so the
+rule would either be absent until the client appeared — which is a port that
 works some mornings — or be programmed against a remembered address, which is a
-device reference that has quietly become an address anyway, with one more place
+client reference that has quietly become an address anyway, with one more place
 for the two to disagree.
 
-What the operator loses is the case where the device's address changes and the
+What the operator loses is the case where the client's address changes and the
 forward silently points at whatever took it over. The answer to that is a fixed
 lease, which `dhcp` already has, and the surfaces say so: the WebUI's dialog
-offers a device picker that fills the address in and **warns when that device has
+offers a client picker that fills the address in and **warns when that client has
 no fixed address**, and `olr gateway add forward` accepts the address the
-operator can see in `olr devices show`. The stored value is an address either
+operator can see in `olr clients show`. The stored value is an address either
 way. The picker is a convenience for typing it, not a second model.
 
 ### 1.3 Port ranges may not be shifted
@@ -123,7 +123,7 @@ disagree about one packet because validation refuses the overlap (§5.1) rather
 than resolving it.
 
 That is a smaller model than the exits half's, deliberately. *"Where does my phone go?"*
-needs a ladder because every device has an answer whether or not anybody set one.
+needs a ladder because every client has an answer whether or not anybody set one.
 *"What reaches my NAS from outside?"* has the answer **nothing** until somebody
 writes it down, and a list of what somebody wrote down is a complete account of
 it. Adding structure to that would be modelling for its own sake.
@@ -296,7 +296,7 @@ are checks and reported facts rather than troubleshooting notes.
 |---|---|
 | Two forwards overlapping on `(in, protocol, port)` | genuinely ambiguous; first-match would be a precedence model nobody can see (§2.3 of `gateway`, one level down) |
 | `to` is an address on this box | a forward to ourselves is a loop, and the operator meant a local service |
-| `to` is unspecified, loopback or multicast | not a destination a device can hold |
+| `to` is unspecified, loopback or multicast | not a destination a client can hold |
 | `in` has not been adopted | §7 — we do not program rules on an interface nobody handed us |
 | A shifted port range | §1.3; the kernel would deliver to arbitrary ports |
 | An IPv6 address in `to` | §7 |
@@ -357,12 +357,12 @@ Three readings of `in`'s address, all **warnings**, in `warnUnreachableUplink`:
 | The interface holds | What it means |
 |---|---|
 | an address in `100.64.0.0/10` | the ISP has put this box behind **their** NAT; nothing outside can open a connection to it, ever |
-| a private (RFC 1918) address | this box is behind another router; the forward works once that device forwards the same port here |
+| a private (RFC 1918) address | this box is behind another router; the forward works once that client forwards the same port here |
 | no IPv4 address | there is nothing for a connection to arrive on yet |
 
 **Warnings and not refusals, deliberately.** Double NAT is ugly, not broken: a
 box behind an ISP-supplied modem-router carries forwarded traffic perfectly well
-as soon as the upstream device is told to send it here, and that is an extremely
+as soon as the upstream client is told to send it here, and that is an extremely
 common home topology. Refusing would block a configuration that works. The
 address is also a reading of *now* — an uplink can be mid-DHCP, or behind a modem
 being swapped — and a refusal would freeze a transient state.
@@ -429,7 +429,7 @@ There is no `to` that may be an IPv6 address, no v6 form of a forward, and no
 switch that mentions v6. This is the most likely thing in the document to be read
 as an oversight, so the reasoning is here rather than only in §9.
 
-IPv6 has no NAT and needs none: a device inside already has a globally routable
+IPv6 has no NAT and needs none: a client inside already has a globally routable
 address, so "forwarding" a v6 port is not a translation at all. It is **a
 filtering decision** — permitting inbound connections to an address that is
 already reachable in principle.
@@ -483,7 +483,7 @@ validation says why.
   lease, attributable to no person, and the security history is dire: malware
   inside the network opening its own inbound path is the textbook case. If it
   ever lands it needs its own object, its own list, its own expiry, and a
-  per-device consent model — which is a feature, not a flag on this one.
+  per-client consent model — which is a feature, not a flag on this one.
 
   §8 says **"never"** here rather than "never in olr", and the qualifier is
   load-bearing. What the operator wants is not UPnP; it is *inbound working
@@ -509,7 +509,7 @@ validation says why.
   service to the addresses it was meant to exclude. That is not a rule to ship
   ahead of the chain that would handle it properly.
 
-- **Modelling the destination as a device reference.** §1.2.
+- **Modelling the destination as a client reference.** §1.2.
 
 - **A `dmz` or "forward everything to this host" object.** One rule, universally
   regretted, and it teaches a worse habit than naming the three ports somebody
@@ -561,9 +561,9 @@ validation says why.
    warning, because the connection is not moved, it is the *next* one that goes
    elsewhere. Arguably that is still worth the confirm gate.
 
-3. **How a forward should read when the target device is offline.** The rule is
+3. **How a forward should read when the target client is offline.** The rule is
    correct and the connection is refused, which is right, but the screen could
-   say so — it needs `devices` presence, and the join belongs on the status
+   say so — it needs `clients` presence, and the join belongs on the status
    endpoint rather than in the rule.
 
 4. **Whether split-horizon DNS should be an object, so hairpin can default

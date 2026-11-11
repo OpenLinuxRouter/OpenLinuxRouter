@@ -425,7 +425,7 @@ func poolCommand(mode string) *cobra.Command {
 		Short: short,
 		Long: "Serve addresses on a network.\n\n" +
 			"The range is optional: left out, it is derived from the network's subnet,\n" +
-			"leaving the low addresses free for devices configured by hand. `olr net show`\n" +
+			"leaving the low addresses free for clients configured by hand. `olr net show`\n" +
 			"prints the range that would be derived.\n\n" +
 			"IPv4 and IPv6 are set separately. --range says what addresses to hand out,\n" +
 			"--ipv6 says what to advertise, and a network can do either or both.",

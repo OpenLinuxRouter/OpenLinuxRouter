@@ -77,7 +77,7 @@ func TestStartupFailureReportsRedactedDiagnosticsWithoutRedirect(t *testing.T) {
 for arg do
   case "$arg" in web_password=*) printf '%s\n' "$arg" >&2 ;; esac
 done
-printf 'Failed to extract library: No space left on device\n' >&2
+printf 'Failed to extract library: No space left on client\n' >&2
 exit 1
 `
 	if err := os.WriteFile(filepath.Join(dir, "mitmweb"), []byte(proxy), 0o700); err != nil {
@@ -91,10 +91,10 @@ exit 1
 	s := &Service{Enabled: true, Dir: t.TempDir(), armed: &setting{MAC: "c4:c1:7d:e0:a3:65", IPs: []string{"172.16.1.135"}}}
 	rec := httptest.NewRecorder()
 	s.start(rec, httptest.NewRequest(http.MethodPost, "/session", strings.NewReader(`{"mac":"c4:c1:7d:e0:a3:65","ips":["172.16.1.135"]}`)))
-	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "No space left on device") || !strings.Contains(rec.Body.String(), "web_password=[redacted]") {
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "No space left on client") || !strings.Contains(rec.Body.String(), "web_password=[redacted]") {
 		t.Fatalf("startup error = %d %s", rec.Code, rec.Body.String())
 	}
-	if st := s.snapshot(); st.Active || !st.Pending || !strings.Contains(st.Error, "No space left on device") {
+	if st := s.snapshot(); st.Active || !st.Pending || !strings.Contains(st.Error, "No space left on client") {
 		t.Fatalf("retry status = %+v", st)
 	}
 	if _, err := os.Stat(marker); !os.IsNotExist(err) {

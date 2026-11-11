@@ -28,7 +28,7 @@ func (Scheme) JSONSchema() *jsonschema.Schema {
 		Title: "Upstream scheme",
 		Description: "How olr speaks to the service being published. http is " +
 			"almost always right: the connection runs over your own LAN to a " +
-			"device you named, and the HTTPS a browser sees is terminated here. " +
+			"client you named, and the HTTPS a browser sees is terminated here. " +
 			"Use https only when the service refuses plain HTTP — many NAS and " +
 			"hypervisor UIs do — in which case its own certificate is not " +
 			"checked, because those are self-signed and demanding a valid one " +

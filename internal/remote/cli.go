@@ -622,7 +622,7 @@ func unknownPeer(peers []peerView, name string) error {
 	for _, p := range peers {
 		have = append(have, p.Name)
 	}
-	return cli.UnknownObject("device", name, "olr remote add peer <name>", have)
+	return cli.UnknownObject("peer", name, "olr remote add peer <name>", have)
 }
 
 func peerNamesFor(c *cobra.Command) ([]string, error) {

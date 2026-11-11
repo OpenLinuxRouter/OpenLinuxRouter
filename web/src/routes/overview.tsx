@@ -20,7 +20,7 @@ import { useDhcpConfig, useDhcpStatus } from '@/features/dhcp/queries'
 import { useDnsStatus } from '@/features/dns/queries'
 import { RELAY_UNIT, serviceOf } from '@/features/dns/units'
 import { useIngressConfig, useIngressStatus } from '@/features/ingress/queries'
-import { servicesByDevice } from '@/features/topology/services'
+import { servicesByClient } from '@/features/topology/services'
 import { useHostMetrics, usePublicAddresses, type HostMetrics, type PublicAddresses } from '@/features/system/queries'
 import 'flag-icons/css/flag-icons.min.css'
 import { SiteIcon } from '@/features/gateway/latency-site-icon'
@@ -81,7 +81,7 @@ export function OverviewPage() {
   const identity = useClientsConfig()
   const ingress = useIngressConfig()
   const ingressStatus = useIngressStatus()
-  const services = useMemo(() => servicesByDevice(ingress.data, devices.data?.clients ?? []), [ingress.data, devices.data])
+  const services = useMemo(() => servicesByClient(ingress.data, devices.data?.clients ?? []), [ingress.data, devices.data])
   const flows = useTrafficView(traffic.data, traffic.isError)
   const host = useHostMetrics()
   const publicAddresses = usePublicAddresses()

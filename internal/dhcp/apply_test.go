@@ -488,7 +488,7 @@ func TestPortCheckDoesNotBlockAReload(t *testing.T) {
 }
 
 // design.md §11.5: a dead DHCP server is invisible for hours and then breaks
-// every device at once. The unit is Type=simple, so systemd reports the start
+// every client at once. The unit is Type=simple, so systemd reports the start
 // job done the moment the process is forked — before dnsmasq has read a config
 // file. Without the settle window this apply reports success.
 func TestApplyFailsWhenTheBackendExitsAfterStarting(t *testing.T) {

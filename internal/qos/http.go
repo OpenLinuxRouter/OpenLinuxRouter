@@ -19,10 +19,10 @@ type HTTP struct {
 func (h HTTP) Routes() []core.Route {
 	return []core.Route{
 		{Method: "GET", Path: "/config", Tool: "show config", Summary: "Show the saved network priority and speed limits.", Handler: h.getConfig},
-		{Method: "GET", Path: "/status", Tool: "status", Summary: "Check whether device QoS is effective on the router.", Handler: h.getStatus},
+		{Method: "GET", Path: "/status", Tool: "status", Summary: "Check whether client QoS is effective on the router.", Handler: h.getStatus},
 		{Method: "PUT", Path: "/config", Body: core.BodyFull, Mutating: true, Summary: "Replace and apply all QoS settings.", Handler: h.putConfig},
-		{Method: "PUT", Path: "/devices/{mac}", Mutating: true, Summary: "Set one device's network priority and speed limits.", Handler: h.putDevice},
-		{Method: "DELETE", Path: "/devices/{mac}", Mutating: true, Summary: "Reset one device to normal priority and no speed limit.", Handler: h.deleteDevice},
+		{Method: "PUT", Path: "/clients/{mac}", Mutating: true, Summary: "Set one client's network priority and speed limits.", Handler: h.putDevice},
+		{Method: "DELETE", Path: "/clients/{mac}", Mutating: true, Summary: "Reset one client to normal priority and no speed limit.", Handler: h.deleteDevice},
 	}
 }
 func (h HTTP) getConfig(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +55,7 @@ func (h HTTP) putDevice(w http.ResponseWriter, r *http.Request) {
 		core.WriteError(w, 400, e.Error())
 		return
 	}
-	var d Device
+	var d Client
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.DisallowUnknownFields()
 	if e = dec.Decode(&d); e != nil {
@@ -63,30 +63,30 @@ func (h HTTP) putDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if e = dec.Decode(new(any)); e != io.EOF {
-		core.WriteError(w, 400, "extra JSON after device policy")
+		core.WriteError(w, 400, "extra JSON after client policy")
 		return
 	}
 	if d.MAC != "" {
 		bodyMAC, bodyErr := core.NormalizeMAC(d.MAC)
 		pathMAC, pathErr := core.NormalizeMAC(r.PathValue("mac"))
 		if bodyErr != nil || pathErr != nil || bodyMAC != pathMAC {
-			core.WriteError(w, 422, "device MAC in body must match the path")
+			core.WriteError(w, 422, "client MAC in body must match the path")
 			return
 		}
 	}
 	d.MAC = r.PathValue("mac")
-	if e = (Config{Devices: []Device{d}}).Validate(); e != nil {
+	if e = (Config{Clients: []Client{d}}).Validate(); e != nil {
 		core.WriteError(w, 422, e.Error())
 		return
 	}
-	h.apply(w, r, func(c *Config) error { c.SetDevice(d); return nil }, nil)
+	h.apply(w, r, func(c *Config) error { c.SetClient(d); return nil }, nil)
 }
 func (h HTTP) deleteDevice(w http.ResponseWriter, r *http.Request) {
 	if _, err := core.NormalizeMAC(r.PathValue("mac")); err != nil {
 		core.WriteError(w, 422, err.Error())
 		return
 	}
-	h.apply(w, r, func(c *Config) error { c.RemoveDevice(r.PathValue("mac")); return nil }, nil)
+	h.apply(w, r, func(c *Config) error { c.RemoveClient(r.PathValue("mac")); return nil }, nil)
 }
 func (h HTTP) apply(w http.ResponseWriter, r *http.Request, edit func(*Config) error, replacement *Config) {
 	var c Config

@@ -177,7 +177,7 @@ func managedUnit(binary, nftBinary, dir string, args []string, mark uint32) []by
 		gid = fmt.Sprintf("Group=%d\n", proxyGID)
 	}
 	return []byte(fmt.Sprintf(`[Unit]
-Description=Open Linux Router device inspection
+Description=Open Linux Router client inspection
 After=network.target
 
 [Service]
@@ -254,7 +254,7 @@ func (s *Service) attachManaged(ctx context.Context, mac string, ips []string, m
 		return false, nil
 	}
 	if st.MAC != mac || !slices.Equal(st.IPs, ips) || st.Mark != mark || !st.Ready {
-		return false, errors.New("running inspection proxy does not match the selected device or route")
+		return false, errors.New("running inspection proxy does not match the selected client or route")
 	}
 	if err := proxyAuthenticated(ctx, st.Token); err != nil {
 		return false, err

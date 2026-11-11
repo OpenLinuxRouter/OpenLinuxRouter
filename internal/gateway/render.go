@@ -53,14 +53,14 @@ type Desired struct {
 	// Stat is the accounting table (§7.1), and it is deliberately outside
 	// Enabled: it is installed whether or not any routing policy is. With no
 	// policy every packet carries mark 0 and the same two rules degrade to
-	// plain per-device totals.
+	// plain per-client totals.
 	Stat StatTable
 }
 
-// StatTable is `inet olr_stat` — per-device *and* per-exit bytes from one
+// StatTable is `inet olr_stat` — per-client *and* per-exit bytes from one
 // structure, in three base chains (§7.1).
 //
-// The concatenated key is what makes per-device and per-exit one measurement:
+// The concatenated key is what makes per-client and per-exit one measurement:
 // the mark is already on the packet from the classify chain, so keying on
 // `address . mark` costs nothing over keying on the address alone and answers
 // "Living Room TV: 40 GB, of which 38 via Proxy" without a second table.
@@ -256,9 +256,9 @@ type NFTable struct {
 	Destinations []DestinationRule
 	// Exits are the in-use exits, for the restore and accounting rules.
 	Exits []ExitRule
-	// Devices precede network source rules; the explicit-direct mark prevents
+	// Clients precede network source rules; the explicit-direct mark prevents
 	// the network classifier from assigning a different exit.
-	Devices []DeviceRule
+	Clients []ClientRule
 
 	// Sources are the classify rules: one per (assignment, family), matching a
 	// source prefix and setting the exit's mark.
@@ -277,9 +277,9 @@ type NFTable struct {
 	Counters []string
 }
 
-// DeviceRule classifies an Ethernet source by its stable MAC, independent of
+// ClientRule classifies an Ethernet source by its stable MAC, independent of
 // its current DHCP address. Exit is empty for an explicit direct override.
-type DeviceRule struct {
+type ClientRule struct {
 	MAC       string
 	Exit      string
 	Mark      uint32
@@ -287,7 +287,7 @@ type DeviceRule struct {
 	Prefix    netip.Prefix
 }
 
-func (r DeviceRule) Line() string {
+func (r ClientRule) Line() string {
 	if r.Exit == "" {
 		return fmt.Sprintf("nft device %s on %s source %s direct mark %#08x unless dnat",
 			r.MAC, r.Interface, r.Prefix, r.Mark)
@@ -546,7 +546,7 @@ func Render(c Config, links LinkView, health Health) Desired {
 		// Stable output even if the observed interface order changes. The
 		// kernel evaluates these rules in the order we render them.
 		sort.Slice(infos, func(i, j int) bool { return infos[i].Name < infos[j].Name })
-		for _, a := range c.Devices {
+		for _, a := range c.Clients {
 			for _, info := range infos {
 				if !info.Adopted {
 					continue
@@ -561,12 +561,12 @@ func Render(c Config, links LinkView, health Health) Desired {
 							Exit: "direct", Mark: DirectMark, Counter: DirectCounter,
 						})
 					}
-					rule := DeviceRule{MAC: a.MAC, Exit: a.Exit, Mark: DirectMark,
+					rule := ClientRule{MAC: a.MAC, Exit: a.Exit, Mark: DirectMark,
 						Interface: info.Name, Prefix: prefix.Masked()}
 					if e, ok := c.Find(a.Exit); ok {
 						rule.Mark = e.Mark()
 					}
-					d.Table.Devices = append(d.Table.Devices, rule)
+					d.Table.Clients = append(d.Table.Clients, rule)
 				}
 			}
 		}
@@ -802,7 +802,7 @@ func renderSources(d *Desired, c Config, links LinkView) {
 // `conf.<dev>.forwarding` would be the narrower write and IPv4 honours it — the
 // forwarding decision reads the *ingress* device's flag — but it needs setting
 // on both the arrival and the departure interface to pass a packet and its
-// reply, and any third party writing the global key resets every per-device
+// reply, and any third party writing the global key resets every per-client
 // value underneath us. Narrower, and less likely to still be true in an hour.
 // §3.8 takes the plain one while the module is young.
 //
@@ -949,7 +949,7 @@ func (d Desired) objectLines() []string {
 	for _, r := range d.Table.Destinations {
 		out = append(out, r.Line())
 	}
-	for _, r := range d.Table.Devices {
+	for _, r := range d.Table.Clients {
 		out = append(out, r.Line())
 	}
 	for _, s := range d.Table.Sources {

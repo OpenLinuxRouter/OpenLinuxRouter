@@ -139,7 +139,7 @@ func TestActivityDurableStopPreservesAndSeparatesMACs(t *testing.T) {
 		t.Fatalf("stop erased history or kept recording: %+v", out)
 	}
 
-	// Reusing an IP cannot reuse another device's history.
+	// Reusing an IP cannot reuse another client's history.
 	now = now.Add(time.Hour)
 	beginActivityDevice(t, a, activityOtherMAC, ip)
 	flows[0].BytesOut += 7
@@ -158,7 +158,7 @@ func TestActivityDurableStopPreservesAndSeparatesMACs(t *testing.T) {
 	beginActivityDevice(t, a, activityTestMAC, ip)
 	sampleActivity(t, a)
 	if up, _ := usageTotal(historyActivity(t, a, activityTestMAC, 24*time.Hour).Buckets); up != 100 {
-		t.Fatalf("resume replayed other device: %d", up)
+		t.Fatalf("resume replayed other client: %d", up)
 	}
 }
 

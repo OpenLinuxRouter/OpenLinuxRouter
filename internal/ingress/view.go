@@ -79,7 +79,7 @@ func viewPlan(p Plan) planView {
 //
 // The resolved address is included because it is the single most useful thing
 // when a published name returns 502, and it is not in the config: the config
-// names a device, and where that device is belongs to another module (§4.1).
+// names a client, and where that client is belongs to another module (§4.1).
 // Reporting it here is reading it, not copying it.
 type serviceView struct {
 	Name string `json:"name"`
@@ -89,7 +89,7 @@ type serviceView struct {
 	// fetch separately.
 	URL string `json:"url"`
 
-	Device         string          `json:"device,omitempty"`
+	Client         string          `json:"client,omitempty"`
 	Host           string          `json:"host,omitempty"`
 	Port           uint16          `json:"port"`
 	Scheme         Scheme          `json:"scheme"`
@@ -103,27 +103,27 @@ type serviceView struct {
 	UpstreamError string `json:"upstream_error,omitempty"`
 }
 
-func viewService(s Service, domain string, devices DeviceView) serviceView {
+func viewService(s Service, domain string, clients ClientView) serviceView {
 	v := serviceView{
 		Name:           s.Name,
 		URL:            "https://" + qualify(s.Name, domain) + s.LinkPath,
-		Device:         s.Upstream.Device,
+		Client:         s.Upstream.Client,
 		Host:           s.Upstream.Host,
 		Port:           s.Upstream.Port,
 		Scheme:         s.Upstream.Scheme.OrDefault(),
 		RequestHeaders: s.Upstream.RequestHeaders,
 	}
 
-	if s.Upstream.Device == "" {
+	if s.Upstream.Client == "" {
 		v.Upstream = s.Upstream.Target("")
 		return v
 	}
-	info, err := devices.Device(s.Upstream.Device)
+	info, err := clients.Client(s.Upstream.Client)
 	switch {
 	case err != nil:
 		v.UpstreamError = err.Error()
 	case !info.Addr.IsValid():
-		v.UpstreamError = "the device has not been seen on the network"
+		v.UpstreamError = "the client has not been seen on the network"
 	default:
 		v.Upstream = s.Upstream.Target(info.Addr.String())
 	}

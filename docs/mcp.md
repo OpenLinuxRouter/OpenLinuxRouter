@@ -116,7 +116,7 @@ and an exception has to be argued for in the test.
 
 The second half is the increment boundary. §6.2 says a mutating route plans
 before it writes and refuses a `disruptive` plan without `?confirm=true`, and
-only `internal/gateway` implements it; `dhcp`, `dns` and `devices` apply on the
+only `internal/gateway` implements it; `dhcp`, `dns` and `clients` apply on the
 first request. Publishing a write today would hand an agent a tool that can drop
 the LAN with nothing between the model and the change but a tool name in an
 approval dialog — and the human approving it cannot see from `dhcp_set_config`

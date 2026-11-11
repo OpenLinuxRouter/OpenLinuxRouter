@@ -74,17 +74,17 @@ type Config struct {
 	//
 	// unbound rejects such answers by default, and that is anti-rebinding
 	// working as intended (render.go, rebindPrefixes): a name on the internet
-	// resolving to an address on your LAN is how a web page reaches a device it
+	// resolving to an address on your LAN is how a web page reaches a client it
 	// should not. The rule cannot tell your zone from an attacker's, so this is
 	// where you say which zones are yours. Without it, the record you just
 	// created in your DNS provider works for anyone using a public resolver and
 	// silently does not exist for anyone using this one.
 	//
-	// Only this resolver is affected. A device configured with a public
+	// Only this resolver is affected. A client configured with a public
 	// resolver never asks us and never needs this.
 	PrivateDomains []string `json:"private_domains,omitempty"`
 
-	// Hosts are names this resolver answers itself, so a device on this network
+	// Hosts are names this resolver answers itself, so a client on this network
 	// can be reached by name rather than by an address somebody has to remember.
 	Hosts []Host `json:"hosts,omitempty"`
 
@@ -270,9 +270,9 @@ func (r BlockResponse) OrDefault() BlockResponse {
 
 // Hijack makes the resolver leg true rather than merely advertised.
 //
-// DHCP option 6 is advice; a device is free to ignore it and hardcode a public
+// DHCP option 6 is advice; a client is free to ignore it and hardcode a public
 // resolver, and the common case is not even adversarial — browsers and Apple
-// devices upgrade themselves to DoH by default (docs/dns.md §2.2). A device
+// clients upgrade themselves to DoH by default (docs/dns.md §2.2). A client
 // that resolves elsewhere is not merely unlogged: the proxy that was supposed
 // to route it by domain never receives a name it recognises, so domain policy
 // silently does not apply. That silence is the whole reason this exists.

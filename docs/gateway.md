@@ -154,35 +154,35 @@ An ordered first-match list is what the kernel gets. It is the wrong thing to
 show, because answering *"where does my phone actually go?"* then requires
 simulating evaluation, and rules shadow each other invisibly.
 
-> **Everything has one way out. Change it for a network, a group of devices, or
-> one device — the most specific setting wins.**
+> **Everything has one way out. Change it for a network, a group of clients, or
+> one client — the most specific setting wins.**
 
 ### 2.1 The ladder
 
 ```
-box default  →  network  →  group  →  device
+box default  →  network  →  group  →  client
                                       most specific wins
 ```
 
 Groups nest (design.md §4.4), so the group rung may be several: `Serving` →
-`VMs` → `Lab`. That changes nothing about the rule — every device has exactly
+`VMs` → `Lab`. That changes nothing about the rule — every client has exactly
 one group and every group one parent, so the rungs still form a single chain,
 and the nearest one that says something wins. A setting on `Serving` reaches a
 machine in `Lab` unless `VMs` or `Lab` says otherwise.
 
 The two cases that motivated this:
 
-- *IoT devices go direct* — the IoT network keeps the default. Nothing to
+- *IoT clients go direct* — the IoT network keeps the default. Nothing to
   configure; it is already right.
 - *Phones go through Proxy* — the `Phones` group gets `Internet via: Proxy`. One
   setting.
 
 And the case an ordered list handles badly falls out for free: *everything
-through Proxy except the NAS* is `default: Proxy` plus one device set back. No
+through Proxy except the NAS* is `default: Proxy` plus one client set back. No
 negation, no rule at position 1 that everyone forgets.
 
 Nothing is draggable and there is no precedence to learn. We derive the kernel
-ordering — device marks, then group, then network, then default — deterministically
+ordering — client marks, then group, then network, then default — deterministically
 from the ladder.
 
 ### 2.2 Effective value, with its source
@@ -202,7 +202,7 @@ down` is a diagnosable state in the place the operator already looks.
 
 ### 2.3 Conflicts are refused, not resolved
 
-A device in two tags with different exits is genuinely ambiguous. Inventing a
+A client in two tags with different exits is genuinely ambiguous. Inventing a
 tie-break (creation order, alphabetical) produces behaviour nobody can predict
 from the screen, so the plan step refuses:
 
@@ -211,9 +211,9 @@ from the screen, so the plan step refuses:
 §5.6's *refuse, do not disable*, one level down.
 
 **Groups are exclusive, so this one cannot arise.** The tier was *tags* when
-this section was written, and a device could carry two. It is now *groups*
-(design.md §4.4), and every device is in exactly one, so there is one group
-setting per device and nothing to refuse — the conflict is prevented where it
+this section was written, and a client could carry two. It is now *groups*
+(design.md §4.4), and every client is in exactly one, so there is one group
+setting per client and nothing to refuse — the conflict is prevented where it
 would be stored rather than caught at plan time. The rule stands for whatever
 can still genuinely conflict.
 
@@ -222,7 +222,7 @@ can still genuinely conflict.
 | Object | Answers | Scope |
 |---|---|---|
 | **Exit** | how traffic leaves | — |
-| **`Internet via`** assignment | who uses which exit | per network / group / device |
+| **`Internet via`** assignment | who uses which exit | per network / group / client |
 | **Static route** | how to reach one specific place | everyone |
 
 Only the second is per-source, which is why only it needs the ladder and the
@@ -255,14 +255,14 @@ belongs (§4.5).
 
 ### 2.5 Staging
 
-The full ladder depends on devices and groups, and who owns the device inventory is
+The full ladder depends on clients and groups, and who owns the client inventory is
 §10 open decision 6 — the one design.md already calls the most urgent. So:
 
 - **First: network-level assignment.** Needs only networks, which milestone 1
   delivers. Covers the motivating case if phones sit on their own network or
   SSID, which is a reasonable recommendation regardless.
-- **Now: device overrides** (§2.7), refining the network's answer by source MAC.
-- **Then: group overrides**, filling the rung between network and device. The
+- **Now: client overrides** (§2.7), refining the network's answer by source MAC.
+- **Then: group overrides**, filling the rung between network and client. The
   mental model does not change: the most specific setting still wins.
 
 ### 2.6 Using a proxy box as a next hop
@@ -284,7 +284,7 @@ to test one network. The browser shows the daemon's plan and asks for confirmati
 if applying the assignment would be disruptive.
 
 This is *source selection*: clients in that interface's subnet use the same
-exit unless one has its own device override (§2.7). Group overrides are not
+exit unless one has its own client override (§2.7). Group overrides are not
 implemented yet (§2.5). Domain, GEOIP, and outbound rules within that traffic
 belong to the proxy (§4), not to olr. An exit may name its own DNS resolver;
 the relay selects it after local policy without changing DHCP's DNS address.
@@ -295,18 +295,18 @@ subnet source, the source classifier cannot distinguish it from a client and
 may hand it straight back to the proxy. Its own default route should instead
 lead to the real uplink; verify this before selecting the network.
 
-### 2.7 One device overrides its network
+### 2.7 One client overrides its network
 
-On a device's detail screen, **Internet via** can follow the network, select an
+On a client's detail screen, **Internet via** can follow the network, select an
 exit, or explicitly use the router's normal path. The gateway owns that MAC-keyed
-assignment, independently of the device's name and DHCP lease. In the kernel,
+assignment, independently of the client's name and DHCP lease. In the kernel,
 an Ethernet source-MAC classifier limited to an adopted interface's source
 prefix runs after conntrack restore and before the network source-prefix
 classifier. A direct override uses a reserved mark with no RPDB route, so the
 network rule cannot reassign it and it falls through to `main`; conntrack keeps
 that decision for established flows even after a policy edit.
 
-This works across DHCP address changes, but a device using a different or
+This works across DHCP address changes, but a client using a different or
 randomized MAC is a different identity. It is not an IP-spoofing defense, and
 clients behind another L3 router appear under that router's MAC; non-Ethernet
 ingress cannot match this override. Group assignment remains a separate next
@@ -317,7 +317,7 @@ rung, not implicitly implemented by this one.
 An exit's DNS is OLR (the default), the next-hop box on port 53, or a custom
 IPv4 IP:port. DHCP still hands every client OLR. The DNS relay sees the querying
 IP, uses current DHCPv4 leases and the IPv4 neighbour table to identify its MAC,
-then applies device → network → default selection to choose an upstream. The
+then applies client → network → default selection to choose an upstream. The
 gateway's own MAC classification is unchanged. Blocking and names under OLR's
 local domain are resolved before this choice; permitted public queries are
 forwarded byte-for-byte over UDP or TCP. Query history records the upstream.
@@ -325,7 +325,7 @@ forwarded byte-for-byte over UDP or TCP. Query history records the upstream.
 The selected resolver is contacted by OLR itself, so it must be reachable from
 OLR without routing back through the client's exit. A dead resolver does not
 silently fall back to another one. Unknown or conflicting MAC identity in a
-subnet with differing device DNS choices returns SERVFAIL rather than risking
+subnet with differing client DNS choices returns SERVFAIL rather than risking
 a fake-IP answer incompatible with the client's route. This can temporarily
 affect a new or static-addressed client while DHCP/ARP catches up. IPv6 client
 identity, encrypted DNS from the client, and stale cached fake-IP answers after
@@ -531,14 +531,14 @@ have left the commonest working setup as the one that does not work.
 #### Why the plain key and not `conf.<dev>.forwarding`
 
 Per-interface forwarding exists and IPv4 honours it — the forwarding decision
-reads the **ingress** device's flag — so the narrower write is available. Two
+reads the **ingress** client's flag — so the narrower write is available. Two
 things argue against it while the module is young:
 
 - It has to be set on **both** the arrival and the departure interface to pass a
   packet *and its reply*, so "the LAN interface" is not the answer; the set is
   "every interface any traffic we route enters or leaves by", which is a list
   this module does not reliably have until `link` grows networks (§2.5).
-- Any third party writing the global key resets every per-device value
+- Any third party writing the global key resets every per-client value
   underneath us. Docker, libvirt and k8s all do this on startup. The narrow
   write is the one more likely to be silently undone.
 
@@ -571,7 +571,7 @@ on costs, which IPv4 forwarding does not:
   accepting new ones there. A box getting its own IPv6 from upstream loses it
   the moment this applies.
 - Writing `all` also sets `default`, so an interface created later — a tunnel,
-  a WireGuard device — comes up in router mode too. That is wanted: an
+  a WireGuard client — comes up in router mode too. That is wanted: an
   interface left in host mode answers neighbour solicitations without the
   router flag, and clients drop it from their router lists.
 
@@ -675,7 +675,7 @@ rather than discover.
 
 #### IPv6
 
-Absent, and not owed. A device behind this box holding a delegated global
+Absent, and not owed. A client behind this box holding a delegated global
 address needs no translation to be replied to — `docs/port-forwarding.md` §7
 makes the same point from the inbound side. What v6 needs instead is a filtering
 policy, which §0 records olr is not building for now.
@@ -702,13 +702,13 @@ proxy that won — a thing olr cannot see, explain, or show in a diff.
 
 **So the division is by layer, and each side does the part it can do well.**
 olr decides *which traffic reaches the proxy at all*: `Internet via` per network,
-group or device (§2). The proxy decides *what to do with it*, by name, using its
+group or client (§2). The proxy decides *what to do with it*, by name, using its
 own configuration. Neither needs to know the other's rules.
 
 Gateway also supports explicit destination IP/CIDR overrides through
 `olr gateway set destination <ip-or-cidr> <exit>` and
 `olr gateway rm destination <ip-or-cidr>`. Longest destination prefix wins,
-before device and network assignments, for forwarded adopted-LAN traffic.
+before client and network assignments, for forwarded adopted-LAN traffic.
 This does not resolve or match domain names. See [socks-out.md](socks-out.md#select-destinations-by-ip)
 for selecting the managed SOCKS5 exit and its failure behavior.
 
@@ -718,7 +718,7 @@ Assign the source to the proxy exit and let the proxy sort it out. If its domain
 rules need its own DNS answers, set that exit's DNS to the next hop (§2.8).
 OLR remains the only DNS address handed to clients, while its relay forwards
 permitted public queries to the resolver chosen by their effective exit. This
-allows fake-IP for proxied devices alongside direct devices using OLR's resolver.
+allows fake-IP for proxied clients alongside direct clients using OLR's resolver.
 Without that setting, the proxy can still sniff TLS SNI and HTTP Host, but it
 degrades as ECH deploys (dns:§2.2).
 
@@ -773,7 +773,7 @@ Both are sysctls this module owns on the interfaces it uses, declared per §3.4'
 ### 5.3 The return path, and what it costs the statistics
 
 **Open, inherited from dns:§2.1.** A same-segment next hop replies straight to
-the device over the shared L2, so olr sees one direction only. Byte counts halve
+the client over the shared L2, so olr sees one direction only. Byte counts halve
 and `ct mark` restore misses.
 
 | Fix | Costs |
@@ -808,7 +808,7 @@ Failure behaviour is declared per §5.6, with hysteresis:
 
 dns:§1.2 raises the stakes on this: the argument that DHCP hands out olr and only
 olr rests on olr being able to re-point a dead exit, because IPv4 has no
-gateway failover at the device layer. So exit health is not a later refinement —
+gateway failover at the client layer. So exit health is not a later refinement —
 it is what the topology rule is trading against.
 
 ---
@@ -851,7 +851,7 @@ while a wrong `auto-route` misroutes silently.
 
 ## 7. Statistics
 
-### 7.1 Per device and per exit, including port forwards
+### 7.1 Per client and per exit, including port forwards
 
 ```
 table inet olr_stat {
@@ -878,11 +878,11 @@ table inet olr_stat {
 }
 ```
 
-**Three chains because forwarding is not the only way bytes reach a device.**
+**Three chains because forwarding is not the only way bytes reach a client.**
 The forward hook counts a conversation that crosses the box; it sees nothing of
 one the box is an *end* of. A name `ingress` publishes, the resolver on port 53,
 this web UI: those arrive on `input` and leave on `output`, and an earlier
-version of this table counted none of them. What that looked like was a device
+version of this table counted none of them. What that looked like was a client
 page reading **0 B/s while a video streamed from it at 12 MB/s** — the player was
 talking to caddy on the box, which proxied the stream to the NAS, and every byte
 of it went: peer → local socket → proxy → NAS. The topology drew the stream; the
@@ -895,10 +895,10 @@ upload rules and `output` the download rules, so the halves that belong to the
 box's *own* conversations are never counted: a proxy dialling the NAS on a
 client's behalf is `output` in the original direction and `input` in the reply
 direction, and neither matches. Counting them would add every relayed stream
-twice and hang the second half on an address that is nobody's device. Loopback
+twice and hang the second half on an address that is nobody's client. Loopback
 is the same reasoning at read time — the box's conversations with itself land in
 the same sets keyed on `127.0.0.1`, and `gateway` drops those rows rather than
-giving the screen a device it cannot draw.
+giving the screen a client it cannot draw.
 
 The local chains carry only the ordinary rule. The DNAT pair exists to
 attribute a port forward to the local endpoint it was translated to, and a
@@ -907,29 +907,29 @@ key this box's own address. Everything else about the join is unchanged: the
 mark is 0 for traffic that no assignment classified, so it lands in the residual
 row of §7.3 rather than in an exit's.
 
-The concatenated key gives per-device **and** per-exit from one structure,
+The concatenated key gives per-client **and** per-exit from one structure,
 because the mark is already there from §3.3. *"Living Room TV: 40 GB, of which 38
 via Proxy"* costs nothing extra. With no routing installed the mark is 0 and it
-degrades to plain per-device totals, so this table does not depend on that one.
+degrades to plain per-client totals, so this table does not depend on that one.
 
-**The direction match is what makes the address mean "a device here."** An
+**The direction match is what makes the address mean "a client here."** An
 earlier draft of this section had the two `update` statements unqualified, and
 that version is wrong in a way worth recording, because it looks right: on a
 packet *leaving* for the internet, `ip daddr` is the far end. Unqualified, the
 sets gained an element for every remote address the house ever contacted — the
-device rows were correct, and beside each one sat a mirrored row for a web
+client rows were correct, and beside each one sat a mirrored row for a web
 server. Three costs at once: a usage list half full of addresses nobody
 recognises, a set that fills its cap with strangers and then stops recording new
-devices, and a full dump of all four sets on every read of the endpoint.
+clients, and a full dump of all four sets on every read of the endpoint.
 
 Matching `ct direction` first fixes it without a table of local prefixes to
 maintain: the original direction is the one the connection was opened in, so its
 source is the opener, and the reply direction's destination is that same opener.
-Both rules key on the device, and each ordinary packet updates exactly one set.
+Both rules key on the client, and each ordinary packet updates exactly one set.
 
 For a DNATed connection the opener is remote, so the accounting chain instead
 keys on the translated local endpoint: the original-direction packet's
-post-DNAT destination is a download for that device; the reply packet's source
+post-DNAT destination is a download for that client; the reply packet's source
 is an upload. A `ct status dnat` guard partitions these from ordinary flows,
 which still key on the opener. This applies to port forwards owned by OLR or
 another nftables table. Rebuilding the table on upgrade resets cumulative
@@ -945,12 +945,12 @@ needed: a four-hour stream reports nothing until it ends.
 ### 7.2 Domains: attribution, not measurement
 
 There is no per-domain byte counter anywhere in the kernel. Joining dns:§4.3's
-`(device, IP) → name` map against conntrack gives an *attribution*, and it fails
+`(client, IP) → name` map against conntrack gives an *attribution*, and it fails
 in known ways: one CDN address serves many names, clients cache past the answer,
 flows outlive the mapping, hardcoded addresses never produce a name at all.
 
 **Do not fabricate a split.** Group bytes by the thing that is measured — the
-address, resolved to an organisation — and list domains as *what this device
+address, resolved to an organisation — and list domains as *what this client
 asked for*:
 
 ```
@@ -980,29 +980,29 @@ the same rule three times:
 > **Show what you cannot account for.** A number nobody can trust is worse than
 > a number with a stated boundary.
 
-dns:§1.2 names the one case this rule cannot reach: a device pointed at another
+dns:§1.2 names the one case this rule cannot reach: a client pointed at another
 gateway produces no counter at all, so there is nothing to show. That is a
 different class of gap, and it is why the topology rule exists.
 
 ### 7.4 Limits worth printing in the UI
 
-- **Traffic that does not cross the router is invisible.** Two devices on one
+- **Traffic that does not cross the router is invisible.** Two clients on one
   segment — a NAS backup, a Plex stream — never reach the forward hook. *"Why
   does my NAS show 200 MB when I copied 40 GB?"* will be asked. §7.1's local
-  chains do not change this: they count what a device does with *the box*, not
+  chains do not change this: they count what a client does with *the box*, not
   what it does with a sibling.
 - **A relayed conversation is counted for the client.** A stream the box serves
   through `ingress` shows on the player and not on the NAS. That is the choice
   §7.1 records — the alternative double-counts every relayed byte and gives the
   second half to an address nobody owns — but it surprises anyone who watches
   the NAS's numbers instead.
-- IPv6 privacy addresses rotate, so per-IP counters fragment across one device.
-- A device that changes address splits its history. Fixed leases mostly fix it.
-- Anything behind a second router counts as one device.
-- **The table has a cap**, and a full one goes on counting the devices it
+- IPv6 privacy addresses rotate, so per-IP counters fragment across one client.
+- A client that changes address splits its history. Fixed leases mostly fix it.
+- Anything behind a second router counts as one client.
+- **The table has a cap**, and a full one goes on counting the clients it
   already knows while recording no new ones. That is §7.3's rule pointed at
-  ourselves: the endpoint reports how full it is, because "this device uses no
-  data" and "this device is missing" must not look the same.
+  ourselves: the endpoint reports how full it is, because "this client uses no
+  data" and "this client is missing" must not look the same.
 
 ### 7.5 Storage, and a stance
 
@@ -1010,7 +1010,7 @@ Counters are monotonic-since-load; everything anyone wants is deltas over time.
 
 Live counters are read from nftables and aged out by `statTimeout`. The activity
 sampler retains bounded half-hour differences in SQLite for 90 days, rather
-than raw flows. That window is also what a device page's total covers: the total
+than raw flows. That window is also what a client page's total covers: the total
 is the matrix above it added up, not the cumulative counter, so neither a
 restart's reset nor a day of silence can make one cell of the page exceed the
 page's own total — the mismatch that made two honest numbers look like a bug.
@@ -1021,9 +1021,9 @@ described in `docs/storage.md`; choosing SQLite does not enable raw query or
 flow logging. Custom HTTPS probe targets are operator intent and live under
 `gateway.latency_sites` in `olr.json`.
 
-A per-device domain history is a record of everyone in the building's browsing,
+A per-client domain history is a record of everyone in the building's browsing,
 on a box in the hallway. Default retention window, a visible off switch, and
-per-device exclusion — decided now rather than after someone asks. It is also
+per-client exclusion — decided now rather than after someone asks. It is also
 worth stating plainly as a property: it never leaves the box, which the
 ISP-supplied router cannot say.
 
@@ -1126,7 +1126,7 @@ any work.
 | | | |
 |---|---|---|
 | **v1** | exits: `next_hop`, `interface`, `blocked` | `interface` is nearly free once `next_hop` exists, and it is how WireGuard and Tailscale arrive |
-| | `Internet via` at **network** level | group and device tiers were staged after this |
+| | `Internet via` at **network** level | group and client tiers were staged after this |
 | | nft classify + RPDB, documented mark/priority/table ranges | |
 | | `net.ipv4.ip_forward`, written and read back | §3.8 — the module programs the forwarding path, so it owns whether the box forwards |
 | | per-exit health probe, `block` on failure | dns:§1.2 depends on it |
@@ -1135,7 +1135,7 @@ any work.
 | | **egress NAT on `dial`'s uplink**, with an off switch | §3.9 — the other half of what a LAN needs, and what stops the next hop being typed twice |
 | | **port forwards, and hairpin NAT** | `docs/port-forwarding.md`, moved here from the deleted `firewall` module |
 | | **IPv6 forwarding**, its own switch | §3.8 — explicit, never inferred; the plan names the interfaces whose RA-learned route it drops |
-| **v2** | device override by Ethernet source MAC | built; §2.7 |
+| **v2** | client override by Ethernet source MAC | built; §2.7 |
 | | `local_socket` (TPROXY) | wants dns:§2.1's return-path answer settled first |
 | | per-interface `conf.<dev>.forwarding` in place of the global key | §3.8 — the narrower write, once `link`'s networks say which interfaces traffic enters and leaves by |
 | | group tier of the ladder | |
@@ -1183,7 +1183,7 @@ any work.
   natively, and it needed no set population, no dnstap, and no DNS interception
   beyond the `:53` hijack we do anyway. What it cost was a permanent structural
   coupling — the resolver's upstream had to be derived from the routing decision
-  for every device, forever, or a device silently reached an exit its own
+  for every client, forever, or a client silently reached an exit its own
   setting said it did not use. Paying that to duplicate a feature the operator's
   proxy already has, better, was the wrong trade. §4 has the full argument.
 - **Populating nftables sets from the resolver** (dnstap, dnsmasq's `nftset`, or
@@ -1216,8 +1216,8 @@ any work.
 2. **SNAT toward next-hop exits, or a dedicated segment** (§5.3, dns:§7.2).
    Determines whether accounting sees both directions and whether `ct mark`
    restore works at all. Leaning SNAT, as a per-exit field.
-3. **Device inventory ownership.** Resolved in `internal/devices`, keyed by MAC;
-   the group tier still needs its policy integration. Per-device statistics use
+3. **Client inventory ownership.** Resolved in `internal/clients`, keyed by MAC;
+   the group tier still needs its policy integration. Per-client statistics use
    the gateway's kernel counters (§7).
 4. **Time-series storage** (§10 #5). Now with two workloads voting — these
    counters and dns:§7.5's query log.
@@ -1226,7 +1226,7 @@ any work.
    bet is load-bearing (§10 resolved, *Language: Go*). Cheap to find out with a
    spike; expensive to discover late. Fallback is `nft -j list set`, which
    forfeits the reason Go was chosen for this layer.
-6. **Whether the ladder needs a fifth tier for "this device, to that
+6. **Whether the ladder needs a fifth tier for "this client, to that
    destination".** Deferred in §9 as an advanced list; if it turns out to be
    common, it belongs in the ladder rather than beside it.
 7. **Whether egress NAT should be per-network rather than one rule for all of

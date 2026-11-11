@@ -182,7 +182,7 @@ func viewStatus(s Status, warnings []Problem, now time.Time) statusView {
 	return v
 }
 
-// usageView is one device's traffic through one exit.
+// usageView is one client's traffic through one exit.
 type usageView struct {
 	Address string `json:"address"`
 

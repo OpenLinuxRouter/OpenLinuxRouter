@@ -70,7 +70,7 @@ func TestKernelTraffic(t *testing.T) {
 	run("nft", "add", "chain", "ip", "qos_test", "nat", "{", "type", "nat", "hook", "postrouting", "priority", "100", ";", "}")
 	run("nft", "add", "rule", "ip", "qos_test", "nat", "oifname", "qwan", "masquerade")
 	e := &Engine{}
-	q := queue{Interface: "qlan", IFB: ifbName("qlan"), Devices: []Device{{MAC: "aa:bb:cc:dd:ee:ff", Priority: High, DownloadMbps: 4, UploadMbps: 2}}}
+	q := queue{Interface: "qlan", IFB: ifbName("qlan"), Clients: []Client{{MAC: "aa:bb:cc:dd:ee:ff", Priority: High, DownloadMbps: 4, UploadMbps: 2}}}
 	if err := e.install(ctx, q); err != nil {
 		t.Fatal(err)
 	}

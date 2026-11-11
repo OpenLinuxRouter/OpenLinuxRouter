@@ -21,7 +21,7 @@ a fact we assert in three places, and asking the binary makes it a fact we read.
 
 Building it changed §3, twice. The first version had the module hold no domain
 of its own: published names were written into the resolver's zone and answered
-by this box. Using it then meant renaming every device in the house, because no
+by this box. Using it then meant renaming every client in the house, because no
 CA issues for `home.arpa` — so a published name is now a record in public DNS,
 in a zone the operator owns, and this module holds that domain as its own fact.
 §3 is rewritten around the split, §11.2 is closed twice, and **§4.2** — the most
@@ -96,12 +96,12 @@ Entered at enable time, never revisited.
 
 **The domain is this module's own** (`ingress.domain`): it is the zone the
 operator adds records to, and the zone the wildcard is for. It is deliberately
-not the resolver's local domain, which names the devices in the house and never
+not the resolver's local domain, which names the clients in the house and never
 needs a certificate — §3 is the whole of that argument. The only thing read from
 `dns` is that local domain, so a published domain falling inside it can be
 refused rather than silently unresolved.
 
-### 1.2 The upstream is a device, not an address
+### 1.2 The upstream is a client, not an address
 
 When several stored services are invalid, repairing one can be saved without
 applying while the others still need repair. This requires fully fixing that
@@ -112,23 +112,23 @@ The final repair follows the normal validation and apply flow automatically.
 
 Per `design.md` §4.1 a module reads another module's facts through that
 module's API and never keeps a copy. The upstream should therefore reference a
-**device** (`devices` owns identity, `design.md` §4.4) plus a port — not an IP
+**client** (`clients` owns identity, `design.md` §4.4) plus a port — not an IP
 address copied into our config where it will rot.
 
-Device references are stored as MAC addresses; names are display labels and
-renaming a device does not change its published URLs or their targets. Legacy
+Client references are stored as MAC addresses; names are display labels and
+renaming a client does not change its published URLs or their targets. Legacy
 name references are resolved on read and converted when saving ingress or
-changing the device inventory. An already-unresolvable old name requires an
+changing the client inventory. An already-unresolvable old name requires an
 explicit target selection; it is never guessed from an address or URL.
 
 This surfaces a constraint the operator has to be told about rather than
 discover:
 
-> **A published service needs a stable address.** A device whose address comes
+> **A published service needs a stable address.** A client whose address comes
 > from a DHCP pool can move, and the rendered stanza then points at whatever
 > took its place.
 
-`dhcp` already owns fixed addresses. So selecting a device with no fixed
+`dhcp` already owns fixed addresses. So selecting a client with no fixed
 address is **refused, carrying the command that fixes it**, rather than
 rendered into a stanza that works today and proxies to a stranger's laptop next
 week.
@@ -144,7 +144,7 @@ that would be inferring a change to *another module's* configuration —
 precisely what `design.md` §5.6 forbids. The remedy is named in the error and
 the operator runs it.
 
-A raw `host:port` form stays available for targets that are not devices: a
+A raw `host:port` form stays available for targets that are not clients: a
 container on the router itself, `127.0.0.1:3000`, something behind another
 router.
 
@@ -180,7 +180,7 @@ document or it will not be drawn at all. §9 draws it.
 
 `dns` answers a local zone authoritatively — `local-zone "<local domain>"
 static`, so every name under it comes from this box and nothing under it is ever
-forwarded. That zone is for devices: `sony-tv.home.arpa`, no certificate, never
+forwarded. That zone is for clients: `sony-tv.home.arpa`, no certificate, never
 visible outside.
 
 A published service is the other kind of name. It lives in public DNS, in a zone
@@ -188,7 +188,7 @@ the operator owns, and the record is theirs to create. This module obtains the
 certificate for that zone and proxies the name. It does not write the record,
 and it does not need the resolver's help to resolve it.
 
-| | device names | published names |
+| | client names | published names |
 |---|---|---|
 | zone | `dns.local_domain`, `home.arpa` by default | `ingress.domain`, a domain you own |
 | answered by | this box, authoritatively | your DNS provider, publicly |
@@ -199,17 +199,17 @@ and it does not need the resolver's help to resolve it.
 
 The first version had no domain field at all: published names were rendered into
 the resolver's zone and answered by this box, under the same suffix as the
-devices. One namespace for the whole box sounds like one less thing to keep in
+clients. One namespace for the whole box sounds like one less thing to keep in
 step, and costs three things an operator can see:
 
 - **Publishing forced a rename.** No CA issues for `home.arpa` (§4), so using
-  this module at all meant moving every device's name to a domain the operator
+  this module at all meant moving every client's name to a domain the operator
   owned — one HTTPS service, and every bookmark in the house breaks.
 - **The dialog could not offer to change it**, correctly, because the field
   belonged to another module; the operator had to read this document to find out
   where their domain came from.
-- **The resolver answered two kinds of name in one zone.** A device name means
-  "this device's fixed address"; a published name meant "this box, as seen from
+- **The resolver answered two kinds of name in one zone.** A client name means
+  "this client's fixed address"; a published name meant "this box, as seen from
   where you asked". The second had to be served by the relay, before unbound,
   because `local-data` cannot express it.
 
@@ -231,7 +231,7 @@ because nothing is copied.
 - **The published domain may not live inside the resolver's zone.** Validation
   refuses it: the resolver would answer NXDOMAIN for a name that exists, and
   nothing would say why. A sibling is the natural answer — `home.arpa` for
-  devices, `pub.example.com` for services.
+  clients, `pub.example.com` for services.
 - **It is still not exposure.** A record that points at the router does not make
   the router reachable from outside; that is a port forward (§9).
 
@@ -260,7 +260,7 @@ re-proposed.
 | | Works for an internal-only name? | Cost |
 |---|---|---|
 | HTTP-01 | **No** — the name must be publicly reachable on `:80` | would mean exposing the router to get a cert for something that is not exposed |
-| Local CA (Caddy's internal issuer, mkcert) | Yes | a root certificate installed on **every** device — fine for two laptops, fatal for phones, TVs, consoles and guests |
+| Local CA (Caddy's internal issuer, mkcert) | Yes | a root certificate installed on **every** client — fine for two laptops, fatal for phones, TVs, consoles and guests |
 | **DNS-01, wildcard** | **Yes** | an API token for your DNS provider, stored on the router |
 
 So DNS-01, and a wildcard. The wildcard is what makes §1's claim true: one
@@ -558,12 +558,12 @@ being visible. By the time symptoms appear the cause is a month old.
 |---|---|---|
 | Renewal fails (token revoked, provider API down, zone moved) | Nothing, visibly. The existing certificate keeps serving until it expires, then every service breaks at once | Days remaining and last successful renewal, as an **active check** — not a log line nobody reads |
 | Rendered config rejected | Caught by §7.1's validate; the change is refused | The refusal, with Caddy's own message |
-| Upstream device down | 502 | Distinguish *configured but unreachable* from *not configured* |
+| Upstream client down | 502 | Distinguish *configured but unreachable* from *not configured* |
 | Upstream address moved | Stanza proxies to whoever took the address | Prevented at write time by §1.2, not detected after |
 | `:80`/`:443` taken | Unit fails to start | Caught at preflight (§6), by the process name |
 | Issuance blocked by our own resolver | Nothing ever gets a certificate, with no failing component | Prevented by §4.2's pinned resolvers; it must not be possible to render the file without them |
 | A pinned resolver is unreachable from this network | Nothing ever gets a certificate; the status page says "normal for a few minutes" indefinitely, and only the journal names the resolver (`dial tcp …:53: i/o timeout`) | Not prevented. Defaults chosen for reachability (§4.2); the remedy is replacing the entry in `resolvers` |
-| A published name is also a device's name | **Silent.** One of the two answers and the other is unreachable by name — today the published name, since the relay answers it before unbound sees the query. Nothing errors either way | Prevented at write time — the two live in one namespace |
+| A published name is also a client's name | **Silent.** One of the two answers and the other is unreachable by name — today the published name, since the relay answers it before unbound sees the query. Nothing errors either way | Prevented at write time — the two live in one namespace |
 
 The first row is the one that will actually bite people, and it is why
 certificate expiry deserves a place in the module's status output rather than
@@ -588,7 +588,7 @@ The boundary §2 said had to be drawn here.
 | | names resolved by your own DNS records | §3 — the record is the operator's; we obtain the certificate and proxy the name |
 | **v2** | publishing the WebUI itself | §6 |
 | | shipping a proxy build, so there is no download step | §5.6 — deferred, not rejected |
-| | per-service access control by group or device | the thing a router can do here that a standalone Caddy cannot — and the only entry on this list that justifies the module living in olr rather than in a README |
+| | per-service access control by group or client | the thing a router can do here that a standalone Caddy cannot — and the only entry on this list that justifies the module living in olr rather than in a README |
 | **Never** | serving static files, PHP, a general web server | escape hatch, permanently |
 | | **exposing a published service to the internet** | that is a port forward: `gateway`'s object and its risk conversation (docs/port-forwarding.md), and it must not become a side effect of publishing something internally |
 | | running, updating or backing up the services themselves | §2's boundary. We make an application reachable. We do not manage applications |
@@ -615,7 +615,7 @@ The boundary §2 said had to be drawn here.
   which `apt` will then overwrite on the next upgrade. Unverified whether it
   even works unattended; rejected regardless, on both counts.
 - **HTTP-01, and a local CA.** §4. One requires exposing the router, the other
-  requires touching every device the operator owns.
+  requires touching every client the operator owns.
 - **Caddy's admin API instead of a rendered file.** §7.2.
 - **Naming this module `proxy` or `gateway`.** Both words are taken and mean
   the opposite direction of travel — `gateway.md` uses them for egress and for
@@ -645,8 +645,8 @@ The boundary §2 said had to be drawn here.
    file is the answer for now, and it is the first time olr has held a
    credential for a third-party account. If a secrets story is ever going to
    exist, this is the workload that starts it.
-4. **The `devices` dependency** (§1.2). Referencing a device is right by
-   `design.md` §4.1 but pulls `ingress → devices`, and forces the interaction at
+4. **The `clients` dependency** (§1.2). Referencing a client is right by
+   `design.md` §4.1 but pulls `ingress → clients`, and forces the interaction at
    write time. **Built as a refusal carrying the remedy**, not as an offer — a
    dynamic address is refused with the `olr dhcp` command that fixes it,
    because `design.md` §5.6 forbids inferring a change to another module's

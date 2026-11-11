@@ -29,7 +29,7 @@ func TestModuleIsGroupedAsAModule(t *testing.T) {
 }
 
 // A bare address should not require typing :53 or /32. The operator is naming a
-// router and a device, not filling in a form.
+// router and a client, not filling in a form.
 func TestParsersAcceptTheShortForms(t *testing.T) {
 	got, err := parseAddrPorts("--listen", []string{"192.168.1.1", "192.168.1.1:5300"}, DNSPort)
 	if err != nil {

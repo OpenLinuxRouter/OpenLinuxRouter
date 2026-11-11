@@ -6,14 +6,14 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useQosConfig, useQosDeviceApply, type Priority } from '@/features/qos/queries'
+import { useQosConfig, useQosClientApply, type Priority } from '@/features/qos/queries'
 import { formatRate } from '@/lib/utils'
 
 export function ClientPolicy({ mac, downRate, upRate, children }: { mac: string; downRate?: number; upRate?: number; children?: ReactNode }) {
   useLocale()
   const config = useQosConfig()
-  const apply = useQosDeviceApply(mac)
-  const current = config.data?.devices?.find((d) => d.mac.toLowerCase() === mac.toLowerCase())
+  const apply = useQosClientApply(mac)
+  const current = config.data?.clients?.find((d) => d.mac.toLowerCase() === mac.toLowerCase())
   const priority = current?.priority ?? 'normal'
   const [editing, setEditing] = useState<'download' | 'upload' | null>(null)
   const [limit, setLimit] = useState('')
@@ -30,7 +30,7 @@ export function ClientPolicy({ mac, downRate, upRate, children }: { mac: string;
       const pending = result.status.pending?.includes(mac.toLowerCase())
       if (pending) toast.warning('Policy saved', { get description() { return t('Waiting for the client’s LAN interface to be identified.') } })
       else if (result.status.active) toast.success('Policy applied', { description: result.status.reason })
-      else if (!result.config.devices?.some((d) => d.mac === mac.toLowerCase())) toast.success('Priority and limits reset')
+      else if (!result.config.clients?.some((d) => d.mac === mac.toLowerCase())) toast.success('Priority and limits reset')
       else toast.warning('Policy saved, but not active', { description: result.status.reason })
     } catch (error) {
       toast.error(String(error))
@@ -65,7 +65,7 @@ export function ClientPolicy({ mac, downRate, upRate, children }: { mac: string;
       <DialogContent>
         <DialogHeader><DialogTitle>{editing === 'download' ? 'Download limit' : 'Upload limit'}</DialogTitle><DialogDescription>{t('Applies immediately to traffic crossing this router. Leave blank for unlimited.')}</DialogDescription></DialogHeader>
         <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (valid && !busy) void save() }}>
-          <div className="space-y-2"><Label htmlFor="device-speed-limit">{t('Limit (Mbps)')}</Label><Input id="device-speed-limit" autoFocus type="number" min="0.001" max="100000" step="any" value={limit} placeholder={t('Unlimited')} disabled={busy} onChange={(event) => setLimit(event.target.value)} /></div>
+          <div className="space-y-2"><Label htmlFor="client-speed-limit">{t('Limit (Mbps)')}</Label><Input id="client-speed-limit" autoFocus type="number" min="0.001" max="100000" step="any" value={limit} placeholder={t('Unlimited')} disabled={busy} onChange={(event) => setLimit(event.target.value)} /></div>
           <DialogFooter><Button type="button" variant="quiet" disabled={apply.isPending} onClick={() => setEditing(null)}>{t('Cancel')}</Button><Button type="submit" disabled={busy || !valid}>{t('Save')}</Button></DialogFooter>
         </form>
       </DialogContent>

@@ -93,7 +93,7 @@ type queryView struct {
 	Type   string    `json:"type"`
 	Rcode  string    `json:"rcode"`
 
-	// Blocked and Policy together answer "why can this device not reach that
+	// Blocked and Policy together answer "why can this client not reach that
 	// site", which is the question the query log exists for. A blocked entry
 	// without the rule that blocked it would send the operator hunting.
 	Blocked  bool   `json:"blocked"`

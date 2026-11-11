@@ -145,8 +145,8 @@ func (Caddy) Unit() string { return UnitName }
 // Render turns intent into files.
 //
 // Addresses are resolved here rather than stored, so the rendered file is a
-// snapshot of where devices are at the moment it was written and re-rendering
-// is what picks up a move. Validate has already refused any device without a
+// snapshot of where clients are at the moment it was written and re-rendering
+// is what picks up a move. Validate has already refused any client without a
 // fixed address, so in practice these do not change — but the direction of the
 // dependency is what matters (§4.1), not how often it pays off.
 //
@@ -154,10 +154,10 @@ func (Caddy) Unit() string { return UnitName }
 // and what the operator's DNS zone contains are the same thing by construction,
 // because both are copies of Config.Domain that only one of them is generated
 // from (docs/ingress.md §3).
-func (c Caddy) Render(cfg Config, devices DeviceView) (Rendered, error) {
+func (c Caddy) Render(cfg Config, clients ClientView) (Rendered, error) {
 	domain := normalizeDomain(cfg.Domain)
 
-	conf, err := c.caddyfile(cfg, domain, devices)
+	conf, err := c.caddyfile(cfg, domain, clients)
 	if err != nil {
 		return Rendered{}, err
 	}
@@ -223,7 +223,7 @@ func (c Caddy) env(cfg Config) string {
 	return b.String()
 }
 
-func (c Caddy) caddyfile(cfg Config, domain string, devices DeviceView) (string, error) {
+func (c Caddy) caddyfile(cfg Config, domain string, clients ClientView) (string, error) {
 	var b strings.Builder
 	b.WriteString(c.header("Caddyfile for " + UnitName))
 
@@ -243,7 +243,7 @@ func (c Caddy) caddyfile(cfg Config, domain string, devices DeviceView) (string,
 	c.tls(&b, cfg, site)
 
 	for _, s := range cfg.Services {
-		if err := c.service(&b, s, domain, devices); err != nil {
+		if err := c.service(&b, s, domain, clients); err != nil {
 			return "", err
 		}
 	}
@@ -310,17 +310,17 @@ func (c Caddy) tls(b *strings.Builder, cfg Config, site string) {
 	b.WriteString("\t}\n")
 }
 
-func (c Caddy) service(b *strings.Builder, s Service, domain string, devices DeviceView) error {
+func (c Caddy) service(b *strings.Builder, s Service, domain string, clients ClientView) error {
 	fqdn := qualify(s.Name, domain)
 
 	resolved := ""
-	if s.Upstream.Device != "" {
-		info, err := devices.Device(s.Upstream.Device)
+	if s.Upstream.Client != "" {
+		info, err := clients.Client(s.Upstream.Client)
 		if err != nil {
 			return fmt.Errorf("service %q: %w", s.Name, err)
 		}
 		if !info.Addr.IsValid() {
-			return fmt.Errorf("service %q: device %q has no address", s.Name, s.Upstream.Device)
+			return fmt.Errorf("service %q: client %q has no address", s.Name, s.Upstream.Client)
 		}
 		resolved = info.Addr.String()
 	}
@@ -340,7 +340,7 @@ func (c Caddy) service(b *strings.Builder, s Service, domain string, devices Dev
 		// UIs this exists for all present a self-signed certificate, and
 		// demanding a valid one would make the common case impossible in
 		// exchange for protection against an attacker who is already on the
-		// operator's LAN, between olr and a device the operator named.
+		// operator's LAN, between olr and a client the operator named.
 		b.WriteString("\t\t\t\ttls\n")
 		b.WriteString("\t\t\t\ttls_insecure_skip_verify\n")
 		b.WriteString("\t\t\t}\n")

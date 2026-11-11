@@ -7,11 +7,11 @@ import (
 
 // Only accept a complete repair of an existing service, with a strict reduction
 // in existing errors and no new errors. Normal edits still require valid config.
-func canSaveRepair(before, after Config, name string, dns DNSView, devices DeviceView) bool {
+func canSaveRepair(before, after Config, name string, dns DNSView, clients ClientView) bool {
 	// Relative to this module's own suffix, which is what the stored name is.
 	name = normalizeName(name, before.Domain)
-	old := Validate(before, dns, devices).Errors
-	next := Validate(after, dns, devices).Errors
+	old := Validate(before, dns, clients).Errors
+	next := Validate(after, dns, clients).Errors
 	if len(next) >= len(old) {
 		return false
 	}

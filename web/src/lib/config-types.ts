@@ -50,7 +50,7 @@
 //
 // `Peer.category` and `Peer.icon` are the latest of these: a device that dials
 // in can be drawn like one at home, and internal/remote/wireguard.go borrows
-// `devices.Category` and `devices.Icon` to say so — which a real run resolves
+// `clients.Category` and `clients.Icon` to say so — which a real run resolves
 // to the `ClientCategory` and `ClientPicture` types spelled here.
 
 /**
@@ -383,9 +383,9 @@ export interface GatewayConfig {
   stats?: boolean
   ipv6_forwarding?: boolean
   interfaces?: Assignment[]
-  devices?: GatewayDeviceAssignment[]
+  clients?: GatewayClientAssignment[]
 }
-export interface GatewayDeviceAssignment {
+export interface GatewayClientAssignment {
   mac: string
   exit?: string
 }
@@ -433,7 +433,7 @@ export interface IngressConfig {
   /**
    * The suffix published names live under, e.g. `home.example.com`.
    *
-   * Owned here rather than by `dns`, and deliberately not the same value: the wildcard certificate is for `*.<this>`, the records the operator writes point at this box, and neither has anything to do with what the resolver calls the devices in the house.
+   * Owned here rather than by `dns`, and deliberately not the same value: the wildcard certificate is for `*.<this>`, the records the operator writes point at this box, and neither has anything to do with what the resolver calls the clients in the house.
    *
    * One label, though: the wildcard covers `grafana.<domain>` and not `grafana.lab.<domain>`, so a deeper suffix would only move the problem.
    */
@@ -458,7 +458,7 @@ export interface Service {
   icon?: string
 }
 export interface UpstreamIngress {
-  device?: string
+  client?: string
   host?: string
   port: number
   scheme?: UpstreamScheme

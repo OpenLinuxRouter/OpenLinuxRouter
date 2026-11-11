@@ -38,13 +38,13 @@ func writeConfigText(w io.Writer, c Config) error {
 	if err := writeAssignmentsText(w, c); err != nil {
 		return err
 	}
-	if len(c.Devices) == 0 {
+	if len(c.Clients) == 0 {
 		return nil
 	}
 	fmt.Fprintln(w, "\nDevice overrides:")
 	t := table(w)
 	fmt.Fprintln(t, "DEVICE MAC\tINTERNET VIA")
-	for _, a := range c.Devices {
+	for _, a := range c.Clients {
 		fmt.Fprintf(t, "%s\t%s\n", a.MAC, describeDefault(a.Exit))
 	}
 	return t.Flush()
@@ -224,7 +224,7 @@ func writeTrafficText(w io.Writer, t trafficView) error {
 	// caveat about what counting can see. It is this box, right now, having run
 	// out of room to count in — and unlike the limits it is actionable.
 	if t.Saturated() {
-		fmt.Fprintf(w, "\nThe accounting table is nearly full (%d of %d entries). Devices "+
+		fmt.Fprintf(w, "\nThe accounting table is nearly full (%d of %d entries). Clients "+
 			"seen\nrecently may be missing from this list entirely.\n", t.Held, t.Capacity)
 	}
 

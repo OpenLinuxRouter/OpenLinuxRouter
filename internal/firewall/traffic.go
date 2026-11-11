@@ -104,7 +104,7 @@ func semanticCategory(r Rule) (string, string) {
 	case RuleICMPv6:
 		return "ICMPv6", "Permitted IPv6 errors, ping and control messages to the router."
 	case RuleForwardICMPv6:
-		return "ICMPv6", "Permitted IPv6 errors and ping to inside devices."
+		return "ICMPv6", "Permitted IPv6 errors and ping to inside clients."
 	case RuleDHCPClient:
 		return "DHCP", "IPv4 lease replies for the router’s DHCP client."
 	case RuleDHCPv6Client:
@@ -127,7 +127,7 @@ func semanticCategory(r Rule) (string, string) {
 		if r.Counter == InputCounter {
 			return "Unsolicited access to the router", "Traffic to the router that matches none of the preceding permissions."
 		}
-		return "Unsolicited access to inside devices", "Traffic headed into trusted networks that matches none of the preceding permissions."
+		return "Unsolicited access to inside clients", "Traffic headed into trusted networks that matches none of the preceding permissions."
 	}
 	return "Unknown", ""
 }

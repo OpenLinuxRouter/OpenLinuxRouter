@@ -87,8 +87,8 @@ func TestServiceListenIsEmptyWithoutATunnel(t *testing.T) {
 
 // The incident this whole path exists for.
 //
-// A box pins the resolver to its LAN address. A device dials in and is told
-// `DNS = 10.6.0.1`. Before this, nothing answered on 10.6.0.1 and the device
+// A box pins the resolver to its LAN address. A client dials in and is told
+// `DNS = 10.6.0.1`. Before this, nothing answered on 10.6.0.1 and the client
 // reported "connected" while every name lookup failed — the tunnel was healthy
 // and the phone was offline. The promise and the listener are now derived from
 // the same fact, so the rendered relay config cannot omit it.
@@ -144,7 +144,7 @@ func TestRenderRelayDoesNotRepeatAPinnedDialInAddress(t *testing.T) {
 
 func TestDerivedNotesNameTheDialInAddress(t *testing.T) {
 	notes := DerivedNotes(validConfig(), testLinks(), tunnel())
-	if !slices.Contains(notes, "answering DNS on 10.6.0.1:53 for devices that dial in") {
+	if !slices.Contains(notes, "answering DNS on 10.6.0.1:53 for clients that dial in") {
 		t.Errorf("DerivedNotes() = %v, want the dial-in line", notes)
 	}
 
@@ -158,7 +158,7 @@ func TestDerivedNotesNameTheDialInAddress(t *testing.T) {
 }
 
 // The status surface has to name the source of each address, not just the set:
-// "10.6.0.1 is answered on because devices dial in" is the sentence that tells
+// "10.6.0.1 is answered on because clients dial in" is the sentence that tells
 // an operator why an address they never configured is there.
 func TestServeViewNamesWhereEachAddressCameFrom(t *testing.T) {
 	got := serveView(validConfig(), tunnel())

@@ -139,7 +139,7 @@ func lockout(d Desired, via string) (core.Problem, bool) {
 		Path: "enabled",
 		Message: fmt.Sprintf("you are connected to this router through %s, which is outside "+
 			"every network — once the firewall is on, new connections from there are blocked, "+
-			"and that includes this page. Continue from a device on one of your networks, or "+
+			"and that includes this page. Continue from a client on one of your networks, or "+
 			"over remote access.", via),
 	}, true
 }

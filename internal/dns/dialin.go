@@ -5,7 +5,7 @@ import (
 	"slices"
 )
 
-// The address a device that dials in resolves through.
+// The address a client that dials in resolves through.
 //
 // `remote` writes `DNS = <this box's address on the dial-in network>` into
 // every client configuration it prints, and prints it once — the file lives on
@@ -33,7 +33,7 @@ import (
 
 // DialInView is this module's read-only window onto the remote-access module.
 type DialInView interface {
-	// DialIn reports whether devices may dial in and, if so, this box's own
+	// DialIn reports whether clients may dial in and, if so, this box's own
 	// address on that network.
 	DialIn() (DialInInfo, error)
 }
@@ -49,7 +49,7 @@ type DialInInfo struct {
 }
 
 // DialInAddr reads the view, folding "no view", "off" and "no address" into one
-// answer: there is no address devices are told to resolve through.
+// answer: there is no address clients are told to resolve through.
 func DialInAddr(v DialInView) (netip.Addr, bool, error) {
 	if v == nil {
 		return netip.Addr{}, false, nil

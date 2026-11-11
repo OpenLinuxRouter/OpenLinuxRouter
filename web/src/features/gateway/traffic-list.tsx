@@ -14,7 +14,7 @@ export /**
  * number being *smaller* than expected, and the first question a surprising
  * number produces is "is this broken?".
  */
-function TrafficList({ traffic, enabled, devices = [] }: { traffic?: GatewayTraffic; enabled: boolean; devices?: ClientRow[] }) {
+function TrafficList({ traffic, enabled, clients = [] }: { traffic?: GatewayTraffic; enabled: boolean; clients?: ClientRow[] }) {
   useLocale()
   if (!enabled) {
     return <ListEmpty>{t('Counting is off, so nothing is being recorded.')}</ListEmpty>
@@ -40,7 +40,7 @@ function TrafficList({ traffic, enabled, devices = [] }: { traffic?: GatewayTraf
   }
 
   const nameFor = (address: string) => {
-    const matches = devices.filter((device) => device.ips?.some((ip) => ip.toLowerCase() === address.toLowerCase()))
+    const matches = clients.filter((client) => client.ips?.some((ip) => ip.toLowerCase() === address.toLowerCase()))
     return matches.length === 1 ? matches[0].name : undefined
   }
 

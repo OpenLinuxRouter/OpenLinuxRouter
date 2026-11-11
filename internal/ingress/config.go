@@ -41,12 +41,17 @@ type Config struct {
 	// be turned back on without retyping them.
 	Enabled bool `json:"enabled"`
 
+	// Legacy records that a stored document still named its upstream's client
+	// `client`, the word this module used before the two inventories were told
+	// apart. Never serialised, so one save writes the current shape.
+	Legacy bool `json:"-"`
+
 	// Domain is the suffix published names live under, e.g. `home.example.com`.
 	//
 	// Owned here rather than by `dns`, and deliberately not the same value: the
 	// wildcard certificate is for `*.<this>`, the records the operator writes
 	// point at this box, and neither has anything to do with what the resolver
-	// calls the devices in the house.
+	// calls the clients in the house.
 	//
 	// One label, though: the wildcard covers `grafana.<domain>` and not
 	// `grafana.lab.<domain>`, so a deeper suffix would only move the problem.
@@ -169,26 +174,26 @@ type Service struct {
 
 // Upstream is the target of a published service.
 //
-// Device and Host are alternatives and exactly one must be set. The pair exists
-// because most targets are devices this network already knows by name, and some
+// Client and Host are alternatives and exactly one must be set. The pair exists
+// because most targets are clients this network already knows by name, and some
 // are not: a container on the router itself, or something behind another
 // router.
 type Upstream struct {
-	// Device identifies a device by MAC in the `devices` module (design.md §4.4).
+	// Client identifies a client by MAC in the `clients` module (design.md §4.4).
 	// Legacy names and CLI names are resolved to MACs when stored. It is the
-	// preferred form and the reason is §4.1: a device's address belongs to
-	// `devices` and `dhcp`, so referencing the device reads it per request
+	// preferred form and the reason is §4.1: a client's address belongs to
+	// `clients` and `dhcp`, so referencing the client reads it per request
 	// instead of copying it here where it would rot the next time the lease
 	// changed.
 	//
-	// Choosing a device that has no fixed address is refused rather than
+	// Choosing a client that has no fixed address is refused rather than
 	// rendered — see validate.go, and docs/ingress.md §1.2.
-	Device string `json:"device,omitempty"`
+	Client string `json:"client,omitempty"`
 
-	// Host is a literal address or hostname, for targets that are not devices.
+	// Host is a literal address or hostname, for targets that are not clients.
 	Host string `json:"host,omitempty"`
 
-	// Port is the upstream's port. Required in both forms: a device knows its
+	// Port is the upstream's port. Required in both forms: a client knows its
 	// address, never which of its ports somebody meant.
 	Port uint16 `json:"port"`
 
@@ -197,7 +202,7 @@ type Upstream struct {
 	// SchemeHTTPS exists for the NAS and hypervisor UIs that only listen on
 	// HTTPS with a self-signed certificate. Verification is deliberately not
 	// attempted for those (render.go) — the connection is over the operator's
-	// own LAN to a device they named, and demanding a valid certificate there
+	// own LAN to a client they named, and demanding a valid certificate there
 	// would make the common case impossible while protecting against an
 	// attacker who is already inside the network.
 	Scheme Scheme `json:"scheme,omitempty"`
@@ -215,10 +220,10 @@ type RequestHeader struct {
 }
 
 // Target renders the upstream as Caddy's dial address, given a resolved
-// address for the device form.
+// address for the client form.
 func (u Upstream) Target(resolved string) string {
 	host := u.Host
-	if u.Device != "" {
+	if u.Client != "" {
 		host = resolved
 	}
 	return fmt.Sprintf("%s:%d", host, u.Port)
@@ -316,7 +321,7 @@ func (c *Config) Normalize() {
 		s.Name = strings.TrimSpace(strings.ToLower(s.Name))
 		s.LinkPath = strings.TrimSpace(s.LinkPath)
 		s.Upstream.Host = strings.TrimSpace(s.Upstream.Host)
-		s.Upstream.Device = strings.TrimSpace(s.Upstream.Device)
+		s.Upstream.Client = strings.TrimSpace(s.Upstream.Client)
 		for j := range s.Upstream.RequestHeaders {
 			s.Upstream.RequestHeaders[j].Name = strings.TrimSpace(s.Upstream.RequestHeaders[j].Name)
 		}
@@ -377,14 +382,66 @@ func MarshalConfig(c Config) ([]byte, error) {
 // `provider_token` misspelled into oblivion while the old credential keeps
 // working until it is rotated.
 func UnmarshalConfig(data []byte) (Config, error) {
+	data, legacy, err := renameLegacyClients(data)
+	if err != nil {
+		return Config{}, fmt.Errorf("%s configuration: %w", ModuleName, err)
+	}
 	dec := json.NewDecoder(strings.NewReader(string(data)))
 	dec.DisallowUnknownFields()
 	var c Config
 	if err := dec.Decode(&c); err != nil {
 		return Config{}, fmt.Errorf("%s configuration: %w", ModuleName, err)
 	}
+	c.Legacy = legacy
 	c.Normalize()
 	return c, nil
+}
+
+// renameLegacyClients rewrites the pre-rename `client` upstream key to
+// `client`. The upstream is the only object in this subtree that ever had that
+// key, so a walk of the whole document is safe and keeps the strict decoder
+// below doing its job.
+func renameLegacyClients(data []byte) ([]byte, bool, error) {
+	var v any
+	if err := json.Unmarshal(data, &v); err != nil {
+		return data, false, nil
+	}
+	if !renameKey(v, "device", "client") {
+		return data, false, nil
+	}
+	out, err := json.Marshal(v)
+	return out, true, err
+}
+
+// renameKey renames an object key everywhere in a decoded JSON value, leaving
+// an existing new key alone.
+func renameKey(v any, from, to string) bool {
+	switch t := v.(type) {
+	case map[string]any:
+		changed := false
+		if value, ok := t[from]; ok {
+			if _, taken := t[to]; !taken {
+				t[to] = value
+				delete(t, from)
+				changed = true
+			}
+		}
+		for _, child := range t {
+			if renameKey(child, from, to) {
+				changed = true
+			}
+		}
+		return changed
+	case []any:
+		changed := false
+		for _, child := range t {
+			if renameKey(child, from, to) {
+				changed = true
+			}
+		}
+		return changed
+	}
+	return false
 }
 
 // FromDocument reads this module's section out of the store's document.

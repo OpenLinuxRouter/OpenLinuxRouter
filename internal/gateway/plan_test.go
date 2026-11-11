@@ -105,7 +105,7 @@ func TestAddingADeviceOverrideIsAReload(t *testing.T) {
 	after.SetDevice("aa:bb:cc:dd:ee:ff", "")
 	plan := planFor(t, after, k, netip.Addr{})
 	if plan.Empty() || plan.Impact != ImpactReload {
-		t.Fatalf("device override should keep established flows: %+v", plan)
+		t.Fatalf("client override should keep established flows: %+v", plan)
 	}
 }
 
@@ -477,7 +477,7 @@ func TestAStaleAccountingTableIsPlannedForReplacement(t *testing.T) {
 
 // §3.8, and the reason forwarding is read back rather than written once and
 // trusted: Docker, libvirt and k8s all write the global key on startup, and the
-// kernel's write path resets every per-device value with it. A box olr left
+// kernel's write path resets every per-client value with it. A box olr left
 // forwarding can stop forwarding because something else was installed, and the
 // plan is where that has to surface.
 func TestForwardingTurnedOffBehindUsIsDrift(t *testing.T) {

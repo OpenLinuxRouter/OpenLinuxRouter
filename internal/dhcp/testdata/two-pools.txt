@@ -31,9 +31,9 @@ dhcp-optsdir=/etc/open-linux-router/rendered/dhcp/opts.d
 # We refuse to start when anything else holds UDP/67, so dnsmasq genuinely is
 # the only DHCP server here and the precondition for this directive holds.
 #
-# It is what makes "why did this device not get an address" stop being the
+# It is what makes "why did this client not get an address" stop being the
 # common support question. Without it dnsmasq ignores a DHCPREQUEST for a lease
-# it has no record of — a device returning after a range change, or after the
+# it has no record of — a client returning after a range change, or after the
 # lease database was lost — and that client waits out a timeout instead of
 # being told to ask again.
 dhcp-authoritative

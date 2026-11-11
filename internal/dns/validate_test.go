@@ -427,7 +427,7 @@ func TestValidateLocalDomain(t *testing.T) {
 		{name: "home.arpa", domain: "home.arpa"},
 		{name: "internal is reserved too", domain: "internal"},
 		{name: "a subdomain of one you own", domain: "lan.example.com"},
-		// mDNS owns .local. Publishing it here resolves on some devices and not
+		// mDNS owns .local. Publishing it here resolves on some clients and not
 		// others, with nothing on this box to explain the difference.
 		{name: "local belongs to mDNS", domain: "local", wantErr: true},
 		{name: "not a name at all", domain: "http://nas", wantErr: true},
@@ -541,7 +541,7 @@ func (failingReservations) Reservations() ([]Reservation, error) {
 }
 
 // The failure this cross-check exists for: the reservation was renumbered, DHCP
-// moved the device, and the name goes on answering where it used to be.
+// moved the client, and the name goes on answering where it used to be.
 func TestValidateWarnsWhenANameAndItsReservationDisagree(t *testing.T) {
 	c := hostConfig(Host{Name: "sony-tv", Addrs: []netip.Addr{netip.MustParseAddr("192.168.1.50")}})
 	view := staticReservations{
@@ -603,7 +603,7 @@ func TestValidateAcceptsANameThatMatchesItsReservation(t *testing.T) {
 			view:  staticReservations{{MAC: "aa:bb:cc:dd:ee:02", IP: netip.MustParseAddr("192.168.1.99")}},
 		},
 		{
-			name:  "a reservation for some other device",
+			name:  "a reservation for some other client",
 			hosts: []Host{{Name: "sony-tv", Addrs: []netip.Addr{netip.MustParseAddr("192.168.1.50")}}},
 			view:  staticReservations{{MAC: "aa:bb:cc:dd:ee:03", IP: netip.MustParseAddr("192.168.1.99"), Hostname: "printer"}},
 		},

@@ -14,7 +14,7 @@ import (
 // readFlows lists conntrack, in both families, as the sampler's inputs.
 //
 // The same table the world map differences, read for a different question: that
-// one asks "where", this one asks "which device, under which name". Reading it
+// one asks "where", this one asks "which client, under which name". Reading it
 // twice is cheaper than threading one sampler through two owners.
 func readFlows(ctx context.Context) ([]Flow, error) {
 	var out []Flow

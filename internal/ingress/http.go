@@ -401,10 +401,10 @@ func (h HTTP) mutateWith(w http.ResponseWriter, r *http.Request, forceConfirm bo
 		}
 		cfg.Normalize()
 
-		if res := Validate(cfg, h.Applier.DNS, h.Applier.Devices); !res.OK() {
+		if res := Validate(cfg, h.Applier.DNS, h.Applier.Clients); !res.OK() {
 			invalid = res
 			if r.Method == http.MethodPut && r.PathValue("name") != "" &&
-				canSaveRepair(before, cfg, r.PathValue("name"), h.Applier.DNS, h.Applier.Devices) {
+				canSaveRepair(before, cfg, r.PathValue("name"), h.Applier.DNS, h.Applier.Clients) {
 				pending = true
 				stored = before
 				if !dryRun {
@@ -413,7 +413,7 @@ func (h HTTP) mutateWith(w http.ResponseWriter, r *http.Request, forceConfirm bo
 						failed = err
 						return nil
 					}
-					cfg.ResolveDeviceReferences(h.Applier.Devices)
+					cfg.ResolveClientReferences(h.Applier.Clients)
 					data, err := MarshalConfig(cfg)
 					if err != nil {
 						failed = err
@@ -432,7 +432,7 @@ func (h HTTP) mutateWith(w http.ResponseWriter, r *http.Request, forceConfirm bo
 			failed = err
 			return nil
 		}
-		plan, err = BuildPlan(h.Applier.Backend, cfg, h.Applier.DNS, h.Applier.Devices, obs)
+		plan, err = BuildPlan(h.Applier.Backend, cfg, h.Applier.DNS, h.Applier.Clients, obs)
 		if err != nil {
 			failed = err
 			return nil
@@ -594,7 +594,7 @@ func (h HTTP) plan(r *http.Request, cfg Config) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	return BuildPlan(h.Applier.Backend, cfg, h.Applier.DNS, h.Applier.Devices, obs)
+	return BuildPlan(h.Applier.Backend, cfg, h.Applier.DNS, h.Applier.Clients, obs)
 }
 
 // --- observed -------------------------------------------------------------
@@ -644,7 +644,7 @@ func (h HTTP) getStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp.Enabled = cfg.Enabled
-	resp.Problems = problems(Validate(cfg, h.Applier.DNS, h.Applier.Devices).Errors)
+	resp.Problems = problems(Validate(cfg, h.Applier.DNS, h.Applier.Clients).Errors)
 	resp.Published = len(cfg.Services)
 	resp.Domain = cfg.Domain
 
@@ -737,7 +737,7 @@ func (h HTTP) getServices(w http.ResponseWriter, r *http.Request) {
 		AsOf:     stamp(),
 	}
 	for _, s := range cfg.Services {
-		resp.Services = append(resp.Services, viewService(s, domain, h.Applier.Devices))
+		resp.Services = append(resp.Services, viewService(s, domain, h.Applier.Clients))
 	}
 	core.WriteJSON(w, http.StatusOK, resp)
 }

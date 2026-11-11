@@ -231,7 +231,7 @@ func (a Applier) ApplyPlanned(ctx context.Context, cfg Config, plan Plan, desire
 	return ApplyResult{Plan: plan, Steps: steps}, stored, err
 }
 
-// Usage is one device's traffic, with the exit named rather than marked.
+// Usage is one client's traffic, with the exit named rather than marked.
 type Usage struct {
 	Addr netip.Addr
 
@@ -340,7 +340,7 @@ type ExitStatus struct {
 	Up     bool
 	Probed bool
 
-	// UsedBy lists networks and device MACs assigned to it.
+	// UsedBy lists networks and client MACs assigned to it.
 	UsedBy []string
 
 	// Mark, Table and Priority are the kernel resources it holds, surfaced

@@ -104,7 +104,7 @@ type Config struct {
 // One word at every layer — the schema, the API, `olr net add iot` and the page
 // all say *network*. It used to be `group` below the UI, and a word the
 // operator never sees is a word every reader of the schema has to translate;
-// "group" is now kept for sets of devices, which is what it sounds like. A
+// "group" is now kept for sets of clients, which is what it sounds like. A
 // document still carrying the old keys is read by UnmarshalConfig and
 // rewritten once at startup.
 type Network struct {

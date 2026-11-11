@@ -66,7 +66,7 @@ func TestExitDNSModesValidateTheirTransport(t *testing.T) {
 
 func TestDeviceOverridesRejectInvalidDuplicateAndMissingExit(t *testing.T) {
 	c := testConfig()
-	c.Devices = []DeviceAssignment{
+	c.Clients = []ClientAssignment{
 		{MAC: "bad", Exit: "Proxy"},
 		{MAC: "aa:bb:cc:dd:ee:ff", Exit: "Proxy"},
 		{MAC: "AA-BB-CC-DD-EE-FF", Exit: "Missing"},
@@ -78,7 +78,7 @@ func TestDeviceOverridesRejectInvalidDuplicateAndMissingExit(t *testing.T) {
 }
 
 func TestDeviceOverrideWithoutAnAdoptedNetworkWarns(t *testing.T) {
-	c := Config{Devices: []DeviceAssignment{{MAC: "aa:bb:cc:dd:ee:ff"}}}
+	c := Config{Clients: []ClientAssignment{{MAC: "aa:bb:cc:dd:ee:ff"}}}
 	r := Validate(c, StaticLinks{})
 	if !hasWarningContaining(r, "will not match traffic") {
 		t.Fatalf("no warning for an override with no network: %+v", r)

@@ -12,7 +12,7 @@ import (
 )
 
 // Activity records per-site minute buckets while inspection runs. The live ring
-// stays bounded; optional per-device storage retains history independently of
+// stays bounded; optional per-client storage retains history independently of
 // the current session. Attribution is fixed at sample time, and unnamed traffic
 // remains visible rather than disappearing from totals.
 const (
@@ -31,7 +31,7 @@ const (
 	// activitySites bounds the sites kept per (bucket, address). Beyond it the
 	// smallest are folded into one row rather than dropped.
 	activitySites = 24
-	// activityEntries bounds the whole ring, so a device enumerating a wildcard
+	// activityEntries bounds the whole ring, so a client enumerating a wildcard
 	// cannot grow this without limit.
 	activityEntries = 50000
 	// unnamedSite is the row every unresolved flow lands in.
@@ -97,7 +97,7 @@ type Activity struct {
 	namesAt    time.Time
 
 	storage      string
-	device       string
+	client       string
 	deviceSince  time.Time
 	sampledAt    time.Time
 	baselineAt   time.Time
@@ -238,7 +238,7 @@ func (a *Activity) Started() time.Time {
 // reset drops the session's counters. The caller holds the lock.
 func (a *Activity) reset() {
 	a.sessionID++
-	a.device = ""
+	a.client = ""
 	a.deviceSince = time.Time{}
 	a.sampledAt = time.Time{}
 	a.baselineAt = time.Time{}
@@ -345,8 +345,8 @@ func (a *Activity) Sample(ctx context.Context) error {
 	return a.checkpointLocked()
 }
 
-// attributable reports whether a flow is a device reaching the internet. The
-// router's own traffic and LAN-to-LAN traffic never appear in a device's chart.
+// attributable reports whether a flow is a client reaching the internet. The
+// router's own traffic and LAN-to-LAN traffic never appear in a client's chart.
 func attributable(f Flow) bool {
 	return f.Src.IsValid() && f.Dst.IsValid() && !f.Src.IsLoopback() && !f.Src.IsUnspecified() &&
 		f.Src.IsPrivate() && !f.Dst.IsPrivate() && !f.Dst.IsLoopback() && !f.Dst.IsMulticast()
@@ -360,7 +360,7 @@ func (a *Activity) reindex(names []Name) {
 	a.siteByFlow = next
 }
 
-// siteFor looks up the name for a flow's device and address. The name map is
+// siteFor looks up the name for a flow's client and address. The name map is
 // keyed by client and address only; the ports do not matter to a name.
 func (a *Activity) siteFor(k flowKey) string {
 	if site, ok := a.siteByFlow[flowKey{src: k.src, dst: k.dst}]; ok {
@@ -401,7 +401,7 @@ func siteOf(name string) string {
 
 func (a *Activity) add(now time.Time, addr netip.Addr, site string, up, down uint64) {
 	key := now.Truncate(activityWidth).Unix()
-	if a.device != "" && a.storage != "" {
+	if a.client != "" && a.storage != "" {
 		if a.pending == nil {
 			a.pending = map[int64]map[string]*counters{}
 		}
@@ -476,7 +476,7 @@ func (a *Activity) Snapshot(addresses []netip.Addr) []ActivityBucket {
 	defer a.mu.Unlock()
 	if a.started.IsZero() {
 		// No session, no series: an empty list rather than a missing one, so the
-		// device page can keep counting on a list after the session ends.
+		// client page can keep counting on a list after the session ends.
 		return []ActivityBucket{}
 	}
 

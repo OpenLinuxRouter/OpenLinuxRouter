@@ -66,7 +66,7 @@ func TestInstallRedirectsDeviceAddresses(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(data), "add counter inet olr_inspection redirected") || !strings.Contains(string(data), "ether saddr c4:c1:7d:e0:a3:65 ip saddr { 172.16.1.135, 172.16.1.39 } tcp dport { 80, 443 } counter name redirected redirect to :18081") || !strings.Contains(string(data), "tcp dport 18081 counter name input_seen") || !strings.Contains(string(data), "ether saddr c4:c1:7d:e0:a3:65 ip saddr { 172.16.1.135, 172.16.1.39 } tcp dport 18081 ct original proto-dst { 80, 443 } accept") || !strings.Contains(string(data), "iifname != lo tcp dport 18081 counter name input_dropped drop") || !strings.Contains(string(data), "ip daddr 198.18.0.0/15 return") {
-		t.Errorf("missing MAC-bound redirect for device addresses in %s", data)
+		t.Errorf("missing MAC-bound redirect for client addresses in %s", data)
 	}
 }
 

@@ -85,7 +85,7 @@ func TestPlanAddingAServiceReloads(t *testing.T) {
 
 	desired := before.Clone()
 	desired.Services = append(desired.Services, Service{
-		Name: "nas", Upstream: Upstream{Device: "nuc", Port: 5000},
+		Name: "nas", Upstream: Upstream{Client: "nuc", Port: 5000},
 	})
 
 	p := plan(t, b, desired, obs)

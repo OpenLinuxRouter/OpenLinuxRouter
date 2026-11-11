@@ -31,7 +31,7 @@ The browser reads the equipment inventory and then one device snapshot:
 ```
 GET    /api/devices/config
 PUT    /api/devices/{id}             inventory entry only, never the device
-DELETE /api/network/devices/{id}
+DELETE /api/devices/{id}      
 GET    /api/devices/{id}/snapshot
 POST   /api/devices/{id}/scan   {"radio_id": "radio1"}
 ```
@@ -69,7 +69,7 @@ stall the Wi-Fi to fill in a diagram.
 | Clients | signal and SNR, directional rates, MCS and width, expected throughput, retries and failures, idle and connected time, bytes and packets, airtime, MFP and WMM |
 | Channels | on request, one band's scan: every BSS heard with its primary channel, width, signal and security, a strip counting BSS per channel, and how many overlap the radio's own channel |
 
-Client names come from the devices module when that MAC is known. Otherwise the
+Client names come from the clients module when that MAC is known. Otherwise the
 page says “Private address” for a locally administered address, or shows the
 MAC. A dash means the access point did not report the value.
 

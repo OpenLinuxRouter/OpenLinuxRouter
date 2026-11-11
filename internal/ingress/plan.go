@@ -250,13 +250,13 @@ func (p Plan) nothingToDo() bool {
 // It validates first and returns the error rather than planning against a config
 // that cannot be applied — the whole value of validation is that it happens
 // before anything is written (design.md §5.3.1).
-func BuildPlan(b Caddy, desired Config, dns DNSView, devices DeviceView, obs Observed) (Plan, error) {
-	result := Validate(desired, dns, devices)
+func BuildPlan(b Caddy, desired Config, dns DNSView, clients ClientView, obs Observed) (Plan, error) {
+	result := Validate(desired, dns, clients)
 	if err := result.Err(); err != nil {
 		return Plan{Validation: result}, err
 	}
 
-	rendered, err := b.Render(desired, devices)
+	rendered, err := b.Render(desired, clients)
 	if err != nil {
 		return Plan{Validation: result}, err
 	}

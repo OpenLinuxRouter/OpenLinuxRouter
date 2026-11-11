@@ -4,8 +4,8 @@ Usage:
   olr gateway rm [command]
 
 Available Commands:
+  client      Return one client to its network's way out
   destination Remove a destination routing rule
-  device      Return one device to its network's way out
   exit        Remove an exit
   forward     Stop forwarding a port
   via         Stop overriding a network's exit, so it follows the box-wide setting

@@ -31,12 +31,12 @@ func testEngine(t *testing.T) *Engine {
 	if err := store.Save(doc); err != nil {
 		t.Fatal(err)
 	}
-	return &Engine{Store: store, StatePath: t.TempDir() + "/state.json", Devices: deviceFixture{{MAC: "aa:bb:cc:dd:ee:ff", Network: "Home"}}}
+	return &Engine{Store: store, StatePath: t.TempDir() + "/state.json", Clients: deviceFixture{{MAC: "aa:bb:cc:dd:ee:ff", Network: "Home"}}}
 }
 
 func TestPoliciesActivateWithoutSwitchAndFollowMAC(t *testing.T) {
 	e := testEngine(t)
-	c := Config{Devices: []Device{{MAC: "aa:bb:cc:dd:ee:ff", Priority: High, DownloadMbps: 3, UploadMbps: 2}}}
+	c := Config{Clients: []Client{{MAC: "aa:bb:cc:dd:ee:ff", Priority: High, DownloadMbps: 3, UploadMbps: 2}}}
 	queues, pending, err := e.desired(context.Background(), c)
 	if err != nil || len(queues) != 1 || len(pending) != 0 {
 		t.Fatalf("plan: %+v %v %v", queues, pending, err)
@@ -46,10 +46,10 @@ func TestPoliciesActivateWithoutSwitchAndFollowMAC(t *testing.T) {
 		commands = append(commands, tool+" "+strings.Join(args, " "))
 		return []byte("[]"), nil
 	}
-	if err := e.shape(context.Background(), "lan0", "dst_mac", 0, true, c.Devices); err != nil {
+	if err := e.shape(context.Background(), "lan0", "dst_mac", 0, true, c.Clients); err != nil {
 		t.Fatal(err)
 	}
-	if err := e.shape(context.Background(), "ifb0", "src_mac", 0, false, c.Devices); err != nil {
+	if err := e.shape(context.Background(), "ifb0", "src_mac", 0, false, c.Clients); err != nil {
 		t.Fatal(err)
 	}
 	joined := strings.Join(commands, "\n")
@@ -61,7 +61,7 @@ func TestPoliciesActivateWithoutSwitchAndFollowMAC(t *testing.T) {
 	if strings.Contains(joined, "mark") || strings.Contains(joined, "192.168") {
 		t.Fatal("classifier must not depend on IP or change routing marks")
 	}
-	c.SetDevice(Device{MAC: c.Devices[0].MAC, Priority: Normal})
+	c.SetClient(Client{MAC: c.Clients[0].MAC, Priority: Normal})
 	if c.Requested() {
 		t.Fatal("reset must remove policy without a switch")
 	}
@@ -69,8 +69,8 @@ func TestPoliciesActivateWithoutSwitchAndFollowMAC(t *testing.T) {
 
 func TestAmbiguousOrMissingPlacementIsPending(t *testing.T) {
 	e := testEngine(t)
-	e.Devices = deviceFixture{}
-	c := Config{Devices: []Device{{MAC: "aa:bb:cc:dd:ee:ff", UploadMbps: 2}}}
+	e.Clients = deviceFixture{}
+	c := Config{Clients: []Client{{MAC: "aa:bb:cc:dd:ee:ff", UploadMbps: 2}}}
 	qs, pending, err := e.desired(context.Background(), c)
 	if err != nil || len(qs) != 0 || len(pending) != 1 {
 		t.Fatalf("%+v %v %v", qs, pending, err)
@@ -101,7 +101,7 @@ func TestForeignRootAndIngressAreRefusedBeforeWrites(t *testing.T) {
 				}
 				return []byte("[]"), nil
 			}
-			err := e.Apply(context.Background(), Config{Devices: []Device{{MAC: "aa:bb:cc:dd:ee:ff", UploadMbps: 2}}})
+			err := e.Apply(context.Background(), Config{Clients: []Client{{MAC: "aa:bb:cc:dd:ee:ff", UploadMbps: 2}}})
 			if err == nil || len(mutations) > 0 {
 				t.Fatalf("err=%v mutations=%v", err, mutations)
 			}
@@ -111,7 +111,7 @@ func TestForeignRootAndIngressAreRefusedBeforeWrites(t *testing.T) {
 
 func TestNoOpRestartPreservesQueuesAndDetectsDrift(t *testing.T) {
 	e := testEngine(t)
-	c := Config{Devices: []Device{{MAC: "aa:bb:cc:dd:ee:ff", UploadMbps: 2}}}
+	c := Config{Clients: []Client{{MAC: "aa:bb:cc:dd:ee:ff", UploadMbps: 2}}}
 	qs, _, err := e.desired(context.Background(), c)
 	if err != nil {
 		t.Fatal(err)

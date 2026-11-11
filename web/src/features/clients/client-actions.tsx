@@ -109,8 +109,8 @@ export function useDeviceActions() {
           onExitChange={(exit) =>
             gatewayApplier.submit(
               exit === null
-                ? gatewayChange.removeDevice(editing.mac)
-                : gatewayChange.device(editing.mac, exit),
+                ? gatewayChange.removeClient(editing.mac)
+                : gatewayChange.client(editing.mac, exit),
             )
           }
           onSave={save}

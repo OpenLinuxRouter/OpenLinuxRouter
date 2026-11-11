@@ -21,8 +21,8 @@ func TestRepairMultipleInvalidServicesOneAtATime(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := good()
-	cfg.Services[0].Upstream.Device = "old-nuc"
-	cfg.Services = append(cfg.Services, Service{Name: "storage", Upstream: Upstream{Device: "old-storage", Port: 80}})
+	cfg.Services[0].Upstream.Client = "old-nuc"
+	cfg.Services = append(cfg.Services, Service{Name: "storage", Upstream: Upstream{Client: "old-storage", Port: 80}})
 	doc, _ := a.Store.Load()
 	data, _ := MarshalConfig(cfg)
 	doc.Set(ModuleName, data)
@@ -30,19 +30,19 @@ func TestRepairMultipleInvalidServicesOneAtATime(t *testing.T) {
 		t.Fatal(err)
 	}
 	// An invalid replacement must not be accepted just because another error exists.
-	w := do(t, h, "PUT", "/services/grafana", `{"upstream":{"device":"nuc","port":0}}`)
+	w := do(t, h, "PUT", "/services/grafana", `{"upstream":{"client":"nuc","port":0}}`)
 	if w.Code != 422 {
 		t.Fatalf("invalid repair = %d: %s", w.Code, w.Body)
 	}
-	w = do(t, h, "PUT", "/services/grafana?dry_run=true", `{"upstream":{"device":"nuc","port":3000}}`)
+	w = do(t, h, "PUT", "/services/grafana?dry_run=true", `{"upstream":{"client":"nuc","port":3000}}`)
 	if w.Code != 200 {
 		t.Fatalf("dry run = %d: %s", w.Code, w.Body)
 	}
 	unchanged, _ := a.Load()
-	if unchanged.Services[0].Upstream.Device != "old-nuc" {
+	if unchanged.Services[0].Upstream.Client != "old-nuc" {
 		t.Fatal("dry run saved changes")
 	}
-	w = do(t, h, "PUT", "/services/grafana", `{"upstream":{"device":"nuc","port":3000}}`)
+	w = do(t, h, "PUT", "/services/grafana", `{"upstream":{"client":"nuc","port":3000}}`)
 	if w.Code != 200 {
 		t.Fatalf("first repair = %d: %s", w.Code, w.Body)
 	}
@@ -51,7 +51,7 @@ func TestRepairMultipleInvalidServicesOneAtATime(t *testing.T) {
 		t.Fatalf("repair response = %+v", resp)
 	}
 	stored, _ := a.Load()
-	if stored.Services[0].Upstream.Device != "nuc" {
+	if stored.Services[0].Upstream.Client != "nuc" {
 		t.Fatal("repair not saved")
 	}
 	after, _ := os.ReadFile(a.Paths.Conf)
@@ -62,7 +62,7 @@ func TestRepairMultipleInvalidServicesOneAtATime(t *testing.T) {
 	if len(status.Problems) != 1 {
 		t.Fatalf("remaining errors lost on refresh: %+v", status.Problems)
 	}
-	w = do(t, h, "PUT", "/services/storage", `{"upstream":{"device":"nuc","port":8080}}`)
+	w = do(t, h, "PUT", "/services/storage", `{"upstream":{"client":"nuc","port":8080}}`)
 	if w.Code != 200 {
 		t.Fatalf("final repair = %d: %s", w.Code, w.Body)
 	}
@@ -126,7 +126,7 @@ func publish(t *testing.T, h http.Handler) {
 	t.Helper()
 	body := `{"enabled":true,"domain":"svc.example.com",` +
 		`"certificate":{"provider":"cloudflare","provider_token":"tok"},` +
-		`"services":[{"name":"grafana","upstream":{"device":"nuc","port":3000}}]}`
+		`"services":[{"name":"grafana","upstream":{"client":"nuc","port":3000}}]}`
 	if w := do(t, h, http.MethodPut, "/config?confirm=true", body); w.Code != http.StatusOK {
 		t.Fatalf("setup PUT = %d: %s", w.Code, w.Body)
 	}
@@ -332,7 +332,7 @@ func TestPutServicePathWinsOverBody(t *testing.T) {
 
 	// A caller that disagrees with itself has a bug; honouring the URL is what
 	// keeps PUT idempotent on the address it was sent to.
-	body := `{"name":"somethingelse","upstream":{"device":"nuc","port":9000}}`
+	body := `{"name":"somethingelse","upstream":{"client":"nuc","port":9000}}`
 	if w := do(t, h, http.MethodPut, "/services/grafana?confirm=true", body); w.Code != http.StatusOK {
 		t.Fatalf("status = %d: %s", w.Code, w.Body)
 	}
@@ -358,7 +358,7 @@ func TestReapplyNeedsNoConfirm(t *testing.T) {
 func TestServiceLinkPathRoundTrips(t *testing.T) {
 	h, applier := testHTTP(t)
 	publish(t, h)
-	w := do(t, h, http.MethodPut, "/services/grafana", `{"upstream":{"device":"nuc","port":3000},"link_path":"/ui"}`)
+	w := do(t, h, http.MethodPut, "/services/grafana", `{"upstream":{"client":"nuc","port":3000},"link_path":"/ui"}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("save: %d %s", w.Code, w.Body)
 	}
@@ -378,7 +378,7 @@ func TestServiceLinkPathRoundTrips(t *testing.T) {
 func TestServiceIconUsesStoredLinkPath(t *testing.T) {
 	h, applier := testHTTP(t)
 	publish(t, h)
-	if w := do(t, h, http.MethodPut, "/services/grafana", `{"upstream":{"device":"nuc","port":3000},"link_path":"/ui"}`); w.Code != http.StatusOK {
+	if w := do(t, h, http.MethodPut, "/services/grafana", `{"upstream":{"client":"nuc","port":3000},"link_path":"/ui"}`); w.Code != http.StatusOK {
 		t.Fatalf("save: %d %s", w.Code, w.Body)
 	}
 	var paths []string
@@ -408,7 +408,7 @@ func TestServiceCustomIconRoundTrip(t *testing.T) {
 	h, applier := testHTTP(t)
 	publish(t, h)
 	icon := "data:image/png;base64,iVBORw0KGgoAAA=="
-	body := `{"upstream":{"device":"nuc","port":3000},"icon":"` + icon + `"}`
+	body := `{"upstream":{"client":"nuc","port":3000},"icon":"` + icon + `"}`
 	if w := do(t, h, http.MethodPut, "/services/grafana", body); w.Code != http.StatusOK {
 		t.Fatalf("save: %d %s", w.Code, w.Body)
 	}
@@ -424,7 +424,7 @@ func TestServiceCustomIconRoundTrip(t *testing.T) {
 	if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "image/png" || !strings.HasPrefix(w.Body.String(), "\x89PNG\r\n\x1a\n") {
 		t.Fatalf("icon: %d %q", w.Code, w.Body.String())
 	}
-	if w := do(t, h, http.MethodPut, "/services/grafana", `{"upstream":{"device":"nuc","port":3000},"icon":"thesvg:../escape"}`); w.Code != http.StatusUnprocessableEntity {
+	if w := do(t, h, http.MethodPut, "/services/grafana", `{"upstream":{"client":"nuc","port":3000},"icon":"thesvg:../escape"}`); w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("invalid icon: %d %s", w.Code, w.Body)
 	}
 }

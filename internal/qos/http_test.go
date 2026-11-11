@@ -21,7 +21,7 @@ func TestDevicePolicyRoutesStoreIntentButNeverClaimActive(t *testing.T) {
 		return w
 	}
 	mac := "aa:bb:cc:dd:ee:ff"
-	if w := request("PUT", "/devices/"+mac, `{"priority":"high","download_mbps":20}`); w.Code != 200 {
+	if w := request("PUT", "/clients/"+mac, `{"priority":"high","download_mbps":20}`); w.Code != 200 {
 		t.Fatalf("save: %d %s", w.Code, w.Body)
 	}
 	var saved struct {
@@ -35,17 +35,17 @@ func TestDevicePolicyRoutesStoreIntentButNeverClaimActive(t *testing.T) {
 		t.Fatal("unenforced QoS reported active")
 	}
 	c, err := a.Load()
-	if err != nil || c.Device(mac).DownloadMbps != 20 {
+	if err != nil || c.Client(mac).DownloadMbps != 20 {
 		t.Fatalf("policy not stored: %+v %v", c, err)
 	}
 	if w := request("PUT", "/config", `{"enabled":true,"download_mbps":100,"upload_mbps":20}`); w.Code != http.StatusOK {
 		t.Fatalf("legacy enabled field: %d %s", w.Code, w.Body)
 	}
-	if w := request("DELETE", "/devices/"+mac, ""); w.Code != 200 {
+	if w := request("DELETE", "/clients/"+mac, ""); w.Code != 200 {
 		t.Fatalf("reset: %d %s", w.Code, w.Body)
 	}
 	c, _ = a.Load()
-	if len(c.Devices) != 0 {
-		t.Fatalf("reset retained %+v", c.Devices)
+	if len(c.Clients) != 0 {
+		t.Fatalf("reset retained %+v", c.Clients)
 	}
 }

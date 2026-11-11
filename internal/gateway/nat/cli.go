@@ -171,7 +171,7 @@ func forwardCommand(mode string) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "forward <name>",
 		Short: short,
-		Long: "Send connections arriving on one of this router's ports to a device on your\n" +
+		Long: "Send connections arriving on one of this router's ports to a client on your\n" +
 			"network instead.\n\n" +
 			"  olr gateway add forward web   --in wan0 --port 8080 --to 192.168.1.10:80\n" +
 			"  olr gateway add forward games --in wan0 --protocol both --port 27015 \\\n" +

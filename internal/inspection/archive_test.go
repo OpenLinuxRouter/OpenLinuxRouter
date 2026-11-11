@@ -157,14 +157,14 @@ func TestHistoryRejectsInvalidAndEscapingPaths(t *testing.T) {
 	if response.Code != http.StatusNotFound || strings.Contains(response.Body.String(), "secret") {
 		t.Fatalf("symlink response: %d %s", response.Code, response.Body.String())
 	}
-	device := filepath.Join(s.Dir, "history", archiveOtherMAC)
-	if err := os.Symlink(outside, device); err != nil {
+	client := filepath.Join(s.Dir, "history", archiveOtherMAC)
+	if err := os.Symlink(outside, client); err != nil {
 		t.Fatal(err)
 	}
 	response = httptest.NewRecorder()
 	s.historyDetail(response, httptest.NewRequest("GET", "/history/detail?mac="+archiveOtherMAC+"&id="+id, nil))
 	if response.Code != http.StatusNotFound {
-		t.Fatalf("device symlink: %d", response.Code)
+		t.Fatalf("client symlink: %d", response.Code)
 	}
 }
 
@@ -205,17 +205,17 @@ func TestHistoryClearWatermarkNeverMovesBackward(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer unlock()
-	device, err := archiveDevice(root, archiveTestMAC)
+	client, err := archiveDevice(root, archiveTestMAC)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer device.Close()
+	defer client.Close()
 	newer := fmt.Sprintf("%020d", time.Now().UnixMicro())
 	older := fmt.Sprintf("%020d", time.Now().Add(-time.Minute).UnixMicro())
-	if _, err := archiveAdvanceClear(device, newer); err != nil {
+	if _, err := archiveAdvanceClear(client, newer); err != nil {
 		t.Fatal(err)
 	}
-	cutoff, err := archiveAdvanceClear(device, older)
+	cutoff, err := archiveAdvanceClear(client, older)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -15,7 +15,7 @@ func TestRoutesSelectDeviceBeforeNetworkAndDirectOverrides(t *testing.T) {
 	clash := netip.MustParseAddrPort("172.16.1.137:53")
 	r := Routes{
 		Networks: []RouteNetwork{{Prefix: netip.MustParsePrefix("172.16.1.0/24"), Exit: "Clash"}},
-		Devices: []RouteDevice{
+		Clients: []RouteClient{
 			{MAC: "aa:bb:cc:dd:ee:01", Exit: "", Prefixes: []netip.Prefix{netip.MustParsePrefix("172.16.1.0/24")}},
 			{MAC: "aa:bb:cc:dd:ee:02", Exit: "Clash", Prefixes: []netip.Prefix{netip.MustParsePrefix("172.16.1.0/24")}},
 		},
@@ -95,7 +95,7 @@ func TestRelayRoutesPublicQueriesButKeepsLocalAndBlocked(t *testing.T) {
 	cfg.LeaseFile = filepath.Join(t.TempDir(), "leases")
 	cfg.ARPFile = filepath.Join(t.TempDir(), "arp")
 	cfg.QueryLogEntries = 8
-	routes := Routes{LocalDomain: "home.arpa", Devices: []RouteDevice{{MAC: "aa:bb:cc:dd:ee:01", Exit: "Clash", Prefixes: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}}},
+	routes := Routes{LocalDomain: "home.arpa", Clients: []RouteClient{{MAC: "aa:bb:cc:dd:ee:01", Exit: "Clash", Prefixes: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}}},
 		Exits: []RouteExit{{Name: "Clash", DNS: clash.addr()}}}
 	data, err := MarshalRoutes(routes)
 	if err != nil {
@@ -139,7 +139,7 @@ func TestRelayRoutesPublicQueriesButKeepsLocalAndBlocked(t *testing.T) {
 
 func TestUnknownClientInAMixedExitNetworkGetsFailure(t *testing.T) {
 	r := Routes{Networks: []RouteNetwork{{Prefix: netip.MustParsePrefix("172.16.1.0/24")}},
-		Devices: []RouteDevice{{MAC: "aa:bb:cc:dd:ee:ff", Exit: "Clash", Prefixes: []netip.Prefix{netip.MustParsePrefix("172.16.1.0/24")}}},
+		Clients: []RouteClient{{MAC: "aa:bb:cc:dd:ee:ff", Exit: "Clash", Prefixes: []netip.Prefix{netip.MustParsePrefix("172.16.1.0/24")}}},
 		Exits:   []RouteExit{{Name: "Clash", DNS: netip.MustParseAddrPort("172.16.1.137:53")}}}
 	_, _, uncertain := r.Select(netip.MustParseAddr("172.16.1.50"), "")
 	if !uncertain {
@@ -153,7 +153,7 @@ func TestUnknownClientInAMixedExitNetworkGetsFailure(t *testing.T) {
 
 func TestKnownDirectOverrideBeatsNetworkDNS(t *testing.T) {
 	r := Routes{Networks: []RouteNetwork{{Prefix: netip.MustParsePrefix("172.16.1.0/24"), Exit: "Clash"}},
-		Devices: []RouteDevice{{MAC: "aa:bb:cc:dd:ee:01", Prefixes: []netip.Prefix{netip.MustParsePrefix("172.16.1.0/24")}}},
+		Clients: []RouteClient{{MAC: "aa:bb:cc:dd:ee:01", Prefixes: []netip.Prefix{netip.MustParsePrefix("172.16.1.0/24")}}},
 		Exits:   []RouteExit{{Name: "Clash", DNS: netip.MustParseAddrPort("172.16.1.137:53")}}}
 	_, selected, uncertain := r.Select(netip.MustParseAddr("172.16.1.50"), "aa:bb:cc:dd:ee:01")
 	if selected || uncertain {
@@ -275,7 +275,7 @@ func TestAmbiguousIdentityReturnsServfailBeforeUpstream(t *testing.T) {
 	cfg.RoutesFile = filepath.Join(t.TempDir(), "routes.json")
 	cfg.LeaseFile = filepath.Join(t.TempDir(), "leases")
 	cfg.ARPFile = filepath.Join(t.TempDir(), "arp")
-	routes := Routes{Devices: []RouteDevice{{MAC: "aa:bb:cc:dd:ee:01", Exit: "Clash", Prefixes: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}}},
+	routes := Routes{Clients: []RouteClient{{MAC: "aa:bb:cc:dd:ee:01", Exit: "Clash", Prefixes: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}}},
 		Exits: []RouteExit{{Name: "Clash", DNS: clash.addr()}}}
 	data, _ := MarshalRoutes(routes)
 	if err := os.WriteFile(cfg.RoutesFile, data, 0600); err != nil {

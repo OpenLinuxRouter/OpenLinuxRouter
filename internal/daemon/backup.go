@@ -112,7 +112,7 @@ func validateBackup(ctx context.Context, doc core.Document, source link.Source) 
 	facts := link.Facts{Store: store, Source: func() ([]link.Interface, error) { return observed, nil }}
 	dhcpApplier := dhcp.Applier{Store: store, Networks: dhcpNetworkView{facts: facts}}
 	dnsApplier := dns.Applier{Store: store}
-	deviceApplier := clients.Applier{Store: store, Fixed: dhcpFixedAddresses{applier: dhcpApplier}}
+	clientApplier := clients.Applier{Store: store, Fixed: dhcpFixedAddresses{applier: dhcpApplier}}
 	checks := []func() error{
 		func() error {
 			c, e := system.FromDocument(doc)
@@ -191,7 +191,7 @@ func validateBackup(ctx context.Context, doc core.Document, source link.Source) 
 			if e != nil {
 				return e
 			}
-			return ingress.Validate(c, ingressDNS{applier: dnsApplier}, ingressDevices{applier: deviceApplier}).Err()
+			return ingress.Validate(c, ingressDNS{applier: dnsApplier}, ingressClients{applier: clientApplier}).Err()
 		},
 		func() error {
 			c, e := iptv.FromDocument(doc)

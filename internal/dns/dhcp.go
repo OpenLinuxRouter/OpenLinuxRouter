@@ -27,7 +27,7 @@ import "net/netip"
 // So the subscription buys a *warning*: it cannot change a byte, which means it
 // cannot drift and needs no cross-module apply, and it still catches the one
 // failure that is otherwise silent — the name and the reservation disagreeing
-// about where a device is.
+// about where a client is.
 type ReservationView interface {
 	// Reservations lists every fixed address, in dhcp's canonical order.
 	Reservations() ([]Reservation, error)
@@ -38,7 +38,7 @@ type Reservation struct {
 	// MAC is canonical, as core.NormalizeMAC leaves it.
 	MAC string
 
-	// IP is the address dhcp hands that device.
+	// IP is the address dhcp hands that client.
 	IP netip.Addr
 
 	// Hostname is what dhcp calls it, and may be empty — most reservations

@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// The activity chart joins conntrack on (device, destination). A request the
+// The activity chart joins conntrack on (client, destination). A request the
 // relay never named — dialled by address, resolved over DoH, or opened before
 // the switch — still has to produce that pairing, or its bytes land in 未命名.
 func TestProxyRequestsNameTheirFlow(t *testing.T) {
@@ -60,7 +60,7 @@ func TestNamesWithoutEndpointsAreIgnored(t *testing.T) {
 	}
 }
 
-// The proxy's map is bounded for the same reason the relay's is: a device left
+// The proxy's map is bounded for the same reason the relay's is: a client left
 // under inspection enumerates addresses for as long as nobody stops it.
 func TestProxyNamesAreBounded(t *testing.T) {
 	s := &Service{}
@@ -79,7 +79,7 @@ func TestProxyNamesAreBounded(t *testing.T) {
 }
 
 // The relay's map covers every client, so it must win a pairing the proxy also
-// saw: its record is the name the device typed, CNAME chain and all.
+// saw: its record is the name the client typed, CNAME chain and all.
 func TestNamesFromGivesTheRelayTheFirstSay(t *testing.T) {
 	client := netip.MustParseAddr("192.168.1.10")
 	addr := netip.MustParseAddr("93.184.216.34")

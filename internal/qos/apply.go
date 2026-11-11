@@ -48,7 +48,7 @@ func (a Applier) Status() Status {
 	}
 	if a.Engine == nil {
 		if !c.Requested() {
-			return Status{Reason: "No device policies configured"}
+			return Status{Reason: "No client policies configured"}
 		}
 		return Status{Enabled: true, Reason: "Traffic control backend is unavailable"}
 	}

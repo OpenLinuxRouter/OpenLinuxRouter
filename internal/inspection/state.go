@@ -10,7 +10,7 @@ import (
 	"github.com/open-linux-router/open-linux-router/internal/core"
 )
 
-// The saved switch identifies the device and addresses to resume. It lives
+// The saved switch identifies the client and addresses to resume. It lives
 // beside the CA and history rather than in configuration backups: restoring a
 // network configuration on another router must not arm interception there.
 const settingFile = "session.json"
@@ -34,13 +34,13 @@ func (s *Service) readSetting() (*setting, error) {
 		return nil, fmt.Errorf("reading %s: %w", settingFile, err)
 	}
 	if st.MAC == "" || len(st.IPs) == 0 {
-		return nil, fmt.Errorf("reading %s: no device recorded", settingFile)
+		return nil, fmt.Errorf("reading %s: no client recorded", settingFile)
 	}
 	return &st, nil
 }
 
 // writeSetting replaces the switch atomically, so a crash while writing cannot
-// leave half a device behind for the next start to resume.
+// leave half a client behind for the next start to resume.
 func (s *Service) writeSetting(st *setting) error {
 	data, err := json.Marshal(st)
 	if err != nil {

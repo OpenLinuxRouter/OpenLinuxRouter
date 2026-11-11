@@ -58,14 +58,14 @@ func tokenState(token string) string {
 	}
 }
 
-// servicesOf renders config services without a device view, for the places that
+// servicesOf renders config services without a client view, for the places that
 // have the config but not the daemon's resolution of it.
 func servicesOf(c Config) []serviceView {
 	out := make([]serviceView, 0, len(c.Services))
 	for _, s := range c.Services {
 		out = append(out, serviceView{
 			Name:           s.Name,
-			Device:         s.Upstream.Device,
+			Client:         s.Upstream.Client,
 			Host:           s.Upstream.Host,
 			Port:           s.Upstream.Port,
 			Scheme:         s.Upstream.Scheme.OrDefault(),
@@ -78,7 +78,7 @@ func servicesOf(c Config) []serviceView {
 func writeServicesText(w io.Writer, services []serviceView, domain string) error {
 	if len(services) == 0 {
 		return cli.NoObjects(w, "published services",
-			"Publish one with `olr ingress add <name> --device <device> --port <port>`.")
+			"Publish one with `olr ingress add <name> --client <client> --port <port>`.")
 	}
 
 	t := table(w)
@@ -96,8 +96,8 @@ func writeServicesText(w io.Writer, services []serviceView, domain string) error
 // name returns 502.
 func target(s serviceView) string {
 	name := s.Host
-	if s.Device != "" {
-		name = s.Device
+	if s.Client != "" {
+		name = s.Client
 	}
 	if s.Scheme == SchemeHTTPS {
 		return fmt.Sprintf("%s:%d (https)", name, s.Port)
@@ -116,8 +116,8 @@ func writeServiceText(w io.Writer, s serviceView) error {
 	t := table(w)
 	fmt.Fprintf(t, "name\t%s\n", s.Name)
 	fmt.Fprintf(t, "url\t%s\n", orDash(s.URL))
-	if s.Device != "" {
-		fmt.Fprintf(t, "device\t%s\n", s.Device)
+	if s.Client != "" {
+		fmt.Fprintf(t, "client\t%s\n", s.Client)
 	} else {
 		fmt.Fprintf(t, "host\t%s\n", s.Host)
 	}

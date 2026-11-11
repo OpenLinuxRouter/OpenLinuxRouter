@@ -9,7 +9,10 @@ import (
 	"github.com/open-linux-router/open-linux-router/internal/core"
 	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/dhcp"
+	"github.com/open-linux-router/open-linux-router/internal/gateway"
+	"github.com/open-linux-router/open-linux-router/internal/ingress"
 	"github.com/open-linux-router/open-linux-router/internal/link"
+	"github.com/open-linux-router/open-linux-router/internal/qos"
 )
 
 // Migrating an old document, in the one place that can.
@@ -66,7 +69,7 @@ func migrateDocument(store *core.Store, facts link.Facts, log *slog.Logger) (boo
 	if err != nil {
 		return false, err
 	}
-	doc, moved, err := renameInventories(doc)
+	doc, moved, err := renameVocabulary(doc)
 	if err != nil {
 		return false, err
 	}
@@ -128,7 +131,7 @@ func migrateDocument(store *core.Store, facts link.Facts, log *slog.Logger) (boo
 			"pools", len(dhcpCfg.Pools), "networks", len(linkCfg.Networks))
 	}
 	if moved {
-		log.Info("renamed the stored inventories: devices are network equipment, clients are the things on the LAN")
+		log.Info("renamed the stored vocabulary: devices are network equipment, clients are the things on the LAN")
 	}
 	if !legacyPools && !moved {
 		log.Info("renamed the stored network keys from group to network",
@@ -137,15 +140,18 @@ func migrateDocument(store *core.Store, facts link.Facts, log *slog.Logger) (boo
 	return true, nil
 }
 
-// renameInventories moves the two inventories to the words the rest of the box
-// now uses. `devices` used to name the MAC-keyed inventory of things on the LAN
-// and `network` the equipment olr reads; today `devices` is the equipment and
-// `clients` the things on the LAN.
+// renameVocabulary moves the box's stored words to the ones it uses now.
 //
-// The clients subtree is rewritten as well as re-keyed: its list was stored
-// under `devices` inside the subtree too, and keeping that key readable forever
-// would mean two shapes of one document. The equipment subtree only moves.
-func renameInventories(doc core.Document) (core.Document, bool, error) {
+// `devices` used to name the MAC-keyed inventory of things on the LAN and
+// `network` the equipment olr reads; today `devices` is the equipment and
+// `clients` the things on the LAN. The clients subtree is rewritten as well as
+// re-keyed, because its list was stored under `devices` inside the subtree too.
+//
+// Three modules keep their own per-client entries — `qos` priorities, `gateway`
+// exit overrides and `ingress` published services — and each called those
+// `devices` or `device` for the same reason. Their parsers read the old keys
+// and say so, so the rewrite here is one marshal each, only when needed.
+func renameVocabulary(doc core.Document) (core.Document, bool, error) {
 	moved := false
 	if raw, ok := doc.Raw("devices"); ok {
 		if _, taken := doc.Raw(clients.ModuleName); !taken {
@@ -167,6 +173,44 @@ func renameInventories(doc core.Document) (core.Document, bool, error) {
 		if _, taken := doc.Raw(devices.ModuleName); !taken {
 			doc.Set(devices.ModuleName, raw)
 			doc.Delete("network")
+			moved = true
+		}
+	}
+	if raw, ok := doc.Raw(qos.ModuleName); ok && qos.HasLegacyKeys(raw) {
+		c, err := qos.Parse(raw)
+		if err != nil {
+			return doc, false, err
+		}
+		data, err := qos.MarshalConfig(c)
+		if err != nil {
+			return doc, false, err
+		}
+		doc.Set(qos.ModuleName, data)
+		moved = true
+	}
+	if raw, ok := doc.Raw(gateway.ModuleName); ok && gateway.HasLegacyKeys(raw) {
+		c, err := gateway.UnmarshalConfig(raw)
+		if err != nil {
+			return doc, false, err
+		}
+		data, err := gateway.MarshalConfig(c)
+		if err != nil {
+			return doc, false, err
+		}
+		doc.Set(gateway.ModuleName, data)
+		moved = true
+	}
+	if raw, ok := doc.Raw(ingress.ModuleName); ok {
+		c, err := ingress.UnmarshalConfig(raw)
+		if err != nil {
+			return doc, false, err
+		}
+		if c.Legacy {
+			data, err := ingress.MarshalConfig(c)
+			if err != nil {
+				return doc, false, err
+			}
+			doc.Set(ingress.ModuleName, data)
 			moved = true
 		}
 	}

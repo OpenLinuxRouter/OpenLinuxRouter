@@ -248,7 +248,7 @@ func TestDeviceOverridesPrecedeNetworkRules(t *testing.T) {
 	}
 	if index(direct) < 0 || index(via) < 0 || index(network) < 0 ||
 		index(direct) >= index(network) || index(via) >= index(network) {
-		t.Fatalf("device override must precede network classification: %s", dump(got))
+		t.Fatalf("client override must precede network classification: %s", dump(got))
 	}
 	if !contains(got, sprintf("nft restore mark %#08x for direct", DirectMark)) ||
 		!contains(got, sprintf("nft account mark %#08x counter direct for direct", DirectMark)) {
@@ -267,7 +267,7 @@ func TestDeviceRulesAreLimitedToAdoptedInterfacesAndPrefixes(t *testing.T) {
 	for _, line := range got {
 		if strings.HasPrefix(line, "nft device ") &&
 			(strings.Contains(line, "br-foreign") || strings.Contains(line, "br-empty")) {
-			t.Errorf("device override escaped its owned network: %s", line)
+			t.Errorf("client override escaped its owned network: %s", line)
 		}
 	}
 }
@@ -373,7 +373,7 @@ func TestDisabledRendersNoRoutingPolicy(t *testing.T) {
 
 // §7.1: the accounting table does not depend on the routing one. With no policy
 // installed every packet carries mark 0 and the same structure degrades to
-// plain per-device totals — so a box that only wants to know who is using the
+// plain per-client totals — so a box that only wants to know who is using the
 // bandwidth gets that without routing anything.
 func TestAccountingSurvivesRoutingBeingDisabled(t *testing.T) {
 	c := testConfig()
@@ -392,7 +392,7 @@ func TestAccountingSurvivesRoutingBeingDisabled(t *testing.T) {
 
 // §7.1: three chains, because forwarding is not the only way bytes reach a
 // device. A name Ingress publishes is terminated here, and before the local
-// chains existed every byte of it was invisible: the device page read 0 B/s
+// chains existed every byte of it was invisible: the client page read 0 B/s
 // while a video streamed at 12 MB/s, because caddy on the box was the other end
 // of the connection and no packet of it was ever forwarded.
 func TestAccountingCountsTheLocalHalf(t *testing.T) {

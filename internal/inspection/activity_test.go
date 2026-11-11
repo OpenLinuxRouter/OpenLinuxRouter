@@ -31,35 +31,35 @@ func TestSiteOfReducesToRegistrableDomain(t *testing.T) {
 	}
 }
 
-// A device's flow lands under the name the relay saw for that address, and an
+// A client's flow lands under the name the relay saw for that address, and an
 // unresolved one lands under 未命名 rather than disappearing.
 func TestSampleAttributesAndKeepsUnnamed(t *testing.T) {
 	now := time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)
-	device := netip.MustParseAddr("172.16.1.92")
+	client := netip.MustParseAddr("172.16.1.92")
 	video := netip.MustParseAddr("203.0.113.9")
 	other := netip.MustParseAddr("203.0.113.10")
 
 	flows := []Flow{
-		{Src: device, Dst: video, Sport: 1, Dport: 443, Proto: "tcp"},
-		{Src: device, Dst: other, Sport: 2, Dport: 443, Proto: "tcp"},
-		// LAN-to-LAN and router-originated traffic never belong to a device's chart.
-		{Src: device, Dst: netip.MustParseAddr("172.16.1.1"), Sport: 3, Dport: 80, Proto: "tcp", BytesOut: 5, BytesIn: 5},
+		{Src: client, Dst: video, Sport: 1, Dport: 443, Proto: "tcp"},
+		{Src: client, Dst: other, Sport: 2, Dport: 443, Proto: "tcp"},
+		// LAN-to-LAN and router-originated traffic never belong to a client's chart.
+		{Src: client, Dst: netip.MustParseAddr("172.16.1.1"), Sport: 3, Dport: 80, Proto: "tcp", BytesOut: 5, BytesIn: 5},
 	}
 	a := NewActivity(
 		func(context.Context) ([]Flow, error) { return flows, nil },
 		func(context.Context) ([]Name, error) {
-			return []Name{{Client: device, Addr: video, Name: "rr1---sn-4g5e6nez.googlevideo.com"}}, nil
+			return []Name{{Client: client, Addr: video, Name: "rr1---sn-4g5e6nez.googlevideo.com"}}, nil
 		},
 	)
 	a.now = func() time.Time { return now }
-	a.Begin(context.Background(), []string{device.String()})
+	a.Begin(context.Background(), []string{client.String()})
 	flows[0].BytesOut, flows[0].BytesIn = 100, 1000
 	flows[1].BytesOut, flows[1].BytesIn = 10, 100
 	if err := a.Sample(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 
-	buckets := a.Snapshot([]netip.Addr{device})
+	buckets := a.Snapshot([]netip.Addr{client})
 	if len(buckets) != 1 {
 		t.Fatalf("got %d buckets, want 1", len(buckets))
 	}
@@ -82,20 +82,20 @@ func TestSampleAttributesAndKeepsUnnamed(t *testing.T) {
 // traffic: only what grew after Begin belongs to the session.
 func TestBeginBaselinesTheTable(t *testing.T) {
 	now := time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)
-	device := netip.MustParseAddr("172.16.1.92")
+	client := netip.MustParseAddr("172.16.1.92")
 	remote := netip.MustParseAddr("203.0.113.9")
-	flows := []Flow{{Src: device, Dst: remote, Sport: 1, Dport: 443, Proto: "tcp", BytesOut: 5000, BytesIn: 90000}}
+	flows := []Flow{{Src: client, Dst: remote, Sport: 1, Dport: 443, Proto: "tcp", BytesOut: 5000, BytesIn: 90000}}
 	a := NewActivity(func(context.Context) ([]Flow, error) { return flows, nil }, nil)
 	a.now = func() time.Time { return now }
-	a.Begin(context.Background(), []string{device.String()})
+	a.Begin(context.Background(), []string{client.String()})
 	_ = a.Sample(context.Background())
-	if buckets := a.Snapshot([]netip.Addr{device}); len(buckets) != 0 {
+	if buckets := a.Snapshot([]netip.Addr{client}); len(buckets) != 0 {
 		t.Errorf("charged the session with pre-session bytes: %d buckets", len(buckets))
 	}
 
 	flows[0].BytesOut, flows[0].BytesIn = 5100, 90200
 	_ = a.Sample(context.Background())
-	rows := a.Snapshot([]netip.Addr{device})[0].Sites
+	rows := a.Snapshot([]netip.Addr{client})[0].Sites
 	if rows[0].Up != 100 || rows[0].Down != 200 {
 		t.Errorf("got %d/%d, want 100/200", rows[0].Up, rows[0].Down)
 	}
@@ -104,16 +104,16 @@ func TestBeginBaselinesTheTable(t *testing.T) {
 // Reading the same counters twice adds nothing the second time.
 func TestSampleCountsOnlyTheDelta(t *testing.T) {
 	now := time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)
-	device := netip.MustParseAddr("172.16.1.92")
+	client := netip.MustParseAddr("172.16.1.92")
 	remote := netip.MustParseAddr("203.0.113.9")
-	flows := []Flow{{Src: device, Dst: remote, Sport: 1, Dport: 443, Proto: "tcp"}}
+	flows := []Flow{{Src: client, Dst: remote, Sport: 1, Dport: 443, Proto: "tcp"}}
 	a := NewActivity(func(context.Context) ([]Flow, error) { return flows, nil }, nil)
 	a.now = func() time.Time { return now }
-	a.Begin(context.Background(), []string{device.String()})
+	a.Begin(context.Background(), []string{client.String()})
 	flows[0].BytesOut, flows[0].BytesIn = 300, 5000
 	_ = a.Sample(context.Background())
 
-	rows := a.Snapshot([]netip.Addr{device})[0].Sites
+	rows := a.Snapshot([]netip.Addr{client})[0].Sites
 	if rows[0].Up != 300 || rows[0].Down != 5000 {
 		t.Errorf("got %d/%d, want 300/5000", rows[0].Up, rows[0].Down)
 	}
@@ -123,33 +123,33 @@ func TestSampleCountsOnlyTheDelta(t *testing.T) {
 // End drops what the session saw so turning inspection off leaves no history.
 func TestActivityRecordsOnlyWhileSessionRuns(t *testing.T) {
 	now := time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)
-	device := netip.MustParseAddr("172.16.1.92")
+	client := netip.MustParseAddr("172.16.1.92")
 	remote := netip.MustParseAddr("203.0.113.9")
-	flows := []Flow{{Src: device, Dst: remote, Sport: 1, Dport: 443, Proto: "tcp"}}
+	flows := []Flow{{Src: client, Dst: remote, Sport: 1, Dport: 443, Proto: "tcp"}}
 	a := NewActivity(func(context.Context) ([]Flow, error) { return flows, nil }, nil)
 	a.now = func() time.Time { return now }
 
 	if err := a.Sample(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if buckets := a.Snapshot([]netip.Addr{device}); len(buckets) != 0 {
+	if buckets := a.Snapshot([]netip.Addr{client}); len(buckets) != 0 {
 		t.Errorf("recorded %d buckets before the session began", len(buckets))
 	}
 
-	a.Begin(context.Background(), []string{device.String()})
+	a.Begin(context.Background(), []string{client.String()})
 	flows[0].BytesOut, flows[0].BytesIn = 200, 2000
 	_ = a.Sample(context.Background())
-	if buckets := a.Snapshot([]netip.Addr{device}); len(buckets) != 1 {
+	if buckets := a.Snapshot([]netip.Addr{client}); len(buckets) != 1 {
 		t.Fatalf("got %d buckets during the session, want 1", len(buckets))
 	}
 
 	a.End()
-	if buckets := a.Snapshot([]netip.Addr{device}); len(buckets) != 0 {
+	if buckets := a.Snapshot([]netip.Addr{client}); len(buckets) != 0 {
 		t.Errorf("End kept %d buckets", len(buckets))
 	}
 	flows[0].BytesOut, flows[0].BytesIn = 400, 4000
 	_ = a.Sample(context.Background())
-	if buckets := a.Snapshot([]netip.Addr{device}); len(buckets) != 0 {
+	if buckets := a.Snapshot([]netip.Addr{client}); len(buckets) != 0 {
 		t.Errorf("recorded %d buckets after the session ended", len(buckets))
 	}
 }

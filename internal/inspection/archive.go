@@ -162,12 +162,12 @@ func archiveWalk(ctx context.Context, root *os.Root, visit func(string, *os.Root
 			if err != nil || mac != directory.Name() || !directory.IsDir() {
 				continue
 			}
-			device, err := archiveDevice(root, mac)
+			client, err := archiveDevice(root, mac)
 			if err != nil {
 				continue
 			}
-			err = archiveWalkDevice(ctx, device, func(id, suffix string, size int64) error { return visit(mac, device, id, suffix, size) })
-			device.Close()
+			err = archiveWalkDevice(ctx, client, func(id, suffix string, size int64) error { return visit(mac, client, id, suffix, size) })
+			client.Close()
 			if err != nil {
 				return err
 			}
@@ -181,8 +181,8 @@ func archiveWalk(ctx context.Context, root *os.Root, visit func(string, *os.Root
 	}
 }
 
-func archiveWalkDevice(ctx context.Context, device *os.Root, visit func(string, string, int64) error) error {
-	files, err := device.Open(".")
+func archiveWalkDevice(ctx context.Context, client *os.Root, visit func(string, string, int64) error) error {
+	files, err := client.Open(".")
 	if err != nil {
 		return err
 	}
@@ -240,7 +240,7 @@ func (s *Service) history(w http.ResponseWriter, r *http.Request) {
 	clearBefore := fmt.Sprintf("%020d", time.Now().UnixMicro())
 	mac, err := core.NormalizeMAC(r.URL.Query().Get("mac"))
 	if err != nil {
-		core.WriteError(w, http.StatusBadRequest, "a valid device MAC is required")
+		core.WriteError(w, http.StatusBadRequest, "a valid client MAC is required")
 		return
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodDelete {
@@ -289,25 +289,25 @@ func (s *Service) history(w http.ResponseWriter, r *http.Request) {
 		}
 		defer unlock()
 		defer archiveChanged(root)
-		device, err := archiveDevice(root, mac)
+		client, err := archiveDevice(root, mac)
 		if err == nil {
 			// Keep directories and temporary files; the clear watermark also
 			// prevents a later websocket completion from restoring this snapshot.
-			clearBefore, err = archiveAdvanceClear(device, clearBefore)
+			clearBefore, err = archiveAdvanceClear(client, clearBefore)
 			if err == nil {
-				err = archiveWalkDevice(r.Context(), device, func(id, suffix string, _ int64) error {
+				err = archiveWalkDevice(r.Context(), client, func(id, suffix string, _ int64) error {
 					if suffix != ".meta" || id[:20] > clearBefore {
 						return nil
 					}
 					for _, extension := range []string{".meta", ".json", ".mitm"} {
-						if err := device.Remove(id + extension); err != nil && !errors.Is(err, os.ErrNotExist) {
+						if err := client.Remove(id + extension); err != nil && !errors.Is(err, os.ErrNotExist) {
 							return err
 						}
 					}
 					return nil
 				})
 			}
-			device.Close()
+			client.Close()
 		}
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			core.WriteError(w, http.StatusInternalServerError, "could not clear flow history")
@@ -315,7 +315,7 @@ func (s *Service) history(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	selected := &historyHeap{}
-	err = archiveWalk(r.Context(), root, func(deviceMAC string, device *os.Root, id, suffix string, size int64) error {
+	err = archiveWalk(r.Context(), root, func(deviceMAC string, client *os.Root, id, suffix string, size int64) error {
 		out.TotalBytes += size
 		if deviceMAC != mac {
 			return nil
@@ -324,11 +324,11 @@ func (s *Service) history(w http.ResponseWriter, r *http.Request) {
 		if suffix != ".meta" || (before != "" && id >= before) || archiveExpired(id, policy) {
 			return nil
 		}
-		entry, err := archiveReadEntry(device, id)
+		entry, err := archiveReadEntry(client, id)
 		if err != nil {
 			return nil
 		} // Ignore partial/corrupt entries; never fail the whole page.
-		info, err := device.Lstat(id + ".mitm")
+		info, err := client.Lstat(id + ".mitm")
 		if err != nil || !info.Mode().IsRegular() {
 			return nil
 		}
@@ -364,7 +364,7 @@ func (s *Service) historyFile(w http.ResponseWriter, r *http.Request, detail boo
 	mac, err := core.NormalizeMAC(r.URL.Query().Get("mac"))
 	id := r.URL.Query().Get("id")
 	if err != nil || !archiveID.MatchString(id) {
-		core.WriteError(w, http.StatusBadRequest, "a valid device MAC and flow ID are required")
+		core.WriteError(w, http.StatusBadRequest, "a valid client MAC and flow ID are required")
 		return
 	}
 	if archiveExpired(id, s.readHistoryPolicy()) {
@@ -377,13 +377,13 @@ func (s *Service) historyFile(w http.ResponseWriter, r *http.Request, detail boo
 		return
 	}
 	defer root.Close()
-	device, err := archiveDevice(root, mac)
+	client, err := archiveDevice(root, mac)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-	defer device.Close()
-	if _, err := archiveReadEntry(device, id); err != nil {
+	defer client.Close()
+	if _, err := archiveReadEntry(client, id); err != nil {
 		http.NotFound(w, r)
 		return
 	}
@@ -391,7 +391,7 @@ func (s *Service) historyFile(w http.ResponseWriter, r *http.Request, detail boo
 	if detail {
 		extension = ".json"
 	}
-	file, err := archiveOpen(device, id+extension)
+	file, err := archiveOpen(client, id+extension)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -523,10 +523,10 @@ func (s *Service) SweepHistory(ctx context.Context) error {
 	}()
 	policy := s.readHistoryPolicy()
 	var total int64
-	err = archiveWalk(ctx, root, func(_ string, device *os.Root, id, suffix string, size int64) error {
+	err = archiveWalk(ctx, root, func(_ string, client *os.Root, id, suffix string, size int64) error {
 		if archiveExpired(id, policy) {
 			changed = true
-			err := device.Remove(id + suffix)
+			err := client.Remove(id + suffix)
 			if errors.Is(err, os.ErrNotExist) {
 				return nil
 			}
@@ -559,28 +559,28 @@ func (s *Service) SweepHistory(ctx context.Context) error {
 		sort.Slice(*victims, func(i, j int) bool { return (*victims)[i].id < (*victims)[j].id })
 		var removed int64
 		for _, victim := range *victims {
-			device, err := archiveDevice(root, victim.mac)
+			client, err := archiveDevice(root, victim.mac)
 			if err != nil {
 				return err
 			}
 			for _, suffix := range []string{".meta", ".json", ".mitm"} {
-				info, err := device.Lstat(victim.id + suffix)
+				info, err := client.Lstat(victim.id + suffix)
 				if errors.Is(err, os.ErrNotExist) {
 					continue
 				}
 				if err != nil {
-					device.Close()
+					client.Close()
 					return err
 				}
-				if err := device.Remove(victim.id + suffix); err != nil {
-					device.Close()
+				if err := client.Remove(victim.id + suffix); err != nil {
+					client.Close()
 					return err
 				}
 				changed = true
 				total -= info.Size()
 				removed += info.Size()
 			}
-			device.Close()
+			client.Close()
 			if total <= policy.MaxBytes {
 				break
 			}

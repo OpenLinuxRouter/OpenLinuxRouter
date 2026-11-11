@@ -357,7 +357,7 @@ func classify(desired Config, networks NetworkView, plan Plan, obs Observed, now
 	}
 
 	// Said plainly because the consequence is invisible until it is expensive:
-	// nothing looks wrong until the box reboots, and then every device on the
+	// nothing looks wrong until the box reboots, and then every client on the
 	// network fails to get an address at once.
 	if plan.Enable != nil {
 		if *plan.Enable {

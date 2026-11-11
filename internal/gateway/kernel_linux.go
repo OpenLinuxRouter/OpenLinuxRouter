@@ -633,7 +633,7 @@ func accountSetExprs(s StatSet, dnat bool) []expr.Any {
 
 		&expr.Meta{Key: expr.MetaKeyMARK, Register: markReg},
 		// Masked to our byte before it becomes part of the key. Without this a
-		// mark bit set by Docker or WireGuard would split one device's traffic
+		// mark bit set by Docker or WireGuard would split one client's traffic
 		// across two elements that look unrelated (§3.2 — always match with the
 		// mask).
 		maskOurMarkBits(markReg),
@@ -989,7 +989,7 @@ func (k LinuxKernel) readSysctl(key string) (string, bool) {
 // Forwarding is read here rather than trusted from the last apply, and that is
 // what makes it drift rather than a one-shot. Docker, libvirt and k8s all write
 // the global key on startup, and the kernel's write path resets every
-// per-device value with it — so a box olr left forwarding can stop forwarding
+// per-client value with it — so a box olr left forwarding can stop forwarding
 // because something else was installed, and this is the read that notices.
 func (k LinuxKernel) readSysctls() map[string]string {
 	out := map[string]string{}
@@ -1403,7 +1403,7 @@ func (k LinuxKernel) applyNFT(d Desired) error {
 		conn.AddRule(&nftables.Rule{Table: table, Chain: classify,
 			Exprs: destinationExprs(r), UserData: comment(r.Line())})
 	}
-	for _, r := range d.Table.Devices {
+	for _, r := range d.Table.Clients {
 		conn.AddRule(&nftables.Rule{
 			Table: table, Chain: classify,
 			Exprs:    deviceExprs(r),
@@ -1455,7 +1455,7 @@ func (k LinuxKernel) applyNFT(d Desired) error {
 // deviceExprs matches the Ethernet source MAC before network classification.
 // Direct has a reserved mark but no route rule: it falls through to main, and
 // conntrack preserves the choice when an assignment changes mid-connection.
-func deviceExprs(r DeviceRule) []expr.Any {
+func deviceExprs(r ClientRule) []expr.Any {
 	mac, _ := net.ParseMAC(r.MAC) // validated before rendering
 	v6 := r.Prefix.Addr().Is6()
 	proto := byte(unix.NFPROTO_IPV4)

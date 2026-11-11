@@ -82,7 +82,7 @@ export function ClientDetail({
   const [look, setLook] = useState<IconChoice>(() => storedLook(device))
   const [notes, setNotes] = useState(device.notes ?? '')
   const [group, setGroup] = useState(device.group ?? '')
-  const override = gateway?.devices?.find((a) => a.mac === device.mac)
+  const override = gateway?.clients?.find((a) => a.mac === device.mac)
   const deviceExit = override ? override.exit || DIRECT_EXIT : INHERIT_EXIT
 
   function reset() {

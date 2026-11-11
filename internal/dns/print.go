@@ -91,7 +91,7 @@ func describeHosts(c Config) string {
 func writeHostsText(w io.Writer, c Config) error {
 	if len(c.Hosts) == 0 {
 		return cli.NoObjects(w, "local names",
-			"Devices here are reachable by address only. `olr dns add host <name> <address>`.")
+			"Clients here are reachable by address only. `olr dns add host <name> <address>`.")
 	}
 	t := table(w)
 	fmt.Fprintln(t, "NAME\tANSWERS")
@@ -157,7 +157,7 @@ func writeStatusText(w io.Writer, status statusResponse) error {
 
 	// What the relay answers on, and why. Stated even when it matches what was
 	// asked for, because the failure this line exists for is an address that is
-	// answered on by nobody: a dial-in device is told to use one address and
+	// answered on by nobody: a dial-in client is told to use one address and
 	// only two surfaces can say whether it is served (dialin.go).
 	if len(status.Served) > 0 {
 		fmt.Fprintf(w, "answering on:   %s\n", describeServed(status.Served))
@@ -248,7 +248,7 @@ func writeNamesText(w io.Writer, resp namesResponse) error {
 		via := "-"
 		if len(n.Chain) > 0 {
 			// The tail of the chain is the organisation signal: it is why a
-			// device that asked for one name shows up talking to a CDN.
+			// client that asked for one name shows up talking to a CDN.
 			via = n.Chain[len(n.Chain)-1]
 		}
 		fmt.Fprintf(t, "%s\t%s\t%s\t%s\t%s\n",
@@ -412,7 +412,7 @@ func describeUpstream(u Upstream) string {
 
 func describeHijack(h Hijack) string {
 	if !h.Enabled {
-		return "off — a device configured with another resolver is not redirected"
+		return "off — a client configured with another resolver is not redirected"
 	}
 	out := "plaintext DNS on " + strings.Join(h.Interfaces, ", ")
 	if h.BlockDoT {

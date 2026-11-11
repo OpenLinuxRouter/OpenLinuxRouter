@@ -75,7 +75,7 @@ var unissuableSuffixes = []string{
 
 // Validate checks a config against itself and against the two modules whose
 // facts it depends on.
-func Validate(c Config, dns DNSView, devices DeviceView) Result {
+func Validate(c Config, dns DNSView, clients ClientView) Result {
 	var r Result
 
 	domain := normalizeDomain(c.Domain)
@@ -86,7 +86,7 @@ func Validate(c Config, dns DNSView, devices DeviceView) Result {
 	}
 
 	validateCertificate(&r, c)
-	validateServices(&r, c, domain, devices)
+	validateServices(&r, c, domain, clients)
 	validateExtraConf(&r, c.ExtraConf)
 
 	return r
@@ -139,7 +139,7 @@ func validateDomain(r *Result, c Config, domain string, dns DNSView) {
 			"provider's DNS: anyone using this network's resolver would get NXDOMAIN for a service that is otherwise working. "+
 			"Publish under a domain beside it rather than inside it%s", qualify("*", local), besideSuffix(local))
 	case strings.HasSuffix(local, "."+domain):
-		r.warnf("domain", "the wildcard certificate for %s also matches %s, the zone the resolver answers for device names. "+
+		r.warnf("domain", "the wildcard certificate for %s also matches %s, the zone the resolver answers for client names. "+
 			"The two coexist, but a service named %q would sit exactly on top of that zone",
 			qualify("*", domain), local, strings.SplitN(local, ".", 2)[0])
 	}
@@ -187,7 +187,7 @@ func validateCertificate(r *Result, c Config) {
 	}
 }
 
-func validateServices(r *Result, c Config, domain string, devices DeviceView) {
+func validateServices(r *Result, c Config, domain string, clients ClientView) {
 	seen := map[string]int{}
 	for i, s := range c.Services {
 		path := fmt.Sprintf("services[%d]", i)
@@ -215,7 +215,7 @@ func validateServices(r *Result, c Config, domain string, devices DeviceView) {
 				r.errorf(path+".link_path", "use a local path such as /ui, without a query or fragment")
 			}
 		}
-		validateUpstream(r, path+".upstream", s.Upstream, devices)
+		validateUpstream(r, path+".upstream", s.Upstream, clients)
 	}
 }
 
@@ -252,20 +252,20 @@ func validateName(r *Result, path, name, domain string) {
 	}
 }
 
-func validateUpstream(r *Result, path string, u Upstream, devices DeviceView) {
+func validateUpstream(r *Result, path string, u Upstream, clients ClientView) {
 	switch {
-	case u.Device == "" && u.Host == "":
-		r.errorf(path, "required: either a device to publish, or a literal host for something that is not a device")
-	case u.Device != "" && u.Host != "":
-		r.errorf(path, "device and host are alternatives; set one")
-	case u.Device != "":
-		validateDeviceUpstream(r, path, u, devices)
+	case u.Client == "" && u.Host == "":
+		r.errorf(path, "required: either a client to publish, or a literal host for something that is not a client")
+	case u.Client != "" && u.Host != "":
+		r.errorf(path, "client and host are alternatives; set one")
+	case u.Client != "":
+		validateDeviceUpstream(r, path, u, clients)
 	default:
 		validateHostUpstream(r, path, u)
 	}
 
 	if u.Port == 0 {
-		r.errorf(path+".port", "required: a device has an address, never a port somebody meant")
+		r.errorf(path+".port", "required: a client has an address, never a port somebody meant")
 	}
 	if !u.Scheme.Valid() {
 		r.errorf(path+".scheme", "unknown scheme %q (want %v)", u.Scheme, Schemes())
@@ -308,7 +308,7 @@ func validHeaderName(name string) bool {
 
 // validateDeviceUpstream is where docs/ingress.md §1.2 is enforced.
 //
-// A device holding a dynamic address is refused rather than warned about,
+// A client holding a dynamic address is refused rather than warned about,
 // which is a stronger stance than this codebase usually takes. The reason is
 // what the failure looks like: the config keeps working for days or weeks, and
 // then a lease turns over and the published name proxies to whatever machine
@@ -318,24 +318,24 @@ func validHeaderName(name string) bool {
 // The refusal carries the remedy, per §5.6: olr does not pin the address on the
 // operator's behalf, because reserving an address is a change to another
 // module's config and inferring it is exactly what that rule forbids.
-func validateDeviceUpstream(r *Result, path string, u Upstream, devices DeviceView) {
-	info, err := devices.Device(u.Device)
-	if errors.Is(err, ErrNoSuchDevice) {
-		r.errorf(path+".device", "no device named %q; `olr devices list` shows what this network knows about", u.Device)
+func validateDeviceUpstream(r *Result, path string, u Upstream, clients ClientView) {
+	info, err := clients.Client(u.Client)
+	if errors.Is(err, ErrNoSuchClient) {
+		r.errorf(path+".client", "no client named %q; `olr clients list` shows what this network knows about", u.Client)
 		return
 	}
 	if err != nil {
-		r.errorf(path+".device", "%v", err)
+		r.errorf(path+".client", "%v", err)
 		return
 	}
 
 	if !info.Fixed {
-		r.errorf(path+".device", "%q has no fixed address, so publishing it would proxy to whatever machine holds its address at the time. "+
-			"Give it one first: `olr dhcp add reservation --device %s`", u.Device, u.Device)
+		r.errorf(path+".client", "%q has no fixed address, so publishing it would proxy to whatever machine holds its address at the time. "+
+			"Give it one first: `olr dhcp add reservation --client %s`", u.Client, u.Client)
 		return
 	}
 	if !info.Addr.IsValid() {
-		r.errorf(path+".device", "%q has a fixed address reserved but has never been seen on the network", u.Device)
+		r.errorf(path+".client", "%q has a fixed address reserved but has never been seen on the network", u.Client)
 	}
 }
 
@@ -353,8 +353,8 @@ func validateHostUpstream(r *Result, path string, u Upstream) {
 	}
 	// A bare hostname is allowed and resolved by Caddy at dial time. Worth a
 	// remark rather than a refusal: it works, and it reintroduces the
-	// dependency on name resolution that using a device was meant to remove.
-	r.warnf(path+".host", "%q is resolved at connection time, so this service depends on that name continuing to resolve; a device is the stabler form", host)
+	// dependency on name resolution that using a client was meant to remove.
+	r.warnf(path+".host", "%q is resolved at connection time, so this service depends on that name continuing to resolve; a client is the stabler form", host)
 }
 
 // ownedDirectives are the Caddyfile directives this module renders itself.

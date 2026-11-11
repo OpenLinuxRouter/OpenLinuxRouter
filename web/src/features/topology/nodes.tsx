@@ -691,7 +691,7 @@ function ServiceLinks({ services, domain, domainKnown = true, className, width, 
 // The browser caches successful icons for a day; change the URL when the
 // published destination or its icon-discovery path changes.
 export function serviceIconVersion(service: Service, domain?: string): string {
-  const { device, host, port, scheme } = service.upstream
+  const { client: device, host, port, scheme } = service.upstream
   const identity = JSON.stringify([service.name, domain, service.link_path, service.icon, device, host, port, scheme])
   let hash = 2166136261
   for (let i = 0; i < identity.length; i++) {
@@ -884,12 +884,12 @@ function Quiet({ device }: { device: ClientRow }) {
 
 /** A fold counts devices and groups, but not the "Other devices" bucket. */
 function describeHidden(h: Hidden, others?: boolean) {
-  const devices = h.devices === 1 ? 'device' : 'devices'
+  const clients = h.devices === 1 ? 'client' : 'clients'
   const groups = h.groups === 1 ? 'group' : 'groups'
-  if (others) return h.groups > 0 ? `+${h.groups + 1} more` : 'Other devices'
-  if (h.devices && h.groups) return `+${h.devices} more ${devices} and ${h.groups} ${groups}`
+  if (others) return h.groups > 0 ? `+${h.groups + 1} more` : 'Other clients'
+  if (h.devices && h.groups) return `+${h.devices} more ${clients} and ${h.groups} ${groups}`
   if (h.groups) return `+${h.groups} more ${groups}`
-  return `+${h.devices} more ${devices}`
+  return `+${h.devices} more ${clients}`
 }
 
 export function MoreNode({
@@ -942,7 +942,7 @@ export function MoreNode({
       </span>
       {!open && devices !== undefined && (
         <span className="text-xs text-muted-foreground tabular-nums">
-          {devices} {devices === 1 ? 'device' : 'devices'}
+          {devices} {devices === 1 ? 'client' : 'clients'}
         </span>
       )}
     </button>

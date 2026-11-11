@@ -410,7 +410,7 @@ func run(args []string) error {
 	// Hoisted out of the Mount call because `ingress` reads devices through it
 	// too. One Applier, so both surfaces answer from the same join rather than
 	// from two that could drift.
-	devicesApplier := clients.Applier{
+	clientsApplier := clients.Applier{
 		Store: store,
 		// Two presence sources, and the pair is the point: leases know about
 		// anything that asked for an address, ARP sees the statically-addressed
@@ -423,12 +423,12 @@ func run(args []string) error {
 		Networks: dhcpNetworks{applier: applier},
 		Seen:     seen,
 	}
-	devicesApplier.BeforeSave = func(doc *core.Document) error {
-		return preserveIngressDevices(doc, ingressDevices{applier: devicesApplier})
+	clientsApplier.BeforeSave = func(doc *core.Document) error {
+		return preserveIngressClients(doc, ingressClients{applier: clientsApplier})
 	}
 
 	srv.Mount(clients.ModuleName, clients.HTTP{
-		Applier: devicesApplier,
+		Applier: clientsApplier,
 		Lock:    srv.ApplyLock(),
 		Events:  srv.Events(),
 	}.Routes(), clients.Config{})
@@ -442,7 +442,7 @@ func run(args []string) error {
 	if bootErr != nil || strings.TrimSpace(string(bootID)) == "" {
 		runtimeErr = fmt.Errorf("cannot identify current boot: %v", bootErr)
 	}
-	qosApplier := qos.Applier{Store: store, Engine: &qos.Engine{Store: store, Devices: devicesApplier,
+	qosApplier := qos.Applier{Store: store, Engine: &qos.Engine{Store: store, Clients: clientsApplier,
 		Runtime: runtimeDB, RuntimeError: runtimeErr, BootID: strings.TrimSpace(string(bootID)),
 		StatePath: filepath.Join(opts.root, "/run/olr/qos.json")}}
 	srv.Mount(qos.ModuleName, qos.HTTP{Applier: qosApplier, Lock: srv.ApplyLock(), Events: srv.Events()}.Routes(), qos.Config{})
@@ -665,7 +665,7 @@ func run(args []string) error {
 	// module declares what it needs and imports neither of the modules that
 	// answer, so §4.1's arrows keep pointing one way.
 	ingressApplier, err := ingress.NewApplierAt(store,
-		ingressDNS{applier: dnsApplier}, ingressDevices{applier: devicesApplier}, opts.root)
+		ingressDNS{applier: dnsApplier}, ingressClients{applier: clientsApplier}, opts.root)
 	if err != nil {
 		return fmt.Errorf("initialising ingress: %w", err)
 	}
@@ -754,17 +754,17 @@ func run(args []string) error {
 		if !cfg.Enabled {
 			return 0, nil
 		}
-		for _, device := range cfg.Devices {
-			if device.MAC == mac {
+		for _, client := range cfg.Clients {
+			if client.MAC == mac {
 				for _, exit := range cfg.Exits {
-					if exit.Name == device.Exit {
+					if exit.Name == client.Exit {
 						if exit.Via.Kind == gateway.ViaBlocked {
-							return 0, fmt.Errorf("device exit %q is blocked", exit.Name)
+							return 0, fmt.Errorf("client exit %q is blocked", exit.Name)
 						}
 						return exit.Mark(), nil
 					}
 				}
-				return 0, fmt.Errorf("device exit %q is unavailable", device.Exit)
+				return 0, fmt.Errorf("device exit %q is unavailable", client.Exit)
 			}
 		}
 		return 0, nil
@@ -972,7 +972,7 @@ func run(args []string) error {
 		// migrated here rather than refused: the sections it names still exist,
 		// under the words the box now uses.
 		Prepare: func(doc core.Document) (core.Document, error) {
-			doc, _, err := renameInventories(doc)
+			doc, _, err := renameVocabulary(doc)
 			return doc, err
 		},
 		Validate: func(ctx context.Context, doc core.Document) error { return validateBackup(ctx, doc, source) },

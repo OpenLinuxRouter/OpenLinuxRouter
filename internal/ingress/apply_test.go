@@ -79,7 +79,7 @@ func testApplier(t *testing.T) (Applier, *fakeProxy) {
 	return Applier{
 		Backend: NewCaddy(paths),
 		DNS:     goodDNS(),
-		Devices: goodDevices(),
+		Clients: goodDevices(),
 		Proxy:   proxy,
 		Paths:   paths,
 		Store:   core.NewStore(filepath.Join(root, "olr.json"), ModuleName),

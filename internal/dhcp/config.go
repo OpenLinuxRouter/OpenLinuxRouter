@@ -67,7 +67,7 @@ type Config struct {
 // against that, pointing the same way.
 //
 // The operator's is that these are two decisions. "Hand out 172.16.1.100–200"
-// and "advertise the prefix so devices configure themselves" have nothing in
+// and "advertise the prefix so clients configure themselves" have nothing in
 // common except the network they happen on, and a form that puts the second in
 // a dropdown beside the lease time is claiming otherwise.
 //
@@ -382,8 +382,8 @@ func (d *Duration) UnmarshalText(text []byte) error {
 // "AA-BB-CC-DD-EE-FF" and "aa:bb:cc:dd:ee:ff" are one reservation rather than
 // two. It returns an error for anything net.ParseMAC rejects.
 //
-// The implementation is core's, because the `devices` module keys identity by
-// the same string and the device list joins the two on it (design.md §4.4). It
+// The implementation is core's, because the `clients` module keys identity by
+// the same string and the client list joins the two on it (design.md §4.4). It
 // stays exported here so that this module's own call sites read in its own
 // vocabulary rather than reaching across for a spelling rule.
 func NormalizeMAC(s string) (string, error) {
@@ -536,7 +536,7 @@ func MarshalConfig(c Config) ([]byte, error) {
 // DHCP on upgrade with a parse error naming a field the operator never typed.
 //
 // The other exception is a pool's `group`, which is what Network was called
-// until the word was freed for sets of devices. It is renamed before the strict
+// until the word was freed for sets of clients. It is renamed before the strict
 // decode, for the same reason and with the same second half as the link
 // module's `groups`: see HasLegacyKeys.
 func UnmarshalConfig(data []byte) (Config, error) {
@@ -696,7 +696,7 @@ func (p LegacyPool) Convert() Pool {
 	}
 	if p.Start.IsValid() || p.End.IsValid() {
 		// Carried across explicitly rather than left to be derived. The operator
-		// typed this range, devices are holding addresses from it right now, and
+		// typed this range, clients are holding addresses from it right now, and
 		// re-deriving would silently renumber a working network on upgrade.
 		out.IPv4 = &PoolIPv4{Start: p.Start, End: p.End}
 	}

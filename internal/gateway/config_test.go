@@ -44,14 +44,14 @@ func testLinks() StaticLinks {
 func TestDeviceAssignmentRenamesWithExit(t *testing.T) {
 	c := testConfig()
 	c.SetDevice("AA-BB-CC-DD-EE-FF", "Proxy")
-	if len(c.Devices) != 1 || c.Devices[0].MAC != "aa:bb:cc:dd:ee:ff" {
-		t.Fatalf("device not canonicalized: %+v", c.Devices)
+	if len(c.Clients) != 1 || c.Clients[0].MAC != "aa:bb:cc:dd:ee:ff" {
+		t.Fatalf("device not canonicalized: %+v", c.Clients)
 	}
-	if !c.Rename("Proxy", "Clash") || c.Devices[0].Exit != "Clash" {
-		t.Fatalf("rename lost device override: %+v", c.Devices)
+	if !c.Rename("Proxy", "Clash") || c.Clients[0].Exit != "Clash" {
+		t.Fatalf("rename lost client override: %+v", c.Clients)
 	}
-	if !c.RemoveDevice("AA-BB-CC-DD-EE-FF") || len(c.Devices) != 0 {
-		t.Fatalf("could not restore inheritance: %+v", c.Devices)
+	if !c.RemoveClient("AA-BB-CC-DD-EE-FF") || len(c.Clients) != 0 {
+		t.Fatalf("could not restore inheritance: %+v", c.Clients)
 	}
 }
 
@@ -59,7 +59,7 @@ func TestDeviceOverrideAloneUsesAnExit(t *testing.T) {
 	c := Config{Enabled: true, Exits: []Exit{{Name: "Blocked", Via: Via{Kind: ViaBlocked}}}}
 	c.SetDevice("aa:bb:cc:dd:ee:ff", "Blocked")
 	if !c.InUse("Blocked") {
-		t.Fatal("device override did not activate its exit")
+		t.Fatal("client override did not activate its exit")
 	}
 	got := lines(t, c, nil)
 	if !containsPrefix(got, "nft device aa:bb:cc:dd:ee:ff ") ||

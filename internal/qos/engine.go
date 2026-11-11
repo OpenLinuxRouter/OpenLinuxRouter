@@ -33,7 +33,7 @@ type DeviceView interface {
 
 type Engine struct {
 	Store        *core.Store
-	Devices      DeviceView
+	Clients      DeviceView
 	Run          func(context.Context, string, ...string) ([]byte, error)
 	StatePath    string
 	Runtime      *runtimedb.Store
@@ -45,7 +45,7 @@ type Engine struct {
 type queue struct {
 	Interface string   `json:"interface"`
 	IFB       string   `json:"ifb"`
-	Devices   []Device `json:"devices"`
+	Clients   []Client `json:"clients"`
 	Download  float64  `json:"download"`
 	Upload    float64  `json:"upload"`
 }
@@ -123,15 +123,15 @@ func (e *Engine) desired(ctx context.Context, c Config) ([]queue, []string, erro
 	if err != nil {
 		return nil, nil, err
 	}
-	if e.Devices == nil {
-		return nil, nil, fmt.Errorf("device presence is unavailable")
+	if e.Clients == nil {
+		return nil, nil, fmt.Errorf("client presence is unavailable")
 	}
-	list, problems, err := e.Devices.List(ctx)
+	list, problems, err := e.Clients.List(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 	if len(problems) != 0 {
-		return nil, nil, fmt.Errorf("device presence is incomplete: %s", problems[0].Message)
+		return nil, nil, fmt.Errorf("client presence is incomplete: %s", problems[0].Message)
 	}
 	byMAC := map[string]clients.Resolved{}
 	for _, d := range list {
@@ -139,7 +139,7 @@ func (e *Engine) desired(ctx context.Context, c Config) ([]queue, []string, erro
 	}
 	byInterface := map[string]*queue{}
 	var pending []string
-	for _, d := range c.Devices {
+	for _, d := range c.Clients {
 		if !d.Requested() {
 			continue
 		}
@@ -164,7 +164,7 @@ func (e *Engine) desired(ctx context.Context, c Config) ([]queue, []string, erro
 			q = &queue{Interface: iface, IFB: ifbName(iface), Download: c.DownloadMbps, Upload: c.UploadMbps}
 			byInterface[iface] = q
 		}
-		q.Devices = append(q.Devices, d)
+		q.Clients = append(q.Clients, d)
 	}
 	var queues []queue
 	for _, q := range byInterface {
@@ -300,10 +300,10 @@ func (e *Engine) Status(ctx context.Context, c Config) Status {
 	}
 	s.Active = len(qs) > 0
 	if len(pending) > 0 {
-		s.Reason = "Some devices are waiting for an unambiguous LAN interface"
+		s.Reason = "Some clients are waiting for an unambiguous LAN interface"
 	}
 	if s.Active && (c.DownloadMbps == 0 || c.UploadMbps == 0) {
-		for _, d := range c.Devices {
+		for _, d := range c.Clients {
 			if d.Priority != Normal && d.Priority != "" {
 				s.Reason = "Speed limits apply; priority schedules the LAN queues. Set measured link rates to manage upstream congestion."
 				break
@@ -311,7 +311,7 @@ func (e *Engine) Status(ctx context.Context, c Config) Status {
 		}
 	}
 	if !c.Requested() && err == nil {
-		s.Reason = "No device policies configured"
+		s.Reason = "No client policies configured"
 	}
 	return s
 }
@@ -406,7 +406,7 @@ func (e *Engine) checkOffload(ctx context.Context) error {
 		return fmt.Errorf("cannot check flow offload: %w", err)
 	}
 	if strings.Contains(string(b), `"flowtable"`) || strings.Contains(string(b), `"flow"`) {
-		return fmt.Errorf("flow offload may bypass QoS; remove flowtables before applying device policies")
+		return fmt.Errorf("flow offload may bypass QoS; remove flowtables before applying client policies")
 	}
 	return nil
 }
@@ -479,7 +479,7 @@ func (e *Engine) install(ctx context.Context, q queue) error {
 		rate         float64
 		download     bool
 	}{{q.Interface, "dst_mac", q.Download, true}, {q.IFB, "src_mac", q.Upload, false}} {
-		if err := e.shape(ctx, direction.iface, direction.field, direction.rate, direction.download, q.Devices); err != nil {
+		if err := e.shape(ctx, direction.iface, direction.field, direction.rate, direction.download, q.Clients); err != nil {
 			return err
 		}
 	}
@@ -520,7 +520,7 @@ func (e *Engine) install(ctx context.Context, q queue) error {
 
 func rate(v float64) string { return strconv.FormatFloat(v, 'f', 6, 64) + "mbit" }
 
-func (e *Engine) shape(ctx context.Context, iface, field string, total float64, download bool, policies []Device) error {
+func (e *Engine) shape(ctx context.Context, iface, field string, total float64, download bool, policies []Client) error {
 	if total == 0 {
 		total = 100000
 	} // No configured aggregate ceiling.

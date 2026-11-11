@@ -353,7 +353,7 @@ function ServiceList({
           <ListRow
             key={s.name}
             title={domain ? `${s.name}.${domain}${s.link_path ?? ''}` : s.name}
-            subtitle={describeService(s, devices.data?.clients.find((d) => d.mac === s.upstream.device)?.name)}
+            subtitle={describeService(s, devices.data?.clients.find((d) => d.mac === s.upstream.client)?.name)}
             wrap
             editLabel={`${t('Edit')} ${s.name}`}
             onSelect={() => onEdit(s)}
@@ -365,7 +365,7 @@ function ServiceList({
 }
 
 function describeService(s: Service, deviceName?: string): string {
-  const where = deviceName || s.upstream.device || s.upstream.host || '?'
+  const where = deviceName || s.upstream.client || s.upstream.host || '?'
   const scheme = s.upstream.scheme === 'https' ? ' over https' : ''
   return `→ ${where}:${s.upstream.port}${scheme}`
 }

@@ -38,7 +38,7 @@ type activityShard struct {
 	Buckets []ActivityBucket `json:"buckets"`
 }
 
-// SetStorage enables durable per-device history beneath dir. Call before BeginDevice.
+// SetStorage enables durable per-client history beneath dir. Call before BeginDevice.
 // The archive is separate from the flow archive and has its own 64 MiB bound.
 func (a *Activity) SetStorage(dir string) error {
 	if a == nil {
@@ -77,7 +77,7 @@ func privateActivityDir(path string) error {
 	return os.Chmod(path, 0700)
 }
 
-// BeginDevice resumes the device's retained series, with a new live baseline.
+// BeginDevice resumes the client's retained series, with a new live baseline.
 // Reading existing counters afresh deliberately excludes all downtime traffic.
 func (a *Activity) BeginDevice(ctx context.Context, mac string, addresses []string) error {
 	if a == nil {
@@ -112,7 +112,7 @@ func (a *Activity) BeginDevice(ctx context.Context, mac string, addresses []stri
 	}
 	a.reset()
 	a.beginLocked(ctx, addresses)
-	a.device = mac
+	a.client = mac
 	a.deviceSince = meta.Since
 	if a.deviceSince.IsZero() || a.deviceSince.After(a.now()) {
 		a.deviceSince = a.started
@@ -122,7 +122,7 @@ func (a *Activity) BeginDevice(ctx context.Context, mac string, addresses []stri
 	}
 	a.sampledAt = a.started
 	// Only the live ring is hydrated, never all thirty days. Old addresses may
-	// have changed; MAC queries remain authoritative for retained device history.
+	// have changed; MAC queries remain authoritative for retained client history.
 	var addr netip.Addr
 	for candidate := range a.watched {
 		if !addr.IsValid() || candidate.Less(addr) {
@@ -133,10 +133,10 @@ func (a *Activity) BeginDevice(ctx context.Context, mac string, addresses []stri
 		for _, bucket := range history {
 			for _, row := range bucket.Sites {
 				// Hydrating is not new traffic and must not be appended to pending.
-				device := a.device
-				a.device = ""
+				client := a.client
+				a.client = ""
 				a.add(bucket.At, addr, row.Site, row.Up, row.Down)
-				a.device = device
+				a.client = client
 			}
 		}
 		a.prune()
@@ -164,7 +164,7 @@ func (a *Activity) checkpointLocked() error {
 	if a.storage == "" {
 		return a.storageErr
 	}
-	if a.device == "" {
+	if a.client == "" {
 		a.storageErr = a.pruneStorageLocked(0, "")
 		return a.storageErr
 	}
@@ -184,7 +184,7 @@ func (a *Activity) checkpointLocked() error {
 	}
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i] < ordered[j] })
 	for _, hour := range ordered {
-		path := a.shardPath(a.device, hour)
+		path := a.shardPath(a.client, hour)
 		shard, err := readActivityShard(path, hour)
 		if err != nil {
 			a.storageErr = err
@@ -225,12 +225,12 @@ func (a *Activity) checkpointLocked() error {
 			return err
 		}
 	}
-	if _, err := a.metadataLocked(a.device); err != nil {
+	if _, err := a.metadataLocked(a.client); err != nil {
 		a.storageErr = err
 		return err
 	}
 	meta := activityMetadata{Version: 1, Since: a.deviceSince, SampledAt: a.sampledAt, BaselineAt: a.baselineAt}
-	if err := a.writeJSONLocked(filepath.Join(a.storage, a.device, "state.json"), meta); err != nil {
+	if err := a.writeJSONLocked(filepath.Join(a.storage, a.client, "state.json"), meta); err != nil {
 		a.storageErr = err
 		return err
 	}
@@ -359,7 +359,7 @@ func (a *Activity) History(mac string, window time.Duration) (activityResponse, 
 	if err != nil {
 		return out, err
 	}
-	out.Recording = a.device == normalized && !a.started.IsZero()
+	out.Recording = a.client == normalized && !a.started.IsZero()
 	if !meta.Since.IsZero() {
 		since := meta.Since
 		if edge.After(since) {
@@ -422,7 +422,7 @@ func (a *Activity) writeJSONLocked(path string, value any) error {
 		return err
 	}
 	temp := f.Name()
-	// temp is an absolute path returned by CreateTemp inside the verified device
+	// temp is an absolute path returned by CreateTemp inside the verified client
 	// directory; cleanup never traverses a caller-provided/computed target.
 	defer os.Remove(temp)
 	if _, err = f.Write(data); err == nil {
@@ -459,22 +459,22 @@ func (a *Activity) pruneStorageLocked(reserve int64, protected string) error {
 	if a.storage == "" {
 		return nil
 	}
-	devices, err := os.ReadDir(a.storage)
+	clients, err := os.ReadDir(a.storage)
 	if err != nil {
 		return err
 	}
 	var files []activityDiskFile
 	var total int64
 	cutoff := a.now().Add(-activityRetention).Unix()
-	for _, device := range devices {
-		if !device.IsDir() {
+	for _, client := range clients {
+		if !client.IsDir() {
 			continue
 		}
-		normalized, err := core.NormalizeMAC(device.Name())
-		if err != nil || normalized != device.Name() {
+		normalized, err := core.NormalizeMAC(client.Name())
+		if err != nil || normalized != client.Name() {
 			continue
 		}
-		dir := filepath.Join(a.storage, device.Name())
+		dir := filepath.Join(a.storage, client.Name())
 		entries, err := os.ReadDir(dir)
 		if err != nil {
 			return err
@@ -493,7 +493,7 @@ func (a *Activity) pruneStorageLocked(reserve int64, protected string) error {
 			temporary := strings.HasPrefix(entry.Name(), ".checkpoint-")
 			if temporary || (shard && hour+3600 <= cutoff) {
 				// Both components are validated above; this is one direct child of the
-				// configured private root/device, never a symlink or arbitrary path.
+				// configured private root/client, never a symlink or arbitrary path.
 				if err = os.Remove(path); err != nil {
 					return err
 				}

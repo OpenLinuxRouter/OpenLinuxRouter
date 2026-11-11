@@ -25,10 +25,10 @@ type activityBucket struct {
 }
 
 // activityRetentionDays and ActivityRetention are how far back the sampler's
-// half-hour buckets are kept, and therefore the window a device page's total
+// half-hour buckets are kept, and therefore the window a client page's total
 // covers.
 //
-// The number is a UI contract, not only a storage choice: a device card draws
+// The number is a UI contract, not only a storage choice: a client card draws
 // the matrix and then, underneath it, one total that is exactly that matrix
 // added up, so the two agree by construction and a reader who wonders where the
 // number came from can see the cells it came from. Fourteen days answered that

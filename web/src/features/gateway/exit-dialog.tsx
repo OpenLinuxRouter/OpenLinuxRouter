@@ -253,7 +253,7 @@ export function ExitDialog({
                   <p className="text-xs text-muted-foreground">
                     Something on the far side, so the check fails when traffic stops passing
                     through. Without it, a box that stops forwarding but stays switched on looks
-                    healthy and the devices behind it are simply offline.
+                    healthy and the clients behind it are simply offline.
                   </p>
                 </div>
 
@@ -275,7 +275,7 @@ export function ExitDialog({
                   </Select>
                   <p className="text-xs text-muted-foreground">
                     Stopping is the safe answer: the network list will say why. Sending it out
-                    normally keeps devices online but sends exactly the traffic you wanted routed
+                    normally keeps clients online but sends exactly the traffic you wanted routed
                     out unrouted, without telling anyone.
                   </p>
                 </div>
@@ -308,7 +308,7 @@ export function ExitDialog({
                       <Label htmlFor="exit-snat">{t('Hide client addresses from it')}</Label>
                       <p className="text-xs text-muted-foreground">
                         Makes replies come back through this router, so traffic is counted
-                        correctly. Turn it off if the other box needs to see which device a
+                        correctly. Turn it off if the other box needs to see which client a
                         connection came from — it will need a network of its own.
                       </p>
                     </div>

@@ -414,7 +414,7 @@ func TestRenderLocalNames(t *testing.T) {
 
 	// static, not transparent: a name under the local domain that we do not
 	// publish must get an authoritative NXDOMAIN here rather than be forwarded,
-	// or the names of the devices in this house leak to whoever is upstream.
+	// or the names of the clients in this house leak to whoever is upstream.
 	for _, want := range []string{
 		`local-zone: "home.arpa." static`,
 		`local-data: "sony-tv.home.arpa. IN A 192.168.1.50"`,
@@ -477,7 +477,7 @@ func TestGatewayExitDNSRendersPerDeviceRoutes(t *testing.T) {
 	store := core.NewStore(filepath.Join(t.TempDir(), "olr.json"), "dns", "gateway", "link")
 	var doc core.Document
 	g := gateway.Config{Enabled: true, Exits: []gateway.Exit{{Name: "Clash", Via: gateway.Via{Kind: gateway.ViaNextHop, NextHop: addrPtr("172.16.1.137")}, DNS: &gateway.ExitDNS{Mode: "exit"}}},
-		Devices: []gateway.DeviceAssignment{{MAC: "aa:bb:cc:dd:ee:ff", Exit: "Clash"}}}
+		Clients: []gateway.ClientAssignment{{MAC: "aa:bb:cc:dd:ee:ff", Exit: "Clash"}}}
 	g.Normalize()
 	gb, err := gateway.MarshalConfig(g)
 	if err != nil {
@@ -504,7 +504,7 @@ func TestGatewayExitDNSRendersPerDeviceRoutes(t *testing.T) {
 		t.Fatalf("missing reloadable routes: %v", out.Paths())
 	}
 	if !strings.Contains(string(f.Data), "172.16.1.137:53") || !strings.Contains(string(f.Data), "aa:bb:cc:dd:ee:ff") {
-		t.Fatalf("route projection lost exit or device: %s", f.Data)
+		t.Fatalf("route projection lost exit or client: %s", f.Data)
 	}
 }
 

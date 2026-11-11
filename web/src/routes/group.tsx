@@ -19,7 +19,7 @@ import { useClientList, useClientsConfig } from '@/features/clients/queries'
 import { ApplyOutcome as GatewayOutcome } from '@/features/gateway/editor'
 import { gatewayChange, useGatewayConfig } from '@/features/gateway/queries'
 import { useGatewayApply } from '@/features/gateway/use-apply'
-import { useQosConfig, useQosDevicesApply, type Priority } from '@/features/qos/queries'
+import { useQosConfig, useQosClientsApply, type Priority } from '@/features/qos/queries'
 
 const FOLLOW = ' follow'
 const DIRECT = ' direct'
@@ -32,7 +32,7 @@ export function GroupPage() {
   const gateway = useGatewayConfig()
   const qos = useQosConfig()
   const gatewayApply = useGatewayApply()
-  const qosApply = useQosDevicesApply()
+  const qosApply = useQosClientsApply()
   const [exit, setExit] = useState(FOLLOW)
   const [priority, setPriority] = useState<Priority>('normal')
   const [confirming, setConfirming] = useState<'exit' | 'priority' | null>(null)
@@ -58,12 +58,12 @@ export function GroupPage() {
     try {
       for (const device of members) {
         if (action === 'exit') {
-          const change = exit === FOLLOW ? gatewayChange.removeDevice(device.mac) : gatewayChange.device(device.mac, exit === DIRECT ? '' : exit)
+          const change = exit === FOLLOW ? gatewayChange.removeClient(device.mac) : gatewayChange.client(device.mac, exit === DIRECT ? '' : exit)
           // An inherited device has nothing to remove. Do not turn a no-op into a 404.
-          if (exit === FOLLOW && !gateway.data?.devices?.some((d) => d.mac.toLowerCase() === device.mac.toLowerCase())) continue
+          if (exit === FOLLOW && !gateway.data?.clients?.some((d) => d.mac.toLowerCase() === device.mac.toLowerCase())) continue
           if (!await gatewayApply.submit(change)) break
         } else {
-          const current = qos.data?.devices?.find((d) => d.mac.toLowerCase() === device.mac.toLowerCase())
+          const current = qos.data?.clients?.find((d) => d.mac.toLowerCase() === device.mac.toLowerCase())
           const result = await qosApply.mutateAsync({ mac: device.mac, priority, download_mbps: current?.download_mbps || 0, upload_mbps: current?.upload_mbps || 0 })
           if (result.status.active && !result.status.pending?.includes(device.mac)) active++
         }

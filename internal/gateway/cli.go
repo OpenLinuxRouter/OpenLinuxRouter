@@ -139,8 +139,8 @@ func showExitCommand() *cobra.Command {
 func showTrafficCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "traffic",
-		Short: "Show how much each device has used, and through which way out",
-		Long: "Show how much each device has sent and received.\n\n" +
+		Short: "Show how much each client has used, and through which way out",
+		Long: "Show how much each client has sent and received.\n\n" +
 			"Counted in the kernel and read on every request — never stored, so the\n" +
 			"numbers start from zero when the router reboots. What they cannot see is\n" +
 			"printed underneath rather than left to be discovered, because every one of\n" +
@@ -198,7 +198,7 @@ func showConfigCommand() *cobra.Command {
 
 func setCommand() *cobra.Command {
 	c := verb("set", "Change an exit assignment or a port forward", func(*cobra.Command) {})
-	c.AddCommand(setDefaultCommand(), setViaCommand(), setDeviceCommand(), destinationCommand(false), setStatsCommand(), setIPv6ForwardingCommand())
+	c.AddCommand(setDefaultCommand(), setViaCommand(), setClientCommand(), destinationCommand(false), setStatsCommand(), setIPv6ForwardingCommand())
 	return c
 }
 
@@ -210,8 +210,8 @@ func setCommand() *cobra.Command {
 func setStatsCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "traffic-counting on|off",
-		Short: "Count how much each device uses",
-		Long: "Turn per-device traffic counting on or off.\n\n" +
+		Short: "Count how much each client uses",
+		Long: "Turn per-client traffic counting on or off.\n\n" +
 			"Independent of everything else here: with no way out configured it still\n" +
 			"counts, it just has nothing to attribute the traffic to. Turning it off\n" +
 			"discards the running totals, which are only ever held in memory anyway.",
@@ -320,13 +320,14 @@ func setViaCommand() *cobra.Command {
 	return c
 }
 
-func setDeviceCommand() *cobra.Command {
+func setClientCommand() *cobra.Command {
 	var direct bool
 	c := &cobra.Command{
-		Use:   "device <mac> [<exit>]",
-		Short: "Give one Ethernet device its own way out",
-		Long: "Override the network setting for one device by MAC address. Use --direct " +
-			"for this router's normal connection, or `olr gateway rm device <mac>` to inherit again.",
+		Use:     "client <mac> [<exit>]",
+		Aliases: []string{"device"},
+		Short:   "Give one client its own way out",
+		Long: "Override the network setting for one client by MAC address. Use --direct " +
+			"for this router's normal connection, or `olr gateway rm client <mac>` to inherit again.",
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(c *cobra.Command, args []string) error {
 			if direct == (len(args) == 2) {
@@ -340,9 +341,9 @@ func setDeviceCommand() *cobra.Command {
 			if !direct {
 				exit = args[1]
 			}
-			return send(c, http.MethodPut, deviceEndpoint(mac), assignmentBody{Exit: exit})
+			return send(c, http.MethodPut, clientEndpoint(mac), assignmentBody{Exit: exit})
 		},
-		ValidArgsFunction: cli.CompleteArgs(assignedDevices, exitNames),
+		ValidArgsFunction: cli.CompleteArgs(assignedClients, exitNames),
 	}
 	c.Flags().BoolVar(&direct, "direct", false, "use this router's normal connection")
 	return c
@@ -358,7 +359,7 @@ func addCommand() *cobra.Command {
 
 func rmCommand() *cobra.Command {
 	c := verb("rm", "Remove an exit, a port forward, or a network's assignment", func(*cobra.Command) {})
-	c.AddCommand(rmExitCommand(), rmViaCommand(), rmDeviceCommand(), destinationCommand(true))
+	c.AddCommand(rmExitCommand(), rmViaCommand(), rmClientCommand(), destinationCommand(true))
 	return c
 }
 
@@ -598,19 +599,20 @@ func rmViaCommand() *cobra.Command {
 	return c
 }
 
-func rmDeviceCommand() *cobra.Command {
+func rmClientCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "device <mac>",
-		Short: "Return one device to its network's way out",
-		Args:  cobra.ExactArgs(1),
+		Use:     "client <mac>",
+		Aliases: []string{"device"},
+		Short:   "Return one client to its network's way out",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			mac, err := core.NormalizeMAC(args[0])
 			if err != nil {
 				return err
 			}
-			return send(c, http.MethodDelete, deviceEndpoint(mac), nil)
+			return send(c, http.MethodDelete, clientEndpoint(mac), nil)
 		},
-		ValidArgsFunction: cli.CompleteArgs(assignedDevices),
+		ValidArgsFunction: cli.CompleteArgs(assignedClients),
 	}
 }
 
@@ -731,8 +733,8 @@ func assignmentEndpoint(iface string) string {
 	return core.APIPrefix + "/" + ModuleName + "/assignments/" + url.PathEscape(iface)
 }
 
-func deviceEndpoint(mac string) string {
-	return core.APIPrefix + "/" + ModuleName + "/devices/" + url.PathEscape(mac)
+func clientEndpoint(mac string) string {
+	return core.APIPrefix + "/" + ModuleName + "/clients/" + url.PathEscape(mac)
 }
 
 // unknownExit names the exits that do exist, because "no exit called X" is only
@@ -779,13 +781,13 @@ func assignedNetworks(c *cobra.Command) ([]string, error) {
 	return out, nil
 }
 
-func assignedDevices(c *cobra.Command) ([]string, error) {
+func assignedClients(c *cobra.Command) ([]string, error) {
 	cfg, err := loadConfig(c)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]string, 0, len(cfg.Devices))
-	for _, a := range cfg.Devices {
+	out := make([]string, 0, len(cfg.Clients))
+	for _, a := range cfg.Clients {
 		out = append(out, a.MAC)
 	}
 	return out, nil

@@ -17,7 +17,7 @@ type Routes struct {
 	LocalDomain string         `json:"local_domain,omitempty"`
 	Default     string         `json:"default,omitempty"`
 	Networks    []RouteNetwork `json:"networks,omitempty"`
-	Devices     []RouteDevice  `json:"devices,omitempty"`
+	Clients     []RouteClient  `json:"clients,omitempty"`
 	Exits       []RouteExit    `json:"exits,omitempty"`
 }
 
@@ -26,7 +26,7 @@ type RouteNetwork struct {
 	Exit   string       `json:"exit,omitempty"`
 }
 
-type RouteDevice struct {
+type RouteClient struct {
 	MAC  string `json:"mac"`
 	Exit string `json:"exit,omitempty"`
 
@@ -42,6 +42,27 @@ type RouteExit struct {
 
 func MarshalRoutes(r Routes) ([]byte, error) { return json.MarshalIndent(r, "", "  ") }
 
+// renameLegacyClients rewrites the pre-rename `devices` key into `clients`.
+func renameLegacyClients(data []byte) ([]byte, error) {
+	var probe struct {
+		Clients json.RawMessage `json:"clients"`
+		Devices json.RawMessage `json:"devices"`
+	}
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return data, nil
+	}
+	if probe.Devices == nil || probe.Clients != nil {
+		return data, nil
+	}
+	var doc map[string]json.RawMessage
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return data, err
+	}
+	doc["clients"] = probe.Devices
+	delete(doc, "devices")
+	return json.Marshal(doc)
+}
+
 func LoadRoutes(path string) (Routes, error) {
 	if path == "" {
 		return Routes{}, nil
@@ -50,6 +71,14 @@ func LoadRoutes(path string) (Routes, error) {
 	if os.IsNotExist(err) {
 		return Routes{}, fmt.Errorf("DNS routes are not installed at %s", path)
 	}
+	if err != nil {
+		return Routes{}, err
+	}
+	// The relay and the daemon are one package, so an upgrade replaces both at
+	// once — but dnsd may read the file olrd wrote before the upgrade, where
+	// per-client routes were called `devices`. Translate that one key before
+	// strict decoding, so a restart between the two applies is not an outage.
+	data, err = renameLegacyClients(data)
 	if err != nil {
 		return Routes{}, err
 	}
@@ -75,7 +104,7 @@ func LoadRoutes(path string) (Routes, error) {
 		seenExit[e.Name] = true
 	}
 	seenMAC := map[string]bool{}
-	for _, d := range routes.Devices {
+	for _, d := range routes.Clients {
 		mac, err := net.ParseMAC(d.MAC)
 		if err != nil || len(mac) != 6 {
 			return Routes{}, fmt.Errorf("DNS route has an invalid device MAC %q", d.MAC)
@@ -125,7 +154,7 @@ func (r Routes) Select(ip netip.Addr, mac string) (netip.AddrPort, bool, bool) {
 		}
 	}
 	if mac != "" {
-		for _, d := range r.Devices {
+		for _, d := range r.Clients {
 			if strings.EqualFold(d.MAC, mac) && containsAny(d.Prefixes, ip) {
 				name = d.Exit
 				break
@@ -133,7 +162,7 @@ func (r Routes) Select(ip netip.Addr, mac string) (netip.AddrPort, bool, bool) {
 		}
 	}
 	if mac == "" {
-		for _, d := range r.Devices {
+		for _, d := range r.Clients {
 			if containsAny(d.Prefixes, ip) && d.Exit != name && r.dnsFor(d.Exit) != r.dnsFor(name) {
 				return netip.AddrPort{}, false, true
 			}
@@ -177,7 +206,7 @@ func (r Routes) DeviceDNSMayDiffer(ip netip.Addr) bool {
 			break
 		}
 	}
-	for _, d := range r.Devices {
+	for _, d := range r.Clients {
 		if containsAny(d.Prefixes, ip.Unmap()) && r.dnsFor(d.Exit) != r.dnsFor(name) {
 			return true
 		}

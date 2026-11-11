@@ -10,7 +10,7 @@ import (
 
 // design.md §11.2 makes the derived range a requirement, and the reason is a
 // safety property rather than convenience: the collision DHCP cannot defend
-// against is a statically configured device inside the dynamic range, and
+// against is a statically configured client inside the dynamic range, and
 // dnsmasq has no exclusion primitive.
 func TestAPoolWithNoRangeDerivesOneFromItsNetwork(t *testing.T) {
 	c := Config{Enabled: true, Pools: []Pool{{Network: "lan", IPv4: &PoolIPv4{}}}}
@@ -116,7 +116,7 @@ func TestAPoolMustServeSomething(t *testing.T) {
 
 // design.md §4.3: Android has never implemented DHCPv6 and the request was
 // closed "Won't Fix (Intended Behavior)". A network relying on it silently
-// loses every Android device, which for this audience is most of the handsets —
+// loses every Android client, which for this audience is most of the handsets —
 // so it warns rather than passing quietly.
 func TestStatefulDHCPv6WarnsAboutAndroid(t *testing.T) {
 	c := validConfig(t)

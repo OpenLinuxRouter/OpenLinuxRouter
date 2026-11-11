@@ -2,8 +2,8 @@
 //
 // It owns the published domain, the certificate and the proxy, and nothing
 // else. The name a published service resolves at is a record in the operator's
-// own DNS (docs/ingress.md §3), and the device it points at belongs to
-// `devices`, whose address is read through a view rather than copied
+// own DNS (docs/ingress.md §3), and the client it points at belongs to
+// `clients`, whose address is read through a view rather than copied
 // (design.md §4.1).
 package ingress
 
@@ -230,7 +230,7 @@ func setCommand() *cobra.Command {
 			"certificate is for: publishing grafana under home.example.com means a\n" +
 			"record you create in your own DNS and a certificate for\n" +
 			"*.home.example.com. It is deliberately not the resolver's local domain\n" +
-			"(`olr dns set --local-domain`), which names the devices in this house."
+			"(`olr dns set --local-domain`), which names the clients in this house."
 
 		c.Flags().StringVar(&domain, "domain", "", "suffix published names live under, e.g. home.example.com")
 		c.Flags().StringVar(&provider, "provider", "", "DNS provider hosting your domain (see `olr ingress show providers`)")
@@ -330,7 +330,7 @@ func readToken(c *cobra.Command, token, tokenFile string) (string, error) {
 // ---------------------------------------------------------------- add / rm
 
 type upstreamFlags struct {
-	device        string
+	client        string
 	host          string
 	port          uint16
 	scheme        string
@@ -339,23 +339,23 @@ type upstreamFlags struct {
 }
 
 func (f *upstreamFlags) register(c *cobra.Command) {
-	c.Flags().StringVar(&f.device, "device", "", "device to publish, by its name in `olr devices list`")
-	c.Flags().StringVar(&f.host, "host", "", "address or hostname to publish, for a target that is not a device")
+	c.Flags().StringVar(&f.client, "client", "", "client to publish, by its name in the client list")
+	c.Flags().StringVar(&f.host, "host", "", "address or hostname to publish, for a target that is not a client")
 	c.Flags().Uint16Var(&f.port, "port", 0, "port the service listens on")
 	c.Flags().StringVar(&f.scheme, "scheme", "", fmt.Sprintf("how to reach it: %s (default http)", joinSchemes()))
 	c.Flags().StringArrayVar(&f.headers, "header", nil, "set an upstream request header as 'Name: value', repeatable")
 	c.Flags().StringArrayVar(&f.removeHeaders, "remove-header", nil, "remove an upstream request header, repeatable")
 
-	c.MarkFlagsMutuallyExclusive("device", "host")
+	c.MarkFlagsMutuallyExclusive("client", "host")
 	cli.EnumFlag(c, "scheme", schemeNames()...)
 }
 
 func (f *upstreamFlags) apply(u *Upstream, c *cobra.Command) {
-	if c.Flags().Changed("device") {
-		u.Device, u.Host = f.device, ""
+	if c.Flags().Changed("client") {
+		u.Client, u.Host = f.client, ""
 	}
 	if c.Flags().Changed("host") {
-		u.Host, u.Device = f.host, ""
+		u.Host, u.Client = f.host, ""
 	}
 	if c.Flags().Changed("port") {
 		u.Port = f.port
@@ -386,8 +386,8 @@ func addCommand() *cobra.Command {
 			"this router in your own zone, and note that a private answer there\n" +
 			"needs the zone listed in `olr dns set --private-domain`.\n\n" +
 			"Examples:\n" +
-			"  olr ingress add grafana --device nuc --port 3000\n" +
-			"  olr ingress add nas --device synology --port 5001 --scheme https\n" +
+			"  olr ingress add grafana --client nuc --port 3000\n" +
+			"  olr ingress add nas --client synology --port 5001 --scheme https\n" +
 			"  olr ingress add hello --host 127.0.0.1 --port 8000\n" +
 			"  olr ingress add mi --host 172.16.1.163 --port 80 --header 'Host: 172.16.1.163'"
 		flags.register(c)

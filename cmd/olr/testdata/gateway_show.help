@@ -9,7 +9,7 @@ Available Commands:
   exits       List the ways out of this box
   forward     Show one port forward in full
   forwards    List the ports being forwarded in
-  traffic     Show how much each device has used, and through which way out
+  traffic     Show how much each client has used, and through which way out
 
 Flags:
   -h, --help   help for show

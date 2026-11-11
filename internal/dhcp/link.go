@@ -72,7 +72,7 @@ func (n NetworkInfo) HasIPv4() bool { return n.Subnet.IsValid() && n.Subnet.Addr
 // §11.2 — "range: derived from the network prefix; explicit overrides").
 //
 // Deriving matters for more than convenience. The collision DHCP cannot defend
-// against is a statically configured device inside the dynamic range, and
+// against is a statically configured client inside the dynamic range, and
 // dnsmasq has no exclusion primitive — so the only defence is a range that
 // deliberately leaves a low block free. Deriving it gives that for free;
 // asking the operator to type it does not.

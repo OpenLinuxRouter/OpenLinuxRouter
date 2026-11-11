@@ -21,16 +21,16 @@ makes it a routing concern wearing a resolver's clothes.
 ## 1. The topology this has to survive
 
 A real deployment is not one router. It is several boxes on one L2, each
-willing to act as a gateway, and devices free to pick any of them:
+willing to act as a gateway, and clients free to pick any of them:
 
 | | Role | Has the WAN uplink |
 |---|---|---|
 | 1 | Modem / ISP router — dials, NATs, serves DNS, usually serves DHCP too | yes |
 | 2 | The olr box — DHCP, DNS, routing | no |
 | 3 | A proxy box — DNS + routing | no |
-| 4 | Devices | |
+| 4 | Clients | |
 
-Boxes 2 and 3 are side routers: they hang off box 1 and forward to it. A device
+Boxes 2 and 3 are side routers: they hang off box 1 and forward to it. A client
 sets a default gateway and a DNS server, **independently**, and each may point
 at any of the three. That is not a configuration option we offer. It is a
 property of the wire, and it has to be treated as a fault mode.
@@ -42,11 +42,11 @@ property of the wire, and it has to be treated as a fault mode.
 
 Everything below is a consequence. The proxy box is a **next hop** exit
 (`via 192.168.1.x`) in the §12 sense, and the modem is another one. Neither is
-something a device is ever told about.
+something a client is ever told about.
 
-### 1.2 Why — two failures that have no fix at the device layer
+### 1.2 Why — two failures that have no fix at the client layer
 
-**A device pointed elsewhere is invisible, not merely unaccounted.** Traffic
+**A client pointed elsewhere is invisible, not merely unaccounted.** Traffic
 another gateway carries never reaches olr's counters at all — not the
 `ipv4_addr . mark` sets (docs/gateway.md §7.1), and not the residual either,
 because nothing knows it should be there. This is a different class of problem from unattributed bytes, and it
@@ -55,7 +55,7 @@ there is no counter to show. Detection is limited to the heuristic *has a lease
 and answers ARP but has produced no traffic*.
 
 **IPv4 has no default-gateway failover.** One gateway, no liveness check, no
-second choice. If the proxy box is a device's gateway and it dies, that device
+second choice. If the proxy box is a client's gateway and it dies, that client
 is offline until a human intervenes. The workarounds are all bad, and it is
 worth writing down why so they are not re-proposed:
 
@@ -67,7 +67,7 @@ worth writing down why so they are not re-proposed:
 | IPv6 RA router lifetime 0 | Genuinely works, for v6 only, which is not the problem |
 
 One layer up it is not a problem at all: olr health-probes the exit and
-re-points it. No device knows anything happened, so there is nothing to
+re-points it. No client knows anything happened, so there is nothing to
 converge. The probe must be the **through-path probe**, not a ping — a crashed
 proxy daemon on a live box answers ARP and ICMP indefinitely while forwarding
 nothing.
@@ -84,7 +84,7 @@ olr — and then we document it rather than implying coverage we do not have.
 
 ## 2. The two legs
 
-Pointing a device at olr means two independent things, and they fail
+Pointing a client at olr means two independent things, and they fail
 differently.
 
 | | Gateway leg | Resolver leg |
@@ -116,7 +116,7 @@ proxy box does that have to be absorbed:
   olr an **ICMP redirect**. `accept_redirects=0` on olr, or the table quietly
   acquires routes we did not choose. This is the mirror of the `send_redirects=0`
   obligation already recorded for LAN-side next hops.
-- Its reply goes straight back to the device over the shared L2, so olr sees one
+- Its reply goes straight back to the client over the shared L2, so olr sees one
   direction only — byte counts halve and `ct mark` restore misses. Fix by SNAT
   at olr toward the next hop, or by giving the proxy box a segment of its own.
   SNAT is cheaper and costs the proxy its own per-source rules; a dedicated
@@ -142,7 +142,7 @@ This is what makes **DoT/DoH blocking load-bearing** rather than hygiene, and it
 ranks by cost to defeat: plaintext :53 to a hardcoded server (cheap — DNAT
 hijack), DoT on :853 (cheap — drop by port, do not reject), DoH on :443
 (expensive — IP/SNI blocklist, kept current, TCP *and* UDP or it moves to
-HTTP/3). Browsers and Apple devices auto-upgrade to DoH by default, so this is
+HTTP/3). Browsers and Apple clients auto-upgrade to DoH by default, so this is
 the common case rather than the adversarial one.
 
 ---
@@ -168,13 +168,13 @@ the client's effective gateway exit names one (gateway:§2.8). Unbound itself
 does not make that per-client choice.
 
 Pointing the *global* upstream at a fake-IP proxy remains unsafe for mixed
-exits: every device would receive its synthetic addresses, including direct
+exits: every client would receive its synthetic addresses, including direct
 ones. Instead, gateway attaches an optional DNS server to each exit. The relay
 identifies the asking client by DHCPv4 lease or neighbour entry, selects its
 effective exit, then forwards permitted public questions to that server.
 Local names and blocking still run before the selection. The client always
 sees OLR as its DNS server. The relay does not rewrite fake answers, and an
-unidentified client on a subnet with conflicting per-device DNS choices gets
+unidentified client on a subnet with conflicting per-client DNS choices gets
 SERVFAIL rather than a possibly incompatible answer.
 
 The existing `:53` hijack is a separate enforcement feature: DHCP option 6 is
@@ -237,7 +237,7 @@ default:
 The tee buys **isolation**, not speed. Three obligations come with it:
 
 1. **Copy the bytes, never send the slice.** Handing `buf[:n]` to a channel
-   while the read loop reuses `buf` misattributes answers to the wrong device,
+   while the read loop reuses `buf` misattributes answers to the wrong client,
    intermittently, under load only.
 2. **`default:` on the send, always.** A channel that blocks when full turns a
    slow parser into DNS latency — the exact failure the tee exists to prevent.
@@ -269,7 +269,7 @@ as it is.
   correctly and is most of the argument for using it over hand-rolling.
 - **Attribute to the QNAME, not the record owner.** `www.example.com` commonly
   answers as a CNAME to `example.cdn.net` with the A record owned by the latter.
-  Mapping owner→IP naively bills the device for a CDN hostname it never asked
+  Mapping owner→IP naively bills the client for a CDN hostname it never asked
   for. Keep the chain as well — its tail is the organisation signal §12's
   statistics model groups by.
 - **It is many-to-many.** One name resolves to several addresses; one CDN
@@ -279,13 +279,13 @@ as it is.
   how long a resolver may cache an answer, not how long the pairing stays true:
   a connection routinely outlives the lookup that opened it, and a name dropped
   on the resolver's clock takes attribution with it. The map keeps the most
-  recent 20,000 `(device, address)` pairs and, when full, evicts the pair no
+  recent 20,000 `(client, address)` pairs and, when full, evicts the pair no
   answer has confirmed for longest. That bounds an address reassigned to another
   tenant the same way it bounds everything else — the stale pair is the one
   nothing refreshed, so it is the first to go — rather than by a timer that
   happens to be right for neither short-TTL nor long-TTL answers.
-- **Key by `(device, IP)`.** The source address is free and global keying
-  cross-attributes when two devices reach one CDN address by different names.
+- **Key by `(client, IP)`.** The source address is free and global keying
+  cross-attributes when two clients reach one CDN address by different names.
 
 Skip authority and additional sections, RRSIG/NSEC (relay, never validate), and
 everything non-address. Log the qtype; map only A and AAAA.
@@ -352,7 +352,7 @@ the socket every five seconds to report six integers.
 
 ### 4.6 Local names live in unbound, not in the relay
 
-A device on this network should be reachable by name. `hosts` in the module
+A client on this network should be reachable by name. `hosts` in the module
 config is a name and its addresses; each is published under `local_domain`,
 default `home.arpa`, and the set renders into unbound's config as a
 `local-zone ... static` with one `local-data` per address.
@@ -372,7 +372,7 @@ Three choices inside that, each with a reason:
 - **`static`, not `transparent`.** A name under the local domain that we do not
   publish gets an authoritative NXDOMAIN rather than being forwarded. Both
   halves matter: local names resolve without asking anybody, and the names of
-  the devices in a house do not leak to whichever resolver is upstream.
+  the clients in a house do not leak to whichever resolver is upstream.
 - **Reverse only for private addresses.** `local-data-ptr` is rendered when the
   address is RFC 1918 or ULA. Pointing a local name at a public address is
   legitimate — it may be a host across a VPN — but claiming its PTR would make
@@ -400,7 +400,7 @@ unbound is rendered with `private-address` for `10/8`, `172.16/12`,
 list in `render.go`. A *public* name whose answer holds one of those addresses
 is stripped. That is a real attack being closed: a page on the internet that
 rebinds its own domain to `192.168.1.1` can talk to whatever is on the LAN from
-the browser, and the devices that answer there — cameras, NAS boxes, printers —
+the browser, and the clients that answer there — cameras, NAS boxes, printers —
 are the ones nobody updates.
 
 It is also exactly what an operator's own record looks like when they publish
@@ -414,7 +414,7 @@ Three things about it that matter:
 - **It is per zone, deliberately not a global off switch.** The protection
   stays on for every zone nobody claimed, which is every zone that could be
   somebody else's.
-- **It only affects clients that ask this resolver.** A device configured with a
+- **It only affects clients that ask this resolver.** A client configured with a
   public resolver gets the record directly. This matters most for WireGuard
   peers, whose configuration tells them `DNS = <router>` — every one of them
   uses this path.
@@ -444,7 +444,7 @@ local name is *rendered* from a reservation:
   reach for anyway.
 
 What the subscription buys instead is the one failure that is otherwise silent:
-the reservation was renumbered, DHCP moved the device, and the name goes on
+the reservation was renumbered, DHCP moved the client, and the name goes on
 answering where it used to be. That is a warning on the name, naming both
 addresses, and it costs nothing — an unreadable dhcp config costs the check and
 not the config.
@@ -452,7 +452,7 @@ not the config.
 **Not typing the address twice is the client's job**, which is where a
 cross-module convenience belongs when there is no cross-module transaction.
 `olr dns add host sony-tv` with no address reads dhcp's config over the API and
-takes it from the matching reservation; the WebUI offers the reserved devices
+takes it from the matching reservation; the WebUI offers the reserved clients
 that are not published yet and fills both fields from one. Two modules' config,
 two writes, each with its own plan — and the join in the one place that is
 allowed to know about both.
@@ -613,7 +613,7 @@ what we do not cover instead of implying coverage we do not have.
 - **Adding a local name restarts unbound.** It lands in `unbound.conf`, which is
   not reloadable, so the plan is `ImpactRestart` — milliseconds, and the cache
   flushed. Acceptable for the field it is, and the one thing to revisit if
-  naming devices turns out to be a weekly activity: a separate included file
+  naming clients turns out to be a weekly activity: a separate included file
   would make it a reload, at the cost of a mechanism nothing else needs.
 - **Policies key off client prefixes, not networks.** `link` has not landed, so
   this is the same stand-in `internal/dhcp` makes by keying pools off kernel

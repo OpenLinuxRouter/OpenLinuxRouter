@@ -393,7 +393,7 @@ func TestTrafficEndpointReportsUsage(t *testing.T) {
 }
 
 func TestActivityEndpointCarriesItsWindow(t *testing.T) {
-	// A device page draws the buckets and computes one total from them, so the
+	// A client page draws the buckets and computes one total from them, so the
 	// response has to say how far back they reach: a screen that hard-coded the
 	// window would silently mislabel the number when the window changed, which
 	// is exactly the confusion this endpoint's shape exists to prevent.

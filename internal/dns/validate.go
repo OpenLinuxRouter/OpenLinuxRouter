@@ -14,7 +14,7 @@ import (
 // because validation is pure reads and needs no coordination.
 //
 // For this module the stakes are unusually lopsided. A bad pool costs one
-// device an address; a bad resolver costs the whole building the internet, and
+// client an address; a bad resolver costs the whole building the internet, and
 // presents to every occupant not as "DNS is down" but as "everything is
 // broken". So the rules below lean towards refusing rather than warning
 // wherever the failure would be silent or house-wide.
@@ -268,9 +268,9 @@ func validateHosts(r *Result, c Config, links LinkView, reservations Reservation
 		r.errorf("local_domain", "%q is not a valid domain name: %v", c.LocalDomain, err)
 		return
 	case domain == "local":
-		// Not a warning. mDNS owns this, every Apple and most Android devices
+		// Not a warning. mDNS owns this, every Apple and most Android clients
 		// resolve it by multicast without asking us, and the result is a name
-		// that works on some devices and not others with nothing on this box
+		// that works on some clients and not others with nothing on this box
 		// to explain why.
 		r.errorf("local_domain",
 			"local belongs to mDNS, so half the network would resolve these names by "+
@@ -345,7 +345,7 @@ func validateHosts(r *Result, c Config, links LinkView, reservations Reservation
 }
 
 // checkAgainstReservation reports a local name and a DHCP reservation
-// disagreeing about where a device is.
+// disagreeing about where a client is.
 //
 // This is the whole return on the subscription described in dhcp.go, and it is
 // worth spelling out what it catches. An operator reserves 192.168.1.50 for the
@@ -368,12 +368,12 @@ func checkAgainstReservation(r *Result, c Config, h Host, path string, view Rese
 		}
 		// A warning, firmly. Both values are things the operator typed on
 		// purpose, and there is a real configuration — a name deliberately
-		// pointing somewhere other than the device's own address — that this
+		// pointing somewhere other than the client's own address — that this
 		// would otherwise forbid. Refusing would also mean a dhcp edit could
 		// make the dns config unappliable, which is the cross-module coupling
 		// this design is built to avoid.
 		r.warnf(path+".addresses",
-			"%s answers %s, but the DHCP reservation for %s hands that device %s. "+
+			"%s answers %s, but the DHCP reservation for %s hands that client %s. "+
 				"One of the two has moved",
 			c.FQDN(h.Name), joinAddrs(h.Addrs), res.MAC, res.IP)
 		return
@@ -516,7 +516,7 @@ func validatePolicies(r *Result, c Config) {
 		// blocking applies to clients that ask us, and nothing makes them.
 		r.warnf("hijack.enabled",
 			"policies only apply to clients that use this resolver, and nothing currently forces "+
-				"them to. A device configured with a public resolver ignores every rule above")
+				"them to. A client configured with a public resolver ignores every rule above")
 	}
 }
 
@@ -576,7 +576,7 @@ func validateQueryLog(r *Result, c Config) {
 	}
 	if !c.QueryLog.Enabled && len(c.Policies) > 0 {
 		r.warnf("query_log.enabled",
-			"names are being blocked but nothing is recorded, so \"why can this device not reach "+
+			"names are being blocked but nothing is recorded, so \"why can this client not reach "+
 				"that site\" has no answer to look up")
 	}
 }

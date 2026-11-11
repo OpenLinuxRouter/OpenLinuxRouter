@@ -19,13 +19,13 @@ func TestDeviceOverrideItemRoutes(t *testing.T) {
 	if w := do(t, h, http.MethodPut, "/config", testConfig()); w.Code != http.StatusOK {
 		t.Fatal(w.Body)
 	}
-	path := "/devices/AA-BB-CC-DD-EE-FF"
+	path := "/clients/AA-BB-CC-DD-EE-FF"
 	if w := do(t, h, http.MethodPut, path, assignmentBody{Exit: ""}); w.Code != http.StatusOK {
 		t.Fatalf("direct override: %d %s", w.Code, w.Body)
 	}
 	c, _ := a.Load()
-	if len(c.Devices) != 1 || c.Devices[0].MAC != "aa:bb:cc:dd:ee:ff" || c.Devices[0].Exit != "" {
-		t.Fatalf("stored direct override: %+v", c.Devices)
+	if len(c.Clients) != 1 || c.Clients[0].MAC != "aa:bb:cc:dd:ee:ff" || c.Clients[0].Exit != "" {
+		t.Fatalf("stored direct override: %+v", c.Clients)
 	}
 	if w := do(t, h, http.MethodPut, path, assignmentBody{Exit: "Proxy"}); w.Code != http.StatusOK {
 		t.Fatalf("exit override: %d %s", w.Code, w.Body)
@@ -34,8 +34,8 @@ func TestDeviceOverrideItemRoutes(t *testing.T) {
 		t.Fatalf("inherit: %d %s", w.Code, w.Body)
 	}
 	c, _ = a.Load()
-	if len(c.Devices) != 0 {
-		t.Fatalf("device still overridden: %+v", c.Devices)
+	if len(c.Clients) != 0 {
+		t.Fatalf("device still overridden: %+v", c.Clients)
 	}
 }
 

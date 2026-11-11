@@ -60,7 +60,7 @@ type Kernel interface {
 	Apply(ctx context.Context, d Desired) ([]Step, error)
 }
 
-// Flow is one device's traffic through one exit, as the kernel counts it.
+// Flow is one client's traffic through one exit, as the kernel counts it.
 //
 // The key is `(address, mark)`, so a device that uses two exits appears twice —
 // which is the point. Mark 0 is traffic no assignment matched, and it is

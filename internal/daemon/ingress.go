@@ -14,9 +14,9 @@ import (
 
 // Adapters joining the ingress module to the two it reads.
 //
-// Here rather than inside any of the three, for the reason the dhcp↔devices
+// Here rather than inside any of the three, for the reason the dhcp↔clients
 // adapters are here: `ingress` declares the interfaces it needs (DNSView,
-// DeviceView) and imports neither `dns` nor `devices`, so design.md §4.1's
+// ClientView) and imports neither `dns` nor `clients`, so design.md §4.1's
 // arrows keep pointing one way and the introduction happens at the one place
 // that already knows the whole module list.
 
@@ -43,17 +43,17 @@ func (d ingressDNS) LocalDomain() string {
 	return cfg.LocalDomainOrDefault()
 }
 
-// ingressDevices is ingress's window onto the devices module.
+// ingressClients is ingress's window onto the clients module.
 //
-// MACs identify devices across renames. Names remain accepted for legacy
+// MACs identify clients across renames. Names remain accepted for legacy
 // configurations and CLI input.
-type ingressDevices struct {
+type ingressClients struct {
 	applier clients.Applier
 }
 
 // Upgrade references against the old inventory before a rename or removal.
 // Both changes land in one store write, without reloading the proxy.
-func preserveIngressDevices(doc *core.Document, view ingress.DeviceView) error {
+func preserveIngressClients(doc *core.Document, view ingress.ClientView) error {
 	if _, ok := doc.Raw(ingress.ModuleName); !ok {
 		return nil
 	}
@@ -61,7 +61,7 @@ func preserveIngressDevices(doc *core.Document, view ingress.DeviceView) error {
 	if err != nil {
 		return err
 	}
-	cfg.ResolveDeviceReferences(view)
+	cfg.ResolveClientReferences(view)
 	data, err := ingress.MarshalConfig(cfg)
 	if err != nil {
 		return err
@@ -70,49 +70,49 @@ func preserveIngressDevices(doc *core.Document, view ingress.DeviceView) error {
 	return nil
 }
 
-func (d ingressDevices) Device(name string) (ingress.DeviceInfo, error) {
+func (d ingressClients) Client(name string) (ingress.ClientInfo, error) {
 	resolved, _, err := d.applier.List(context.Background())
 	if err != nil {
-		return ingress.DeviceInfo{}, err
+		return ingress.ClientInfo{}, err
 	}
 
 	want := strings.ToLower(strings.TrimSpace(name))
 	if mac, err := core.NormalizeMAC(want); err == nil {
 		for _, r := range resolved {
 			if r.MAC == mac {
-				return deviceInfo(r), nil
+				return clientInfo(r), nil
 			}
 		}
-		return ingress.DeviceInfo{}, fmt.Errorf("%q: %w", name, ingress.ErrNoSuchDevice)
+		return ingress.ClientInfo{}, fmt.Errorf("%q: %w", name, ingress.ErrNoSuchClient)
 	}
-	var match *ingress.DeviceInfo
+	var match *ingress.ClientInfo
 	for _, r := range resolved {
 		if !strings.EqualFold(r.DisplayName(), want) {
 			continue
 		}
 		if match != nil {
-			return ingress.DeviceInfo{}, fmt.Errorf("device name %q is ambiguous; use its MAC address", name)
+			return ingress.ClientInfo{}, fmt.Errorf("client name %q is ambiguous; use its MAC address", name)
 		}
-		info := deviceInfo(r)
+		info := clientInfo(r)
 		match = &info
 	}
 	if match != nil {
 		return *match, nil
 	}
-	return ingress.DeviceInfo{}, fmt.Errorf("%q: %w", name, ingress.ErrNoSuchDevice)
+	return ingress.ClientInfo{}, fmt.Errorf("%q: %w", name, ingress.ErrNoSuchClient)
 }
 
-// deviceInfo picks the one address a published service should point at.
+// clientInfo picks the one address a published service should point at.
 //
 // The fixed address wins outright, and nothing else is even considered when one
 // exists. That is not a preference — it is the whole of docs/ingress.md §1.2:
-// a published service needs an address that will still be this device's
-// tomorrow, and only a reservation promises that. A device with no reservation
+// a published service needs an address that will still be this client's
+// tomorrow, and only a reservation promises that. A client with no reservation
 // still reports whatever it was last seen at, because the validator's refusal
-// reads far better when it can say what the device *is* rather than only that
+// reads far better when it can say what the client *is* rather than only that
 // it has no fixed address.
-func deviceInfo(r clients.Resolved) ingress.DeviceInfo {
-	info := ingress.DeviceInfo{MAC: r.MAC, Name: r.DisplayName()}
+func clientInfo(r clients.Resolved) ingress.ClientInfo {
+	info := ingress.ClientInfo{MAC: r.MAC, Name: r.DisplayName()}
 
 	if r.FixedIP != "" {
 		if addr, err := netip.ParseAddr(r.FixedIP); err == nil {

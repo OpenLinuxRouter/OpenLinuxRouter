@@ -29,7 +29,7 @@ const (
 	// exactly why docs/dns.md §5 concludes that owning :53 is survivable.
 	ImpactRestart
 	// ImpactDisruptive will stop somebody resolving. On this module that is not
-	// one device losing a setting; it is a person finding the internet broken.
+	// one client losing a setting; it is a person finding the internet broken.
 	ImpactDisruptive
 )
 
@@ -412,7 +412,7 @@ func classify(plan Plan) (Impact, []string) {
 		// the internet being broken.
 		impact = ImpactDisruptive
 		reasons = append(reasons,
-			"DNS will stop; every device on the network loses name resolution immediately, "+
+			"DNS will stop; every client on the network loses name resolution immediately, "+
 				"because DHCP hands out this box as the only resolver")
 	}
 

@@ -18,16 +18,16 @@ func TestIngressDeviceReferencesSurviveRename(t *testing.T) {
 		t.Fatal(err)
 	}
 	doc, _ := store.Load()
-	doc.Set("ingress", []byte(`{"services":[{"name":"files","upstream":{"device":"nas","port":80}},{"name":"missing","upstream":{"device":"unknown","port":80}}]}`))
+	doc.Set("ingress", []byte(`{"services":[{"name":"files","upstream":{"client":"nas","port":80}},{"name":"missing","upstream":{"client":"unknown","port":80}}]}`))
 	if err := store.Save(doc); err != nil {
 		t.Fatal(err)
 	}
-	view := ingressDevices{applier: a}
-	loaded, err := (ingress.Applier{Store: store, Devices: view}).Load()
-	if err != nil || loaded.Services[0].Upstream.Device != mac {
+	view := ingressClients{applier: a}
+	loaded, err := (ingress.Applier{Store: store, Clients: view}).Load()
+	if err != nil || loaded.Services[0].Upstream.Client != mac {
 		t.Fatalf("legacy reference was not resolved on read: %+v, %v", loaded, err)
 	}
-	a.BeforeSave = func(doc *core.Document) error { return preserveIngressDevices(doc, view) }
+	a.BeforeSave = func(doc *core.Document) error { return preserveIngressClients(doc, view) }
 	cfg.Clients[0].Name = "storage"
 	if _, err := a.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -37,14 +37,14 @@ func TestIngressDeviceReferencesSurviveRename(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if published.Services[0].Upstream.Device != mac || published.Services[1].Upstream.Device != "unknown" {
+	if published.Services[0].Upstream.Client != mac || published.Services[1].Upstream.Client != "unknown" {
 		t.Fatalf("references = %+v", published.Services)
 	}
-	info, err := view.Device(mac)
+	info, err := view.Client(mac)
 	if err != nil || info.Name != "storage" || info.MAC != mac {
 		t.Fatalf("renamed device = %+v, %v", info, err)
 	}
-	if _, err := view.Device("nas"); err == nil {
+	if _, err := view.Client("nas"); err == nil {
 		t.Fatal("old name unexpectedly resolves")
 	}
 	// A later device adopting the old name must not inherit the service.
@@ -52,7 +52,7 @@ func TestIngressDeviceReferencesSurviveRename(t *testing.T) {
 	if _, err := a.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	info, err = view.Device(published.Services[0].Upstream.Device)
+	info, err = view.Client(published.Services[0].Upstream.Client)
 	if err != nil || info.MAC != mac {
 		t.Fatalf("service moved to another device: %+v, %v", info, err)
 	}
@@ -60,10 +60,10 @@ func TestIngressDeviceReferencesSurviveRename(t *testing.T) {
 	if _, err := a.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := view.Device("storage"); err == nil {
+	if _, err := view.Client("storage"); err == nil {
 		t.Fatal("ambiguous name unexpectedly resolves")
 	}
-	if _, err := view.Device(mac); err != nil {
+	if _, err := view.Client(mac); err != nil {
 		t.Fatal("MAC must still resolve when labels collide:", err)
 	}
 }

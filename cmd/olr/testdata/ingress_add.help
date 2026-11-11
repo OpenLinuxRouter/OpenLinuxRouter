@@ -7,8 +7,8 @@ this router in your own zone, and note that a private answer there
 needs the zone listed in `olr dns set --private-domain`.
 
 Examples:
-  olr ingress add grafana --device nuc --port 3000
-  olr ingress add nas --device synology --port 5001 --scheme https
+  olr ingress add grafana --client nuc --port 3000
+  olr ingress add nas --client synology --port 5001 --scheme https
   olr ingress add hello --host 127.0.0.1 --port 8000
   olr ingress add mi --host 172.16.1.163 --port 80 --header 'Host: 172.16.1.163'
 
@@ -16,10 +16,10 @@ Usage:
   olr ingress add <name> [flags]
 
 Flags:
-      --device olr devices list     device to publish, by its name in olr devices list
+      --client string               client to publish, by its name in the client list
       --header stringArray          set an upstream request header as 'Name: value', repeatable
   -h, --help                        help for add
-      --host string                 address or hostname to publish, for a target that is not a device
+      --host string                 address or hostname to publish, for a target that is not a client
       --icon string                 custom icon: theSVG ID (thesvg:grafana) or PNG/JPEG/WebP data URL; empty uses the site favicon
       --link-path string            page path to open and use for its icon (e.g. /ui); does not change proxy routing
       --port uint16                 port the service listens on

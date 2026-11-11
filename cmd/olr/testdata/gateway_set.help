@@ -4,12 +4,12 @@ Usage:
   olr gateway set [command]
 
 Available Commands:
+  client           Give one client its own way out
   default          Set the exit everything uses unless something more specific says otherwise
   destination      Route a destination through an exit (overrides device and network choices)
-  device           Give one Ethernet device its own way out
   forward          Change an existing port forward
   ipv6-forwarding  Let IPv6 pass through this router
-  traffic-counting Count how much each device uses
+  traffic-counting Count how much each client uses
   via              Send one network's traffic through an exit
 
 Flags:

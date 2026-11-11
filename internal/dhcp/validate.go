@@ -308,10 +308,10 @@ func validatePoolIPv6(r *Result, path string, p Pool, n NetworkInfo) {
 	if p.IPv6.Mode.OrDefault() == RAStateful {
 		// design.md §4.3: Android has never implemented DHCPv6 and Google closed
 		// the request as "Won't Fix (Intended Behavior)". A network relying on
-		// stateful DHCPv6 silently loses every Android device on it, which for
+		// stateful DHCPv6 silently loses every Android client on it, which for
 		// this audience is most of the handsets.
 		r.warnf(path+".ipv6.mode",
-			"stateful DHCPv6 hands out addresses that Android devices will not ask for — "+
+			"stateful DHCPv6 hands out addresses that Android clients will not ask for — "+
 				"they get no DHCPv6 address at all. They still work via the advertised prefix, "+
 				"but anything depending on a DHCPv6 lease will not see them")
 	}

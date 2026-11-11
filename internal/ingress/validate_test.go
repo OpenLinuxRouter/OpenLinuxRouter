@@ -21,20 +21,20 @@ func good() Config {
 		},
 		Services: []Service{{
 			Name:     "grafana",
-			Upstream: Upstream{Device: "nuc", Port: 3000},
+			Upstream: Upstream{Client: "nuc", Port: 3000},
 		}},
 	}
 }
 
 // goodDNS is the resolver's default zone, not the published domain: they are
-// separate settings, and the common arrangement is devices here and services
+// separate settings, and the common arrangement is clients here and services
 // somewhere the operator owns.
 func goodDNS() StaticDNS {
 	return StaticDNS{Domain: "home.arpa"}
 }
 
-func goodDevices() StaticDevices {
-	return StaticDevices{
+func goodDevices() StaticClients {
+	return StaticClients{
 		"nuc": {Addr: netip.MustParseAddr("192.168.1.50"), Fixed: true},
 		"tv":  {Addr: netip.MustParseAddr("192.168.1.77")},
 	}
@@ -189,7 +189,7 @@ func TestValidateRefusesANestedName(t *testing.T) {
 	findError(t, r, "services[0].name", "more than one label")
 }
 
-// A device and a published service may share a label now, because they are
+// A client and a published service may share a label now, because they are
 // names in different zones: sony-tv.home.arpa is the resolver's, and
 // sony-tv.<published domain> is the proxy's.
 func TestValidateAllowsANameADSDevicesAlsoHas(t *testing.T) {
@@ -220,7 +220,7 @@ func TestValidateName(t *testing.T) {
 
 func TestValidateRefusesDuplicateNames(t *testing.T) {
 	c := good()
-	c.Services = append(c.Services, Service{Name: "grafana", Upstream: Upstream{Device: "nuc", Port: 9000}})
+	c.Services = append(c.Services, Service{Name: "grafana", Upstream: Upstream{Client: "nuc", Port: 9000}})
 	findError(t, Validate(c, goodDNS(), goodDevices()), "services[1].name", "already published")
 }
 
@@ -228,10 +228,10 @@ func TestValidateRefusesDuplicateNames(t *testing.T) {
 // the config works right up until a lease turns over.
 func TestValidateRefusesADeviceWithoutAFixedAddress(t *testing.T) {
 	c := good()
-	c.Services[0].Upstream.Device = "tv"
+	c.Services[0].Upstream.Client = "tv"
 	r := Validate(c, goodDNS(), goodDevices())
-	findError(t, r, "services[0].upstream.device", "no fixed address")
-	findError(t, r, "services[0].upstream.device", "olr dhcp add reservation")
+	findError(t, r, "services[0].upstream.client", "no fixed address")
+	findError(t, r, "services[0].upstream.client", "olr dhcp add reservation")
 }
 
 func TestValidateUpstream(t *testing.T) {
@@ -241,11 +241,11 @@ func TestValidateUpstream(t *testing.T) {
 		path string
 		want string
 	}{
-		{"neither", Upstream{Port: 80}, "services[0].upstream", "either a device"},
-		{"both", Upstream{Device: "nuc", Host: "10.0.0.1", Port: 80}, "services[0].upstream", "alternatives"},
-		{"unknown device", Upstream{Device: "ghost", Port: 80}, "services[0].upstream.device", "no device named"},
-		{"no port", Upstream{Device: "nuc"}, "services[0].upstream.port", "required"},
-		{"bad scheme", Upstream{Device: "nuc", Port: 80, Scheme: "ftp"}, "services[0].upstream.scheme", "unknown scheme"},
+		{"neither", Upstream{Port: 80}, "services[0].upstream", "either a client"},
+		{"both", Upstream{Client: "nuc", Host: "10.0.0.1", Port: 80}, "services[0].upstream", "alternatives"},
+		{"unknown client", Upstream{Client: "ghost", Port: 80}, "services[0].upstream.client", "no client named"},
+		{"no port", Upstream{Client: "nuc"}, "services[0].upstream.port", "required"},
+		{"bad scheme", Upstream{Client: "nuc", Port: 80, Scheme: "ftp"}, "services[0].upstream.scheme", "unknown scheme"},
 		{"host with port", Upstream{Host: "10.0.0.1:80", Port: 80}, "services[0].upstream.host", "port belongs in the port field"},
 		{"unspecified", Upstream{Host: "0.0.0.0", Port: 80}, "services[0].upstream.host", "not a destination"},
 	}
@@ -258,7 +258,7 @@ func TestValidateUpstream(t *testing.T) {
 	}
 }
 
-// A literal hostname works and reintroduces a dependency the device form
+// A literal hostname works and reintroduces a dependency the client form
 // removes, so it is a remark rather than a refusal.
 func TestValidateWarnsOnAHostnameUpstream(t *testing.T) {
 	c := good()

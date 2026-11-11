@@ -54,7 +54,7 @@ function NetworkList({
   if (members.length === 0) {
     return (
       <ListEmpty>
-        No network interfaces yet. Add a network under Networks to choose how its devices reach the internet.
+        No network interfaces yet. Add a network under Networks to choose how its clients reach the internet.
       </ListEmpty>
     )
   }

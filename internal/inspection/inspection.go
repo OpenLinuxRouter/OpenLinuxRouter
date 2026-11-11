@@ -1,5 +1,5 @@
-// Package inspection owns one per-device transparent proxy, switched on and
-// off from the device page. The setting, CA and bounded request archive survive
+// Package inspection owns one per-client transparent proxy, switched on and
+// off from the client page. The setting, CA and bounded request archive survive
 // restarts. A systemd-owned proxy keeps capturing across control-plane redeploys.
 package inspection
 
@@ -56,7 +56,7 @@ type Event struct {
 	Reason          string            `json:"reason,omitempty"`
 	RequestHeaders  map[string]string `json:"request_headers,omitempty"`
 	ResponseHeaders map[string]string `json:"response_headers,omitempty"`
-	// Client and Server are the pair the activity chart joins on: the device's
+	// Client and Server are the pair the activity chart joins on: the client's
 	// address and the destination the connection was opened to. The name the
 	// request was made under is the URL's host, or Target when a connection
 	// failed before there was one.
@@ -94,20 +94,20 @@ type Service struct {
 	Managed   bool
 	ProxyUnit core.Unit
 	UnitPath  string
-	// ExitMark resolves an explicit per-device exit at session start.
+	// ExitMark resolves an explicit per-client exit at session start.
 	ExitMark func(string) (uint32, error)
 	mu       sync.Mutex
 	session  *session
-	// armed is the persisted switch: the device it names is being inspected
+	// armed is the persisted switch: the client it names is being inspected
 	// until the operator turns it off. It survives s.session, which only says
 	// whether mitmweb is running right now.
 	armed *setting
-	// problem is why an armed switch has no session, as the device page reads
+	// problem is why an armed switch has no session, as the client page reads
 	// it. Empty while the proxy is running.
 	problem        string
 	historyProblem string
-	// Activity samples while inspection is on and retains per-device history.
-	// A nil recorder means this build cannot observe the device's traffic.
+	// Activity samples while inspection is on and retains per-client history.
+	// A nil recorder means this build cannot observe the client's traffic.
 	Activity *Activity
 
 	// names is the host each intercepted connection was for, in the shape the
@@ -120,7 +120,7 @@ type Service struct {
 	names   map[nameKey]observedName
 }
 
-// observedName is one host a device reached through the proxy.
+// observedName is one host a client reached through the proxy.
 type observedName struct {
 	client netip.Addr
 	addr   netip.Addr
@@ -128,15 +128,15 @@ type observedName struct {
 	at     time.Time
 }
 
-// nameKey is (device, destination), the same pairing the relay's map is keyed
-// by: two devices reaching one address by different names are different facts.
+// nameKey is (client, destination), the same pairing the relay's map is keyed
+// by: two clients reaching one address by different names are different facts.
 type nameKey struct {
 	client netip.Addr
 	addr   netip.Addr
 }
 
 // maxObservedNames bounds the proxy's name map. It is small because it covers
-// one session: a device left under inspection for a week resolves a few
+// one session: a client left under inspection for a week resolves a few
 // thousand hosts at most, and the same recency rule as the relay's map applies.
 const maxObservedNames = 1024
 
@@ -156,14 +156,14 @@ type session struct {
 
 func (s *Service) Routes() []core.Route {
 	return []core.Route{
-		{Method: "GET", Path: "/activity", Tool: "show activity", Query: []core.QueryParam{{Name: "mac", Type: "string", Summary: "Device MAC whose retained samples to read."}, {Name: "range", Type: "string", Summary: "Selected range: 4h, 24h, 7d or 30d."}, {Name: "address", Type: "string", Summary: "Legacy IP address query when mac is omitted."}}, Summary: "Show retained per-site traffic for one device.", Handler: s.activity},
-		{Method: "GET", Path: "/status", Tool: "status", Summary: "Show the device request inspection switch and whether its proxy is running.", Handler: s.status},
-		{Method: "POST", Path: "/session", Summary: "Turn inspection on for observed device IPv4 addresses; it stays on until turned off.", Mutating: true, Handler: s.start},
+		{Method: "GET", Path: "/activity", Tool: "show activity", Query: []core.QueryParam{{Name: "mac", Type: "string", Summary: "Client MAC whose retained samples to read."}, {Name: "range", Type: "string", Summary: "Selected range: 4h, 24h, 7d or 30d."}, {Name: "address", Type: "string", Summary: "Legacy IP address query when mac is omitted."}}, Summary: "Show retained per-site traffic for one client.", Handler: s.activity},
+		{Method: "GET", Path: "/status", Tool: "status", Summary: "Show the client request inspection switch and whether its proxy is running.", Handler: s.status},
+		{Method: "POST", Path: "/session", Summary: "Turn inspection on for observed client IPv4 addresses; it stays on until turned off.", Mutating: true, Handler: s.start},
 		{Method: "DELETE", Path: "/session", Summary: "Stop inspection and remove interception; keep captured history.", Mutating: true, Handler: s.stop},
-		{Method: "GET", Path: "/history", Tool: "show history", Query: []core.QueryParam{{Name: "mac", Type: "string", Summary: "Device MAC whose saved requests to read."}, {Name: "before", Type: "string", Summary: "Cursor returned by the preceding page."}, {Name: "limit", Type: "integer", Summary: "Maximum entries, 1 to 200."}, {Name: "search", Type: "string", Summary: "Match method, URL or HTTP status."}}, Summary: "List saved requests for a device.", Handler: s.history},
-		{Method: "GET", Path: "/history/detail", Tool: "show request", Query: []core.QueryParam{{Name: "mac", Type: "string", Summary: "Device MAC that owns the archive."}, {Name: "id", Type: "string", Summary: "Saved flow ID from inspection history."}}, Summary: "Read a saved request and response preview.", Handler: s.historyDetail},
+		{Method: "GET", Path: "/history", Tool: "show history", Query: []core.QueryParam{{Name: "mac", Type: "string", Summary: "Client MAC whose saved requests to read."}, {Name: "before", Type: "string", Summary: "Cursor returned by the preceding page."}, {Name: "limit", Type: "integer", Summary: "Maximum entries, 1 to 200."}, {Name: "search", Type: "string", Summary: "Match method, URL or HTTP status."}}, Summary: "List saved requests for a client.", Handler: s.history},
+		{Method: "GET", Path: "/history/detail", Tool: "show request", Query: []core.QueryParam{{Name: "mac", Type: "string", Summary: "Client MAC that owns the archive."}, {Name: "id", Type: "string", Summary: "Saved flow ID from inspection history."}}, Summary: "Read a saved request and response preview.", Handler: s.historyDetail},
 		{Method: "GET", Path: "/history/flow", Summary: "Download a complete saved mitmproxy flow.", Handler: s.historyFlow},
-		{Method: "DELETE", Path: "/history", Summary: "Delete a device's saved requests and responses.", Mutating: true, Handler: s.history},
+		{Method: "DELETE", Path: "/history", Summary: "Delete a client's saved requests and responses.", Mutating: true, Handler: s.history},
 		{Method: "GET", Path: "/retention", Tool: "show retention", Summary: "Show inspection archive retention limits.", Handler: s.retention},
 		{Method: "PUT", Path: "/retention", Summary: "Set the archive retention period and total disk limit.", Mutating: true, Handler: s.retention},
 		{Method: "GET", Path: "/ca", Tool: "show ca", Summary: "Download the public debugging CA certificate, never its private key.", Handler: s.ca},
@@ -338,7 +338,7 @@ func (s *Service) start(w http.ResponseWriter, r *http.Request) {
 		IPs []string `json:"ips"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&body); err != nil {
-		core.WriteError(w, http.StatusBadRequest, "expected a device MAC and IPv4 addresses")
+		core.WriteError(w, http.StatusBadRequest, "expected a client MAC and IPv4 addresses")
 		return
 	}
 	if !s.Enabled {
@@ -381,10 +381,10 @@ func (s *Service) start(w http.ResponseWriter, r *http.Request) {
 // replaces the reason with the newer one.
 func (s *Service) startLocked(mac string, ips []string, ctx context.Context) (Status, int, string) {
 	if s.session != nil {
-		return Status{}, http.StatusConflict, "a device is already being inspected"
+		return Status{}, http.StatusConflict, "a client is already being inspected"
 	}
 	if s.armed != nil && !strings.EqualFold(s.armed.MAC, mac) {
-		return Status{}, http.StatusConflict, "another device is set to be inspected; turn its switch off first"
+		return Status{}, http.StatusConflict, "another client is set to be inspected; turn its switch off first"
 	}
 	if err := s.open(mac, ips, ctx); err != nil {
 		if s.armed != nil {
@@ -662,7 +662,7 @@ func NamesFrom(sources ...func(context.Context) ([]Name, error)) func(context.Co
 // observeName remembers which host a connection through the proxy was for. The
 // caller holds s.mu, which must be taken before namesMu.
 //
-// A request's URL host is a name the device actually asked for, so this is
+// A request's URL host is a name the client actually asked for, so this is
 // evidence of the same kind as the relay's observation — just evidence the
 // relay could not get: a client that dialled an address, resolved over DoH, or
 // asked before the switch was on.
@@ -828,7 +828,7 @@ func (s *Service) stop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// The switch is the durable part: clear it even when there was no proxy,
-	// so a failed start cannot leave the device armed across restarts.
+	// so a failed start cannot leave the client armed across restarts.
 	s.mu.Lock()
 	s.armed, s.problem = nil, ""
 	s.mu.Unlock()
@@ -893,7 +893,7 @@ func cleanup() error {
 	return fmt.Errorf("removing inspection table: %w: %s", err, strings.TrimSpace(string(out)))
 }
 func install(mac string, ips []string, mark uint32) error {
-	// Match both the device MAC and candidate IPv4 addresses before NAT. Exclude
+	// Match both the client MAC and candidate IPv4 addresses before NAT. Exclude
 	// local and private destinations so LAN services survive.
 	if err := nft("add", "table", "inet", table); err != nil {
 		return err
@@ -923,7 +923,7 @@ func install(mac string, ips []string, mark uint32) error {
 		return err
 	}
 	// Redirect sets the original destination port in conntrack, but does not
-	// necessarily set the DNAT status bit. Permit only this device's
+	// necessarily set the DNAT status bit. Permit only this client's
 	// connections that originally targeted HTTP(S), not direct LAN proxy use.
 	if err := nft("add", "rule", "inet", table, "input", "ether", "saddr", mac, "ip", "saddr", "{", strings.Join(ips, ", "), "}", "tcp", "dport", port, "ct", "original", "proto-dst", "{", "80,", "443", "}", "accept"); err != nil {
 		return err

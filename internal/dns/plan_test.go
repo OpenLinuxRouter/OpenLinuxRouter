@@ -211,7 +211,7 @@ func TestDisablingIsDisruptive(t *testing.T) {
 	if got := actionFor(plan, b.RelayUnit()); got != ActionStop {
 		t.Errorf("relay action = %s, want stop", got)
 	}
-	if len(plan.Reasons) == 0 || !strings.Contains(plan.Reasons[0], "every device") {
+	if len(plan.Reasons) == 0 || !strings.Contains(plan.Reasons[0], "every client") {
 		t.Errorf("the reason does not say who is affected: %v", plan.Reasons)
 	}
 }

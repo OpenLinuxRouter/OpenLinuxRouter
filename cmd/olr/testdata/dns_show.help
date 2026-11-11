@@ -6,7 +6,7 @@ Usage:
 
 Available Commands:
   hosts       List the local names this resolver answers
-  names       List the addresses each device resolved, and for what
+  names       List the addresses each client resolved, and for what
   policies    List policies
   policy      Show one policy in full
   queries     List recently answered queries
