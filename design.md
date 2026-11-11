@@ -45,7 +45,8 @@ five-category assessment, measurement catalog, data model and staged delivery.
   Both ceilings are accepted deliberately; neither is a gap to be closed later.
 - Fleet-wide provisioning and arbitrary vendor configuration remain outside v1.
   Network equipment inventory and observation support Mercury SE109 Pro and
-  OpenWrt, with capability-gated operations; see [network equipment](docs/network-equipment.md).
+  OpenWrt, with capability-gated operations and a read-only page per device; see
+  [network equipment](docs/network-equipment.md).
 - A plugin API or third-party module ecosystem — see the extension surface
   above. Programmatic access is the HTTP API and MCP.
 - Reimplementing what the distro already does well (supervision, logging,

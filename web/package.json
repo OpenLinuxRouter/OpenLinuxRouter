@@ -10,7 +10,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node --test src/lib/*.test.mjs src/features/access/*.test.mjs src/features/brand-logos/*.test.mjs src/features/advanced/*.test.mjs src/features/devices/*.test.mjs src/features/firewall/*.test.mjs src/features/gateway/*.test.mjs src/features/topology/*.test.mjs src/features/network-quality/*.test.mjs src/features/wireless/*.test.mjs src/features/world-traffic/*.test.mjs && node scripts/test-interface-traffic.mjs && node scripts/test-control-language.mjs"
+    "test": "node --test src/lib/*.test.mjs src/features/access/*.test.mjs src/features/brand-logos/*.test.mjs src/features/advanced/*.test.mjs src/features/devices/*.test.mjs src/features/firewall/*.test.mjs src/features/gateway/*.test.mjs src/features/topology/*.test.mjs src/features/network-quality/*.test.mjs src/features/wireless/*.test.mjs src/features/equipment/*.test.mjs src/features/world-traffic/*.test.mjs && node scripts/test-interface-traffic.mjs && node scripts/test-control-language.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

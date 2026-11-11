@@ -68,6 +68,40 @@ Only `client.disconnect` is implemented as a remote mutation. It validates a uni
 
 OpenWrt protocol fixtures are synthetic, matching the supported stock API shapes; this change has no live-device compatibility claim. An actual firmware/account combination should be checked with a snapshot before relying on its reported capabilities.
 
+## Web page
+
+`/equipment` is the inventory in the WebUI: one row per managed box, with its
+adapter, management origin and roles, and one page per device at
+`/equipment/{id}`. Adding, editing and forgetting happen there, through the same
+dialog the Wireless page uses for its access point; the empty state offers a
+switch or an access point and stores the management password in the
+configuration, so onboarding never requires setting a variable in `olrd`'s
+environment.
+
+The device page is read-only and grows its tabs from the snapshot rather than
+from a device type:
+
+| Tab | Shows |
+| --- | --- |
+| Overview | Identity, the state of every collection this read attempted, and the device's own capability list with each reason. |
+| Ports | Link state, speed and duplex, packet or byte counters, and error counters, in the device's own port order. |
+| VLAN | Device-local VLANs with tagged and untagged ports, and whether VLAN mode is active. |
+| MAC lookup | A bounded `fdb.lookup` for one address, with an optional VLAN. |
+
+Wi-Fi stays on `/wireless`: an access point's radios, clients, channels and
+scans are a view of that device, not a second copy of it, and the device page
+links there. Mercury switches have no radios, so the link is absent.
+
+The list is configuration only. Opening a device is what contacts it — the
+daemon reads on demand and nothing polls the hardware from the page, so a row
+does not claim liveness it has not observed. A section the adapter cannot read
+renders as unavailable with the adapter's reason, never as an empty table.
+
+The URL is `/equipment`, not `/network`: in this product a network is the subnet
+object Gateway serves (and `/gateway/networks` already redirects to DHCP), while
+`/api/network` is the module's own route prefix. The page and the API are
+deliberately not named the same thing, because they are not the same noun.
+
 ## Inventory and secrets
 
 Inventory lives in the `network` subtree of the existing configuration store, with strict decoding, shared apply lock, ETags and preservation of other modules. Configuration backup includes the inventory and validates it on restore, without connecting to equipment.

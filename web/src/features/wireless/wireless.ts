@@ -1,4 +1,4 @@
-import type { Association, Neighbour, Radio, Snapshot, WirelessNetwork } from './types'
+import type { Association, Neighbour, Radio, Snapshot, WirelessNetwork } from '@/features/equipment/types'
 
 /** A finding is a sentence plus the values that fill it, so it can be translated. */
 export interface Finding {
@@ -217,13 +217,3 @@ export function occupancyByChannel(neighbours: Neighbour[], band?: string): { ch
   return channelsFor(band).map(channel => ({ channel, count: counts.get(channel) ?? 0 }))
 }
 
-/** A stable, legal device ID derived from a management address. */
-export function idFromAddress(address: string): string {
-  try {
-    const trimmed = address.trim()
-    const host = new URL(/^[a-z]+:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`).hostname
-    return host.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64)
-  } catch {
-    return ''
-  }
-}

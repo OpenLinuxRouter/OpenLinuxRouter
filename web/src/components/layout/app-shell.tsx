@@ -84,7 +84,7 @@ export function AppShell() {
         </div>
       </footer>
       <nav aria-label={t('Sections')} className="fixed inset-x-0 bottom-0 z-20 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
-        <ul className="grid grid-cols-5">
+        <ul className="grid grid-cols-6">
           {SECTIONS.filter(s => !s.nested).map(({ to, label, icon: Icon, end }) => (
             <li key={to} className="min-w-0">
               <NavLink to={to} end={end} className={({ isActive }) => cn(

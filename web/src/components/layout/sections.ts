@@ -1,5 +1,5 @@
 import { t } from '@/lib/i18n'
-import { Activity, ArrowLeftRight, Shield, SlidersHorizontal, Waypoints, Wifi, Wrench } from 'lucide-react'
+import { Activity, ArrowLeftRight, EthernetPort, Shield, SlidersHorizontal, Waypoints, Wifi, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 /**
@@ -183,6 +183,16 @@ export const SECTIONS: Section[] = [
     to: '/wireless',
     get label() { return t('Wireless') },
     icon: Wifi,
+    end: false,
+    groups: [],
+  },
+  {
+    // The inventory of boxes olr reads but does not configure. Not `/network`:
+    // in this product a network is a subnet Gateway serves, and that is what
+    // `/gateway/networks` already means.
+    to: '/equipment',
+    get label() { return t('Equipment') },
+    icon: EthernetPort,
     end: false,
     groups: [],
   },

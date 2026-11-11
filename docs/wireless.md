@@ -14,9 +14,12 @@ than beside the charts.
 
 ## Adding the access point
 
-The page owns its inventory entry. Its empty state and header offer an add/edit
-dialog for the management origin, username and password; removing an entry only
-forgets it here and never touches the access point. A stored password is
+The page can add and edit its own inventory entry. Its empty state and header
+offer the equipment dialog for the management origin, username and password;
+removing an entry only forgets it here and never touches the access point. The
+same dialog and the same list live on the equipment page (`/equipment`), which
+is the canonical inventory; this page keeps its own controls because an access
+point is usually onboarded at the moment somebody is looking at its radios. A stored password is
 returned masked and is never rendered again, which is why editing an address
 does not require retyping it. `docs/network-equipment.md` describes the
 credential rules and what a backup carries.

@@ -4,6 +4,7 @@ import { Heading } from '@/components/ui/heading'
 
 import { AppShell } from '@/components/layout/app-shell'
 import { SubPage } from '@/components/layout/sub-page'
+import { EquipmentDevicePage, EquipmentPage } from '@/routes/equipment'
 import { WirelessPage } from '@/routes/wireless'
 import { Button } from '@/components/ui/button'
 import { AuthGate } from '@/components/layout/auth-gate'
@@ -102,6 +103,8 @@ export function App() {
             </Route>
           </Route>
           <Route path="wireless" element={<WirelessPage />} />
+          <Route path="equipment" element={<EquipmentPage />} />
+          <Route path="equipment/:id" element={<EquipmentDevicePage />} />
           <Route path="firewall" element={<SubPage section="/advanced" slug="firewall"><FirewallPage /></SubPage>} />
           <Route path="firewall/rules" element={<FirewallRulesPage />} />
           <Route path="access" element={<AccessPage />} />

@@ -22,12 +22,13 @@ import { StatusDot, StatusInline, StatusPill } from '@/components/ui/status'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DeviceIcon } from '@/features/devices/device-icon'
 import { useDeviceList } from '@/features/devices/queries'
+import { DeviceDialog, type DeviceDraft } from '@/features/equipment/device-dialog'
+import { useEquipmentEditor, useNetworkConfig, useNetworkSnapshot } from '@/features/equipment/queries'
+import type { Association, Neighbour, NetworkDevice, Radio, ScanResult, Snapshot } from '@/features/equipment/types'
 import type { DeviceRow } from '@/lib/api-types'
 import { cn, formatBytes } from '@/lib/utils'
 
-import { AccessPointDialog, type AccessPointDraft } from './access-point-dialog'
-import { useAccessPointEditor, useNetworkConfig, useNetworkSnapshot, useRadioScan } from './queries'
-import type { Association, Neighbour, NetworkDevice, Radio, ScanResult, Snapshot } from './types'
+import { useRadioScan } from './queries'
 import {
   bandLabel,
   findingsFor,
@@ -69,7 +70,7 @@ export function WirelessPage() {
   const requested = params.get('device')
   const selected = devices.find(device => device.id === requested) ?? preferred
   const snapshot = useNetworkSnapshot(selected?.id)
-  const editor = useAccessPointEditor()
+  const editor = useEquipmentEditor()
   const [dialog, setDialog] = useState<'add' | 'edit' | null>(null)
   const [tab, setTabState] = useState<Tab>(tabFrom(params.get('tab')))
   const setTab = (next: Tab) => {
@@ -80,19 +81,10 @@ export function WirelessPage() {
     setParams(nextParams, { replace: true })
   }
 
-  const submit = async (draft: AccessPointDraft) => {
-    // An edit keeps the adapter and roles the entry already had: this dialog
-    // only knows how to fill in an access point's address and credential.
-    const existing = dialog === 'edit' ? selected : undefined
-    const device: NetworkDevice = {
-      id: draft.id,
-      name: draft.name || undefined,
-      adapter: existing?.adapter ?? 'openwrt',
-      address: draft.address,
-      username: draft.username || undefined,
-      password: draft.password,
-      roles: existing?.roles ?? ['ap'],
-    }
+  const submit = async (draft: DeviceDraft) => {
+    // The shared dialog keeps an entry's adapter and roles on an edit, so this
+    // page only says what shape a new one should have: an access point.
+    const device: NetworkDevice = { ...draft, name: draft.name || undefined, username: draft.username || undefined }
     if (!(await editor.save(device))) return
     setDialog(null)
     setParams({ ...(tab !== 'overview' ? { tab } : {}), device: device.id }, { replace: true })
@@ -103,11 +95,13 @@ export function WirelessPage() {
     setParams(tab !== 'overview' ? { tab } : {}, { replace: true })
   }
   const dialogElement = dialog === null ? null : (
-    <AccessPointDialog
+    <DeviceDialog
       open
       onOpenChange={open => { if (!open) setDialog(null) }}
       initial={dialog === 'edit' ? selected : undefined}
       existing={devices.map(device => device.id)}
+      types={[{ label: t('OpenWrt access point'), adapter: 'openwrt', roles: ['ap'] }]}
+      subject="access point"
       busy={editor.busy}
       onSubmit={submit}
       onRemove={dialog === 'edit' && selected ? () => forget(selected.id) : undefined}
