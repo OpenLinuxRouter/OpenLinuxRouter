@@ -1,16 +1,19 @@
 import { t } from '@/lib/i18n'
 
 /**
- * The Gateway directory: one group per part of the router, one tile per way of
- * building that part.
+ * The Gateway directory: a strip of the pages every choice is written against,
+ * then one group per part of the router and one tile per way of building it.
  *
  * A router is four things an operator arrives to change — how it reaches the
  * internet, who it hands addresses to, what it resolves, and what it lets
- * through — plus the local interfaces and routes all four are written against.
- * Each of those is served by a choice, and more than one will be offered per
- * group: a second resolver, a second DHCP server. That is why this is a
- * launcher and not a settings list: the page's subject is the choice, and the
- * switches behind it belong to the page the tile opens.
+ * through. Each of those is served by a choice, and more than one will be
+ * offered per group: a second resolver, a second DHCP server. That is why this
+ * is a launcher and not a settings list: the page's subject is the choice, and
+ * the switches behind it belong to the page the tile opens.
+ *
+ * The interfaces, the route table and the rules OLR did not write are not
+ * choices — nobody picks between two route tables — so they travel in the strip
+ * above the groups instead of a group whose tiles all leave the page.
  *
  * A choice OLR does not configure yet keeps its tile, muted and inert, so a
  * group states what it will contain instead of growing a tile at a time.
@@ -39,9 +42,28 @@ export interface GatewayGroup {
   choices: GatewayChoice[]
 }
 
-// Groups run in the order an operator arrives at them: the two that are set up
-// once and then left alone (how it reaches the internet, what its ports are)
-// before the three whose defaults are the ones most installs keep.
+/**
+ * A page the choices are written against: navigation, not a choice.
+ *
+ * The strip runs in the order a packet meets them — the interfaces it arrives
+ * on, the table it is routed by, and the rules outside OLR's management — and
+ * it sits above the groups because every group below writes into one of them.
+ */
+export interface GatewayPage {
+  id: string
+  get name(): string
+  to: string
+}
+
+export const GATEWAY_PAGES: GatewayPage[] = [
+  { id: 'interfaces', get name() { return t('Interfaces') }, to: '/gateway/interfaces' },
+  { id: 'routes', get name() { return t('Routes') }, to: '/gateway/routes' },
+  { id: 'unmanaged', get name() { return t('External routing rules') }, to: '/gateway/unmanaged' },
+]
+
+// Groups run in the order an operator arrives at them: the one that is set up
+// once and then left alone (how it reaches the internet) before the three whose
+// defaults are the ones most installs keep.
 export const GATEWAY_GROUPS: GatewayGroup[] = [
   {
     id: 'internet',
@@ -68,34 +90,6 @@ export const GATEWAY_GROUPS: GatewayGroup[] = [
         letter: 'S',
         description: 'Set the address, the next hop and the resolvers yourself.',
         to: '/gateway/interfaces',
-      },
-    ],
-  },
-  {
-    id: 'interfaces',
-    get title() { return t('Interfaces & routing') },
-    hue: 160,
-    choices: [
-      {
-        id: 'ports',
-        get name() { return t('Interfaces') },
-        letter: 'I',
-        description: 'Every port on this box, the networks they carry and the devices on them.',
-        to: '/gateway/interfaces',
-      },
-      {
-        id: 'routes',
-        get name() { return t('Routes') },
-        letter: 'R',
-        description: 'The tables every packet is matched against, including the ones OLR did not write.',
-        to: '/gateway/routes',
-      },
-      {
-        id: 'unmanaged',
-        get name() { return t('External routing rules') },
-        letter: 'E',
-        description: 'Rules outside OLR management, shown so a hand-rolled setup stays readable.',
-        to: '/gateway/unmanaged',
       },
     ],
   },

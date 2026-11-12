@@ -440,14 +440,15 @@ scope, replacement behavior and the priority enforcement caveat beside the
 explicit apply actions; selected values are batch choices, not observed shared
 settings. List member devices below the summary.
 
-Gateway's landing page is a directory of choices, not a status report. It has
-five groups, each naming a part of the router and each holding the ways of
-building that part: Internet (DHCP, PPPoE, a static address), Interfaces &
-routing (the interfaces, the route table, external rules), DHCP (dnsmasq, and
-Kea when it lands), DNS (unbound, and the resolvers OLR will offer beside it)
-and Firewall (nftables, port forwarding, external filtering). The order runs
-from the two parts an operator sets up once to the three whose shipped defaults
-most installs keep.
+Gateway's landing page is a directory of choices, not a status report. A strip
+above it links the pages every choice is written against — Interfaces, Routes
+and External routing rules — because nobody picks between two route tables.
+Below the strip are four groups, each naming a part of the router and each
+holding the ways of building that part: Internet (DHCP, PPPoE, a static
+address), DHCP (dnsmasq, and Kea when it lands), DNS (unbound, and the resolvers
+OLR will offer beside it) and Firewall (nftables, port forwarding, external
+filtering). The order runs from the part an operator sets up once to the three
+whose shipped defaults most installs keep.
 
 A tile names a choice, never a module and never a mechanism: the word on it is
 the one an operator would use to pick it, and the sentence that explains it is
