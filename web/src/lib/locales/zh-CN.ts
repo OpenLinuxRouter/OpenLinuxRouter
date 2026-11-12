@@ -693,7 +693,6 @@ export const zhCN: Record<string, string> = {
   'Networks': '网络',
   'Subnet': '子网',
   'Gateway routing': '网关路由',
-  'Gateway pages': '网关页面',
   'Forward IPv4': '转发 IPv4',
   'Forward IPv6': '转发 IPv6',
   'All interfaces and routing': '所有接口与路由',

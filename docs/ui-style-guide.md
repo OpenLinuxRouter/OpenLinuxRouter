@@ -184,14 +184,10 @@ clear of both bars and scroll the navigation locally on narrow screens. The
 page title is accessible but visually hidden; avoid a repeated introductory
 heading above the step navigation.
 
-Gateway's landing page opens with a strip of the pages every choice is written
-against — Interfaces, Routes and External routing rules — and then continues as
-a directory, in the launcher Access and Advanced already use: four groups in the
-order an operator arrives at them — Internet, DHCP, DNS and Firewall — each
-holding one tile per way of building that part. The strip wears the tab shape
-the device and wireless views use, but its items are links: the current page is
-marked with the underline and `aria-current`, and the strip never switches a
-panel in place. Use three columns on phones, five from 640px, seven from
+Gateway's landing page is a directory, in the launcher Access and Advanced
+already use: five groups in the order an operator arrives at them — Internet,
+Interfaces & routing, DHCP, DNS and Firewall — each holding one tile per way of
+building that part. Use three columns on phones, five from 640px, seven from
 1024px and eight from 1280px, with the group's 24px/32px heading above it and
 each tile a letter in the group's hue, so the tint groups the tiles without a
 legend. Names stay on one line and nothing prints under them.
