@@ -76,14 +76,20 @@ func (s *Store) initialize() error {
 		if err := tx.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
 			return err
 		}
-		if version > 4 {
+		if version > 5 {
 			return fmt.Errorf("unsupported runtime database version %d", version)
 		}
-		if version == 4 {
+		if version == 5 {
 			return nil
 		}
+		if version == 4 {
+			return rekeyActivity(tx)
+		}
 		if version == 3 {
-			return createLatencySamples(tx)
+			if err := createLatencySamples(tx); err != nil {
+				return err
+			}
+			return rekeyActivity(tx)
 		}
 		if version == 2 {
 			// A device that is gone has no source to ask for its name, so the
@@ -93,19 +99,25 @@ func (s *Store) initialize() error {
 			if err != nil {
 				return err
 			}
-			return createLatencySamples(tx)
+			if err := createLatencySamples(tx); err != nil {
+				return err
+			}
+			return rekeyActivity(tx)
 		}
 		if version == 1 {
 			_, err := tx.Exec(`CREATE TABLE geoip_cache (ip TEXT PRIMARY KEY, data BLOB NOT NULL, fetched INTEGER NOT NULL, used INTEGER NOT NULL); CREATE INDEX geoip_cache_used ON geoip_cache(used); ALTER TABLE device_seen ADD COLUMN hostname TEXT NOT NULL DEFAULT ''; ALTER TABLE device_seen ADD COLUMN hostname_at TEXT NOT NULL DEFAULT ''; PRAGMA user_version=3;`)
 			if err != nil {
 				return err
 			}
-			return createLatencySamples(tx)
+			if err := createLatencySamples(tx); err != nil {
+				return err
+			}
+			return rekeyActivity(tx)
 		}
 		_, err := tx.Exec(`
 CREATE TABLE imports (name TEXT PRIMARY KEY);
-CREATE TABLE activity (bucket INTEGER NOT NULL, address TEXT NOT NULL, up TEXT NOT NULL, down TEXT NOT NULL, PRIMARY KEY(bucket,address));
-CREATE INDEX activity_address_time ON activity(address,bucket);
+CREATE TABLE activity (bucket INTEGER NOT NULL, subject TEXT NOT NULL, up TEXT NOT NULL, down TEXT NOT NULL, PRIMARY KEY(bucket,subject));
+CREATE INDEX activity_subject_time ON activity(subject,bucket);
 CREATE TABLE device_seen (mac TEXT PRIMARY KEY, seen_at TEXT NOT NULL, hostname TEXT NOT NULL DEFAULT '', hostname_at TEXT NOT NULL DEFAULT '');
 CREATE TABLE sessions (token_hash BLOB PRIMARY KEY CHECK(length(token_hash)=32), credential TEXT NOT NULL, expires_at TEXT NOT NULL);
 CREATE TABLE qos_state (boot_id TEXT PRIMARY KEY, state BLOB NOT NULL);
@@ -116,8 +128,33 @@ PRAGMA user_version=3;`)
 		if err != nil {
 			return err
 		}
-		return createLatencySamples(tx)
+		if err := createLatencySamples(tx); err != nil {
+			return err
+		}
+		// The fresh schema is already in the shape every later migration
+		// produces, so it only has to say so.
+		_, err = tx.Exec("PRAGMA user_version=5")
+		return err
 	})
+}
+
+// rekeyActivity turns per-address history into per-client history.
+//
+// The column is rewritten rather than reinterpreted: rows stored under an
+// address stay rows under that address until the daemon folds them into the
+// client that currently holds it (gateway.Activity.Adopt), and a row whose
+// address no source can place — a WireGuard peer's — keeps the address as its
+// key. The copy is one transaction so an interrupted upgrade leaves the old
+// table exactly as it was.
+func rekeyActivity(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+CREATE TABLE activity_subject (bucket INTEGER NOT NULL, subject TEXT NOT NULL, up TEXT NOT NULL, down TEXT NOT NULL, PRIMARY KEY(bucket,subject));
+INSERT INTO activity_subject(bucket,subject,up,down) SELECT bucket,address,up,down FROM activity;
+DROP TABLE activity;
+ALTER TABLE activity_subject RENAME TO activity;
+CREATE INDEX activity_subject_time ON activity(subject,bucket);
+PRAGMA user_version=5;`)
+	return err
 }
 
 // Recovery records are safety-critical ownership/original-value snapshots,
@@ -191,9 +228,13 @@ func (s *Store) SkipImport(name string) error {
 	return err
 }
 
+// Activity is one client's traffic in one half-hour bucket. Subject is the
+// canonical MAC of the client that held the traffic, or the address itself when
+// no presence source could say — a WireGuard peer, or a source that was not
+// readable at that moment.
 type Activity struct {
 	Bucket   int64
-	Address  string
+	Subject  string
 	Up, Down uint64
 }
 
@@ -207,13 +248,13 @@ const ActivityLimit = 250_000
 
 // Counters use decimal text to preserve Go's full uint64 range in SQLite.
 func PutActivity(tx *sql.Tx, rows []Activity) error {
-	stmt, err := tx.Prepare("INSERT OR REPLACE INTO activity(bucket,address,up,down) VALUES(?,?,?,?)")
+	stmt, err := tx.Prepare("INSERT OR REPLACE INTO activity(bucket,subject,up,down) VALUES(?,?,?,?)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 	for _, r := range rows {
-		if _, err := stmt.Exec(r.Bucket, r.Address, fmt.Sprint(r.Up), fmt.Sprint(r.Down)); err != nil {
+		if _, err := stmt.Exec(r.Bucket, r.Subject, fmt.Sprint(r.Up), fmt.Sprint(r.Down)); err != nil {
 			return err
 		}
 	}
@@ -229,8 +270,21 @@ func (s *Store) SaveActivity(rows []Activity, cutoff int64) error {
 	})
 }
 
+// ReplaceActivity rewrites the table from rows, for a change of key rather than
+// of value. Folding per-address history into per-client history is the one case:
+// an incremental checkpoint can only update rows whose key already exists, so a
+// key change has to be written whole.
+func (s *Store) ReplaceActivity(rows []Activity) error {
+	return s.transaction(func(tx *sql.Tx) error {
+		if _, err := tx.Exec("DELETE FROM activity"); err != nil {
+			return err
+		}
+		return PutActivity(tx, rows)
+	})
+}
+
 func (s *Store) Activity(cutoff, now int64) ([]Activity, error) {
-	rows, err := s.db.Query("SELECT bucket,address,up,down FROM activity WHERE bucket>=? AND bucket<=? ORDER BY bucket,address LIMIT ?", cutoff, now, ActivityLimit+1)
+	rows, err := s.db.Query("SELECT bucket,subject,up,down FROM activity WHERE bucket>=? AND bucket<=? ORDER BY bucket,subject LIMIT ?", cutoff, now, ActivityLimit+1)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +293,7 @@ func (s *Store) Activity(cutoff, now int64) ([]Activity, error) {
 	for rows.Next() {
 		var r Activity
 		var up, down string
-		if err := rows.Scan(&r.Bucket, &r.Address, &up, &down); err != nil {
+		if err := rows.Scan(&r.Bucket, &r.Subject, &up, &down); err != nil {
 			return nil, err
 		}
 		r.Up, err = strconv.ParseUint(up, 10, 64)

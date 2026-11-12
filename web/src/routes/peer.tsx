@@ -149,7 +149,7 @@ export function WireguardPeerPage() {
     <div className="space-y-4 pb-12">
       <Card className="gap-0 p-4 sm:p-6">
         <ClientHeader
-          activity={peer.address && <ClientActivity addresses={[peer.address]} downRate={usage?.downRate} upRate={usage?.upRate} />}
+          activity={peer.address && <ClientActivity target={{ addresses: [peer.address] }} downRate={usage?.downRate} upRate={usage?.upRate} />}
           picture={
             <span className="relative flex">
               <DeviceIcon icon={peer.icon} category={peer.category ?? ''} online={peer.online} size="lg" />
@@ -363,7 +363,7 @@ function Usage({ flow, usage, addresses, trafficFailed }: { flow: TrafficView; u
         <MetricValue value={flow.rated && usage ? formatRate(Math.max(0, usage.upRate ?? 0)) : null} />
       </ClientSettingRow>
       <ClientSettingRow label={t('Total')}>
-        <ActivityTotal addresses={addresses} />
+        <ActivityTotal target={{ addresses }} />
       </ClientSettingRow>
     </dl>
     {!flow.counting && (

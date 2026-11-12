@@ -214,7 +214,7 @@ func (h HTTP) Routes() []core.Route {
 				"Reports counting:false rather than failing when the counters cannot be read.",
 			Handler: h.getTraffic,
 		},
-		{Method: "GET", Path: "/activity", Tool: "show activity", Summary: "Show retained half-hour traffic samples for the requested addresses, over the last 90 days.", Handler: h.getActivity},
+		{Method: "GET", Path: "/activity", Tool: "show activity", Summary: "Show retained half-hour traffic samples for one client, or for the requested addresses, over the last 90 days.", Handler: h.getActivity},
 	}
 
 	// The NAT half's routes, under the same prefix. Appended rather than
@@ -740,7 +740,21 @@ func (h HTTP) getTraffic(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h HTTP) getActivity(w http.ResponseWriter, r *http.Request) {
-	values := r.URL.Query()["address"]
+	query := r.URL.Query()
+	if raw := query.Get("mac"); raw != "" {
+		mac, err := core.NormalizeMAC(raw)
+		if err != nil {
+			core.WriteError(w, http.StatusBadRequest, "Invalid client hardware address")
+			return
+		}
+		if h.Activity == nil {
+			core.WriteError(w, http.StatusServiceUnavailable, "Activity unavailable")
+			return
+		}
+		core.WriteJSON(w, http.StatusOK, h.Activity.view(mac, nil))
+		return
+	}
+	values := query["address"]
 	if len(values) > 32 {
 		core.WriteError(w, http.StatusBadRequest, "Too many addresses")
 		return
@@ -763,7 +777,7 @@ func (h HTTP) getActivity(w http.ResponseWriter, r *http.Request) {
 		core.WriteError(w, http.StatusServiceUnavailable, "Activity unavailable")
 		return
 	}
-	core.WriteJSON(w, http.StatusOK, h.Activity.view(addresses))
+	core.WriteJSON(w, http.StatusOK, h.Activity.view("", addresses))
 }
 
 // --- plumbing --------------------------------------------------------------

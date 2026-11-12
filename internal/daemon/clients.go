@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -19,6 +20,18 @@ import (
 // NetworkView, NameSource) and never imports `dhcp`, while `dhcp` stays unaware
 // that an inventory exists. The two are introduced at the one place that
 // already knows the whole module list.
+
+// clientOwners is the address → client join the traffic sampler keys history by,
+// read from the same presence sources the client list joins. Problems are
+// dropped here rather than reported: a source that cannot be read leaves its
+// addresses unattributed, which history already knows how to store, and the
+// client list is where an operator is told why.
+func clientOwners(sources []clients.PresenceSource) func(context.Context) map[netip.Addr]string {
+	return func(ctx context.Context) map[netip.Addr]string {
+		sightings, _ := clients.Gather(ctx, sources...)
+		return clients.Owners(sightings)
+	}
+}
 
 // dhcpPresence reads the lease database as sightings.
 type dhcpPresence struct {

@@ -1408,19 +1408,31 @@ belongs to the network, a second and deliberate act.
    and the total beneath it, which is that matrix added up rather than the
    kernel's cumulative counter.
    It samples every ten seconds independently of browsers, respects traffic
-   counting being off, caps retained address/bucket pairs at 250,000 and never
+   counting being off, caps retained client/bucket pairs at 250,000 and never
    stores raw flows. That ceiling is a memory bound rather than a retention
    promise: when it is reached the oldest buckets are dropped and the window
-   shortens, because privacy addresses rotate often enough for a busy LAN to
-   fill a quarter million pairs in weeks, and letting the ceiling instead block
-   new buckets froze the matrix for months while the trapdoor emptied. History is atomically checkpointed every minute and on
-   graceful shutdown to SQLite (0600). Only changed buckets are checkpointed;
-   the old `activity.json` is imported once.
+   shortens. History is atomically checkpointed every minute and on graceful
+   shutdown to SQLite (0600). Only changed buckets are checkpointed; the old
+   `activity.json` is imported once.
+
+   The accounting sets are keyed by address and every screen is keyed by
+   client, so the sampler joins them: each address is resolved to its canonical
+   MAC from the same presence sources the client list uses, and one client is
+   one row per half hour however many addresses it holds. That is not a
+   storage optimisation. Keyed by address, a phone rotating its IPv6 address
+   daily became a new row per address per half hour, none of which its own page
+   could ask for — two thousand addresses filled the ceiling in weeks while the
+   page showed one — and a client's history vanished as soon as its address
+   changed. An address no source can place keeps the address as its key, which
+   is the honest answer for a WireGuard peer that has no MAC anywhere else
+   either. Addresses are attributed at sample time, so a reused address is
+   credited to the client holding it when the traffic happened; the one-time
+   fold of history written before this change makes the same assumption, which
+   is the assumption the client list already makes when it shows an address
+   under a client.
    Missing intervals, resets and initial baselines are
    not counted as zero traffic. Samples crossing half-hour boundaries are
-   omitted rather than attributed to the wrong interval. The display joins
-   current client addresses, so address changes can hide earlier samples and
-   reused addresses can include another client's activity. These are sampled
+   omitted rather than attributed to the wrong interval. These are sampled
    volumes, not exact accounting totals. Restart restores retained buckets but
    starts new counter baselines; abrupt termination may lose the latest minute.
 

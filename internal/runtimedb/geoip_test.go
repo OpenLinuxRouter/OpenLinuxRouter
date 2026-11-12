@@ -16,6 +16,7 @@ func TestGeoIPMigrationAndEviction(t *testing.T) {
 	// Recreate the preceding schema and exercise the actual upgrade path. The
 	// device table is recreated in its version-1 shape too: a database that old
 	// has no hostname columns, and the migration adds them.
+	revertActivityToAddresses(t, s)
 	if _, err := s.db.Exec("DROP TABLE latency_samples; DROP TABLE geoip_cache; DROP TABLE device_seen; CREATE TABLE device_seen (mac TEXT PRIMARY KEY, seen_at TEXT NOT NULL); PRAGMA user_version=1"); err != nil {
 		t.Fatal(err)
 	}

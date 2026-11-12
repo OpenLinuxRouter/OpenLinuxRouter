@@ -1010,10 +1010,17 @@ Counters are monotonic-since-load; everything anyone wants is deltas over time.
 
 Live counters are read from nftables and aged out by `statTimeout`. The activity
 sampler retains bounded half-hour differences in SQLite for up to 90 days, rather
-than raw flows. Retention is additionally capped at 250,000 address/bucket pairs;
-a LAN whose clients rotate IPv6 privacy addresses reaches that cap, and there the
-oldest buckets are dropped so the recorded window shortens while sampling
-continues. A frozen right edge would be indistinguishable from a broken router. That window is also what a client page's total covers: the total
+than raw flows. Rows are keyed by **client**, not by address: the accounting sets
+are per address, the screens are per client, and a client that rotates its IPv6
+address daily would otherwise scatter one history across addresses its own page
+can never ask about. The join comes from the same presence sources the client
+list uses, so an address is attributed to whoever held it when the traffic was
+sampled; traffic no source can place — a WireGuard peer's, for instance — keeps
+the address as its key and is still queryable by address. Retention is capped at
+250,000 client/bucket pairs, which a LAN of forty clients fills only at the far
+end of ninety days; reaching it drops the oldest buckets so the recorded window
+shortens while sampling continues, because a frozen right edge is
+indistinguishable from a broken router. That window is also what a client page's total covers: the total
 is the matrix above it added up, not the cumulative counter, so neither a
 restart's reset nor a day of silence can make one cell of the page exceed the
 page's own total — the mismatch that made two honest numbers look like a bug.

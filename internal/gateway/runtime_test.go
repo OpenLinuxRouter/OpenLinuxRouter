@@ -47,7 +47,7 @@ func TestActivitySQLiteImportAndBaseline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := c.snapshot([]netip.Addr{addr}); len(got) != 1 || got[0].Bytes.Up != 30 {
+	if got := c.snapshot("", []netip.Addr{addr}); len(got) != 1 || got[0].Bytes.Up != 30 {
 		t.Fatalf("history %+v", got)
 	}
 }

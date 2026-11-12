@@ -590,6 +590,17 @@ func run(args []string) error {
 			activity = restored
 		}
 	}
+	// History was keyed by address until clients became the key. Fold what is
+	// already stored into the clients that hold those addresses now, before the
+	// sampler starts writing new rows, and make the fold durable so a restart
+	// does not have to repeat it.
+	activity.Owners = clientOwners(clientsApplier.Presence)
+	foldCtx, stopFold := context.WithTimeout(context.Background(), 2*time.Minute)
+	foldErr := activity.Adopt(foldCtx)
+	stopFold()
+	if foldErr != nil {
+		logger.Warn("could not re-key stored activity history to clients", "error", foldErr)
+	}
 	places := geoip.NewCity(runtimeDB)
 	defer places.Close()
 	world := gateway.NewWorldTraffic(places)

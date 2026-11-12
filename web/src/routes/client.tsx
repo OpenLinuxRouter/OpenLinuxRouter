@@ -34,7 +34,7 @@ export function ClientPage() {
           addresses={[device.fixed_ip ?? '', ...(device.ips ?? [])]}
           add={`/advanced/caddy?device=${encodeURIComponent(device.mac)}`}
         />
-      } total={<ActivityTotal addresses={device.ips ?? []} />} activity={<ClientActivity addresses={device.ips ?? []} downRate={usage?.downRate} upRate={usage?.upRate} />} traffic={
+      } total={<ActivityTotal target={{ mac: device.mac }} />} activity={<ClientActivity target={{ mac: device.mac }} downRate={usage?.downRate} upRate={usage?.upRate} />} traffic={
         <ClientPolicy mac={device.mac} downRate={usage?.downRate} upRate={usage?.upRate}>
             {!flow.counting && (
               <p className="text-sm text-muted-foreground">{traffic.isError ? 'Traffic counters are unavailable right now, so live rates are missing.' : 'Counting is off, so there are no live rates. The total below shows what was recorded while it was on.'}</p>

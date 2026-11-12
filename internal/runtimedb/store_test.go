@@ -17,7 +17,7 @@ func TestRestartTransactionsAndUnsignedCounters(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Now().UTC()
-	if err := s.SaveActivity([]Activity{{Bucket: now.Unix(), Address: "192.0.2.1", Up: math.MaxUint64, Down: 42}}, 0); err != nil {
+	if err := s.SaveActivity([]Activity{{Bucket: now.Unix(), Subject: "192.0.2.1", Up: math.MaxUint64, Down: 42}}, 0); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.SaveSeen([]Seen{{MAC: "aa:bb:cc:dd:ee:ff", At: now, Hostname: "printer", HostnameAt: now}}); err != nil {
@@ -149,11 +149,61 @@ func TestRejectCorruptAndFutureDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.db.Exec("PRAGMA user_version=5"); err != nil {
+	if _, err := s.db.Exec("PRAGMA user_version=6"); err != nil {
 		t.Fatal(err)
 	}
 	s.Close()
 	if _, err := Open(path); err == nil {
 		t.Fatal("future schema accepted")
+	}
+}
+
+// revertActivityToAddresses rebuilds the version-4 activity table, keeping its
+// rows. A test that rewinds user_version to an older schema is describing a
+// database of that era; without this it describes a half-upgraded one, and the
+// migration would be asked to rename a column the table no longer has.
+func revertActivityToAddresses(t *testing.T, s *Store) {
+	t.Helper()
+	if _, err := s.db.Exec(`
+		CREATE TABLE activity_old (bucket INTEGER NOT NULL, address TEXT NOT NULL, up TEXT NOT NULL, down TEXT NOT NULL, PRIMARY KEY(bucket,address));
+		INSERT INTO activity_old(bucket,address,up,down) SELECT bucket,subject,up,down FROM activity;
+		DROP INDEX activity_subject_time;
+		DROP TABLE activity;
+		ALTER TABLE activity_old RENAME TO activity;
+		CREATE INDEX activity_address_time ON activity(address,bucket);`); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestActivitySchemaRekeysToClientSubjects(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "runtime.db")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The migration has to keep every row and rename what it is keyed by,
+	// because the old key is still a fact — it is the traffic's source address.
+	if err := s.SaveActivity([]Activity{{Bucket: 3600, Subject: "192.0.2.9", Up: 10, Down: 2}}, 0); err != nil {
+		t.Fatal(err)
+	}
+	revertActivityToAddresses(t, s)
+	if _, err := s.db.Exec("PRAGMA user_version=4"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	rows, err := b.Activity(0, 7200)
+	if err != nil || len(rows) != 1 || rows[0].Subject != "192.0.2.9" || rows[0].Up != 10 {
+		t.Fatalf("rekey lost history: %+v %v", rows, err)
+	}
+	if err := b.SaveActivity([]Activity{{Bucket: 3600, Subject: "aa:bb:cc:dd:ee:ff", Up: 1}}, 0); err != nil {
+		t.Fatalf("rekeyed table takes client keys: %v", err)
 	}
 }

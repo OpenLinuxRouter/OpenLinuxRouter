@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { activityLevel, activityThresholds } from '@/lib/activity-scale'
 import { formatBytes } from '@/lib/utils'
 
-import { activitySummary, useActivity, type Bytes } from './activity-history'
+import { activitySummary, useActivity, type ActivityTarget, type Bytes } from './activity-history'
 
 /**
  * What the device has moved over the retained window.
@@ -15,8 +15,8 @@ import { activitySummary, useActivity, type Bytes } from './activity-history'
  * and it carries no caption of its own: the matrix above it is the only picture
  * of that window, so the window does not need to be restated here.
  */
-export function ActivityTotal({ addresses }: { addresses: string[] }) {
-  const { data } = useActivity(addresses)
+export function ActivityTotal({ target }: { target: ActivityTarget }) {
+  const { data } = useActivity(target)
   const summary = activitySummary(data)
   return <span className="inline-flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1 tabular-nums">
     <span className="inline-flex items-center gap-0.5" aria-label="Download total"><span aria-hidden className="text-base font-normal text-muted-foreground">↓</span><MetricValue value={summary ? formatBytes(summary.down) : null} /></span>
@@ -26,7 +26,7 @@ export function ActivityTotal({ addresses }: { addresses: string[] }) {
 
 const fills = ['bg-[var(--activity-empty)]', 'bg-[var(--activity-low)]', 'bg-[var(--activity-green-low)]', 'bg-[var(--activity-medium)]', 'bg-[var(--activity-high)]', 'bg-[var(--activity-peak)]']
 
-export function ClientActivity({ addresses, downRate, upRate }: { addresses: string[]; downRate?: number; upRate?: number }) {
+export function ClientActivity({ target, downRate, upRate }: { target: ActivityTarget; downRate?: number; upRate?: number }) {
   useLocale()
   const rate = Math.max(0, downRate ?? 0) + Math.max(0, upRate ?? 0)
   // Keep the breathing shape readable even at high rates (100 MiB/s and above).
@@ -48,7 +48,7 @@ export function ClientActivity({ addresses, downRate, upRate }: { addresses: str
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
-  const history = useActivity(addresses)
+  const history = useActivity(target)
   const buckets = new Map(history.data?.buckets.map(bucket => [Date.parse(bucket.at), bucket.bytes]))
   const now = new Date()
   // Use retained history, independently of the number of columns fitting the

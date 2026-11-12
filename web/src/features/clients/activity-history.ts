@@ -20,6 +20,17 @@ export interface ActivityHistory {
 }
 
 /**
+ * What a screen asks history about: a client, or — for a peer, which has no MAC
+ * — an address.
+ *
+ * The daemon stores a client's traffic under that client however many addresses
+ * it used, so the query is by MAC. The address form survives because a WireGuard
+ * peer is keyed by address everywhere else in the model, and because history
+ * written before presence could place an address is still filed under it.
+ */
+export type ActivityTarget = { mac: string } | { addresses: string[] }
+
+/**
  * One device's retained activity.
  *
  * Polled a minute at a time rather than every ten seconds, because ninety days
@@ -31,12 +42,14 @@ export interface ActivityHistory {
  * Both halves of the device card — the matrix and the total under it — call
  * this, and share one request through the query cache.
  */
-export function useActivity(addresses: string[]) {
+export function useActivity(target: ActivityTarget) {
+  const key = 'mac' in target ? `mac:${target.mac}` : `address:${target.addresses.join(' ')}`
   return useQuery({
-    queryKey: ['gateway', 'activity', addresses.join(' ')],
+    queryKey: ['gateway', 'activity', key],
     queryFn: () => {
       const query = new URLSearchParams()
-      addresses.slice(0, 32).forEach((address) => query.append('address', address))
+      if ('mac' in target) query.set('mac', target.mac)
+      else target.addresses.slice(0, 32).forEach((address) => query.append('address', address))
       return api.get<ActivityHistory>(`/api/gateway/activity?${query}`)
     },
     refetchInterval: 60000,

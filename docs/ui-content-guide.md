@@ -323,7 +323,10 @@ This distinguishes low traffic without implying whether a person is
 actively using the device.
 Immediate four-hour hover/focus hints show sampled download and upload
 or explicitly report missing/unavailable data. Partial samples are not exact
-four-hour totals. History is joined to the device's currently observed addresses.
+four-hour totals. History belongs to the client, not to an address: every address
+it used, including one it has since dropped, stays part of its matrix and of the
+total beneath it. A peer, which has no hardware address, is the one card whose
+history is looked up by address.
 It begins accumulating after daemon startup. Sampling runs every ten seconds and
 the matrix refreshes every minute; the first reading establishes a baseline.
 History retains at most 90 days and is restored from

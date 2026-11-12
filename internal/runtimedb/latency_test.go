@@ -13,9 +13,10 @@ func TestLatencySamplesUpgradeRestartAndLatestStartedAttempt(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 10, 30, 12, 40, 0, 123, time.UTC)
-	if err := db.SaveActivity([]Activity{{Bucket: now.Unix(), Address: "192.0.2.1", Up: 42}}, 0); err != nil {
+	if err := db.SaveActivity([]Activity{{Bucket: now.Unix(), Subject: "192.0.2.1", Up: 42}}, 0); err != nil {
 		t.Fatal(err)
 	}
+	revertActivityToAddresses(t, db)
 	if _, err := db.db.Exec("DROP TABLE latency_samples; PRAGMA user_version=3"); err != nil {
 		t.Fatal(err)
 	}
