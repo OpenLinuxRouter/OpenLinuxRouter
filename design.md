@@ -1423,9 +1423,13 @@ belongs to the network, a second and deliberate act.
    daily became a new row per address per half hour, none of which its own page
    could ask for — two thousand addresses filled the ceiling in weeks while the
    page showed one — and a client's history vanished as soon as its address
-   changed. An address no source can place keeps the address as its key, which
-   is the honest answer for a WireGuard peer that has no MAC anywhere else
-   either. Addresses are attributed at sample time, so a reused address is
+   changed. An address a screen asks about without a MAC — a WireGuard peer,
+   which has no hardware address anywhere else in the model either — keeps the
+   address as its key; traffic that is neither a client's nor a peer's is not
+   stored at all. The router's own flows and the internet's connection attempts
+   used to fill this table with rows no screen could query, and a history of
+   what cannot be shown is only a shorter history of what can. Addresses are
+   attributed at sample time, so a reused address is
    credited to the client holding it when the traffic happened; the one-time
    fold of history written before this change makes the same assumption, which
    is the assumption the client list already makes when it shows an address

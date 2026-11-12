@@ -326,7 +326,9 @@ or explicitly report missing/unavailable data. Partial samples are not exact
 four-hour totals. History belongs to the client, not to an address: every address
 it used, including one it has since dropped, stays part of its matrix and of the
 total beneath it. A peer, which has no hardware address, is the one card whose
-history is looked up by address.
+history is looked up by address, and the one kind of traffic kept without a
+client behind it: nothing else is stored under an address, so no total counts
+traffic that no screen could show.
 It begins accumulating after daemon startup. Sampling runs every ten seconds and
 the matrix refreshes every minute; the first reading establishes a baseline.
 History retains at most 90 days and is restored from

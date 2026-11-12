@@ -658,6 +658,25 @@ func run(args []string) error {
 		Object: remote.ObjectSocks,
 	}
 
+	// A peer's page is keyed by address, because a peer has no hardware address
+	// anywhere else in the model either. Its traffic is therefore the one thing
+	// the activity sampler records without a client behind it; everything else
+	// that cannot be attributed is dropped instead of stored where no screen can
+	// look. Read lazily: peers are added and removed while the sampler runs.
+	activity.Names = func(context.Context) map[netip.Addr]bool {
+		cfg, err := remoteTunnel.Load()
+		if err != nil {
+			return nil
+		}
+		named := make(map[netip.Addr]bool, len(cfg.WireGuard.Peers))
+		for _, peer := range cfg.WireGuard.Peers {
+			if peer.Address.IsValid() {
+				named[peer.Address.Unmap()] = true
+			}
+		}
+		return named
+	}
+
 	// design.md §4.1's remote → dns and remote → gateway arrows: moving the
 	// tunnel changes an address the relay was rendered to answer on, and the
 	// subnet the NAT table masquerades, and nothing in either dependent's own

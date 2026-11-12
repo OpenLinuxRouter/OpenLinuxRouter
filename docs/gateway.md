@@ -1015,8 +1015,11 @@ are per address, the screens are per client, and a client that rotates its IPv6
 address daily would otherwise scatter one history across addresses its own page
 can never ask about. The join comes from the same presence sources the client
 list uses, so an address is attributed to whoever held it when the traffic was
-sampled; traffic no source can place — a WireGuard peer's, for instance — keeps
-the address as its key and is still queryable by address. Retention is capped at
+sampled. A WireGuard peer is the one address-keyed case, because its page is
+keyed by address too; traffic that is neither a client's nor a peer's is dropped
+rather than stored, since the router's own flows and the internet's connection
+attempts would otherwise spend the retention budget on rows no screen can ask
+for. Retention is capped at
 250,000 client/bucket pairs, which a LAN of forty clients fills only at the far
 end of ninety days; reaching it drops the oldest buckets so the recorded window
 shortens while sampling continues, because a frozen right edge is

@@ -97,6 +97,15 @@ type Activity struct {
 	// resolve addresses, and history stays address-keyed.
 	owners map[netip.Addr]string
 	Owners func(context.Context) map[netip.Addr]string
+	// named lists the addresses a screen asks about without a MAC — WireGuard
+	// peers, whose page is keyed by address because a peer has no hardware
+	// address anywhere else either. Traffic nothing can name is not history:
+	// recording it spends the ceiling on rows no screen can ever query, which
+	// is what the router's own IPv6 flows and internet background noise did to
+	// this table for a month. Nil keeps every address, for a build with no
+	// caller to ask.
+	named map[netip.Addr]bool
+	Names func(context.Context) map[netip.Addr]bool
 }
 
 // OpenActivityDB imports the old checkpoint once and restores retained buckets.
@@ -415,7 +424,10 @@ func (a *Activity) observe(now time.Time, usage []Usage, valid bool) {
 			bucket = make(map[string]activityBytes)
 			a.buckets[at] = bucket
 		}
-		subject := a.subjectOf(u.Addr)
+		subject, ok := a.subjectOf(u.Addr)
+		if !ok {
+			continue
+		}
 		value, held := bucket[subject]
 		if !held {
 			if !a.makeRoom(at) {
@@ -430,16 +442,18 @@ func (a *Activity) observe(now time.Time, usage []Usage, valid bool) {
 	a.previous, a.last = next, now
 }
 
-// subjectOf is the client a flow's source address belongs to, or the address
-// itself when no presence source could say. The second case is not a failure:
-// a WireGuard peer is keyed by its address everywhere else too, and an address
-// that appears between two presence reads is still traffic somebody used rather
-// than traffic to drop.
-func (a *Activity) subjectOf(addr netip.Addr) string {
+// subjectOf is the key a flow's source address is recorded under: the client
+// that holds it, or the address itself when a screen asks by address — a
+// WireGuard peer. false means nothing can show this traffic, and recording it
+// would spend the ceiling on rows no page can query.
+func (a *Activity) subjectOf(addr netip.Addr) (string, bool) {
 	if mac := a.owners[addr]; mac != "" {
-		return mac
+		return mac, true
 	}
-	return addr.String()
+	if a.Names == nil || a.named[addr] {
+		return addr.String(), true
+	}
+	return "", false
 }
 
 // ownedBy reports whether a stored subject belongs to the client mac: either it
@@ -503,6 +517,12 @@ func (a *Activity) Run(ctx context.Context, applier Applier) {
 			owners := a.Owners(ctx)
 			a.mu.Lock()
 			a.owners = owners
+			a.mu.Unlock()
+		}
+		if a.Names != nil {
+			named := a.Names(ctx)
+			a.mu.Lock()
+			a.named = named
 			a.mu.Unlock()
 		}
 		cfg, err := applier.Load()

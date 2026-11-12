@@ -304,3 +304,39 @@ func TestActivityAdoptFoldsStoredAddressHistory(t *testing.T) {
 		t.Fatalf("second fold disturbed the store: %+v %v", rows, err)
 	}
 }
+
+func TestActivityDropsTrafficNoScreenCanShow(t *testing.T) {
+	a := NewActivity()
+	peer := netip.MustParseAddr("10.6.0.2")
+	router := netip.MustParseAddr("2001:db8::1")
+	client := netip.MustParseAddr("192.168.1.2")
+	mac := "aa:bb:cc:dd:ee:ff"
+	a.owners = map[netip.Addr]string{client: mac}
+	a.Names = func(context.Context) map[netip.Addr]bool {
+		return map[netip.Addr]bool{peer: true}
+	}
+	a.named = a.Names(context.Background())
+	at := time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
+	sample := func(up uint64) []Usage {
+		return []Usage{
+			{Addr: client, UpBytes: up},
+			{Addr: peer, UpBytes: up},
+			{Addr: router, UpBytes: up},
+		}
+	}
+	a.observe(at, sample(100), true)
+	a.observe(at.Add(time.Minute), sample(140), true)
+
+	if got := a.snapshot(mac, nil); len(got) != 1 || got[0].Bytes.Up != 40 {
+		t.Fatalf("client traffic lost: %+v", got)
+	}
+	if got := a.snapshot("", []netip.Addr{peer}); len(got) != 1 || got[0].Bytes.Up != 40 {
+		t.Fatalf("peer traffic lost: %+v", got)
+	}
+	if got := a.snapshot("", []netip.Addr{router}); len(got) != 0 {
+		t.Fatalf("unshowable traffic was stored: %+v", got)
+	}
+	if a.entries != 2 {
+		t.Fatalf("stored %d entries for two showable rows", a.entries)
+	}
+}
