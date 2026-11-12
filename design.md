@@ -1408,7 +1408,9 @@ belongs to the network, a second and deliberate act.
    and the total beneath it, which is that matrix added up rather than the
    kernel's cumulative counter.
    It samples every ten seconds independently of browsers, respects traffic
-   counting being off, caps retained client/bucket pairs at 250,000 and never
+   counting being off, caps retained client/bucket pairs at 1,000,000 (about
+   100 MiB resident and 135 MiB stored at the ceiling, which is a memory
+   budget rather than a page count) and never
    stores raw flows. That ceiling is a memory bound rather than a retention
    promise: when it is reached the oldest buckets are dropped and the window
    shortens. History is atomically checkpointed every minute and on graceful

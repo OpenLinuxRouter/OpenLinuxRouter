@@ -1020,10 +1020,11 @@ keyed by address too; traffic that is neither a client's nor a peer's is dropped
 rather than stored, since the router's own flows and the internet's connection
 attempts would otherwise spend the retention budget on rows no screen can ask
 for. Retention is capped at
-250,000 client/bucket pairs, which a LAN of forty clients fills only at the far
-end of ninety days; reaching it drops the oldest buckets so the recorded window
-shortens while sampling continues, because a frozen right edge is
-indistinguishable from a broken router. That window is also what a client page's total covers: the total
+1,000,000 client/bucket pairs — roughly 100 MiB resident and 135 MiB stored, and
+about 230 clients over the full ninety days — which a home LAN fills only in
+part; reaching it drops the oldest buckets so the recorded window shortens while
+sampling continues, because a frozen right edge is indistinguishable from a
+broken router. That window is also what a client page's total covers: the total
 is the matrix above it added up, not the cumulative counter, so neither a
 restart's reset nor a day of silence can make one cell of the page exceed the
 page's own total — the mismatch that made two honest numbers look like a bug.

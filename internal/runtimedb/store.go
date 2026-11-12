@@ -244,7 +244,15 @@ type Activity struct {
 // more than the limit to notice that the limit was exceeded, and because a
 // history that was checkpointed has to be readable back: the sampler applies
 // the same ceiling, so the two cannot disagree about what fits.
-const ActivityLimit = 250_000
+//
+// The number is a memory budget, not a page count. One (client, half hour) pair
+// costs about 110 bytes in the sampler's maps and about 135 bytes on disk, so a
+// million of them is roughly 100 MiB resident and 135 MiB stored, read back in
+// under a second at startup. Ninety days at thirty-eight buckets a day is 4,320
+// buckets, which makes this ceiling about 230 clients over the full window — or
+// a household of forty over a year. A home LAN reaches a tenth of that, so the
+// ceiling is headroom rather than a knob operators are expected to think about.
+const ActivityLimit = 1_000_000
 
 // Counters use decimal text to preserve Go's full uint64 range in SQLite.
 func PutActivity(tx *sql.Tx, rows []Activity) error {
