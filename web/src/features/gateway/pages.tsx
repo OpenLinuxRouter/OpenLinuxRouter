@@ -17,13 +17,13 @@ import { GATEWAY_PAGES } from './catalog'
 export function GatewayPages() {
   useLocale()
   return (
-    <nav aria-label={t('Gateway pages')} className="flex gap-1 border-b border-border">
+    <nav aria-label={t('Gateway pages')} className="flex gap-1 overflow-x-auto border-b border-border">
       {GATEWAY_PAGES.map(page => (
         <NavLink
           key={page.id}
           to={page.to}
           className={({ isActive }) => cn(
-            '-mb-px border-b-2 px-3 py-2 text-sm transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring',
+            '-mb-px shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring',
             isActive
               ? 'border-primary font-medium text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground',
