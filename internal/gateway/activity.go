@@ -47,9 +47,13 @@ const (
 // Ninety days is 4,320 buckets, so a house with thirty active addresses spends
 // roughly 130,000 of these. The ceiling leaves room for IPv6 rotation and a few
 // exits, and still stops a pathological network from growing the map without
-// bound. Reaching it costs new addresses their place in one bucket — history is
-// never evicted to make room, which is the direction that keeps what is already
-// on screen correct.
+// bound. It is a *memory* bound, not a retention promise: when it is reached the
+// oldest buckets go, so the window silently shortens instead of recording
+// stopping. That direction is deliberate — a matrix whose left edge starts later
+// is readable, while one that stops moving is indistinguishable from a broken
+// router, and by the time entries expire nobody can tell how long it has been
+// quiet. Privacy addresses make the ceiling reachable: one telephone rotating its
+// IPv6 address daily fills it in weeks, not years.
 const ActivityEntries = runtimedb.ActivityLimit
 
 // activityView is the retained history as the UI reads it, and nothing else.
@@ -71,9 +75,16 @@ type Activity struct {
 	last     time.Time
 	buckets  map[int64]map[netip.Addr]activityBytes
 	entries  int
-	path     string
-	db       *runtimedb.Store
-	saved    map[int64]map[netip.Addr]activityBytes
+	// ceiling is ActivityEntries. It is a field only so a test can lower it
+	// without materializing a quarter of a million map entries; nothing else
+	// changes it.
+	ceiling int
+	// trimmed records that the ceiling has cost history, so the reason is
+	// logged once rather than on every sample that keeps the series alive.
+	trimmed bool
+	path    string
+	db      *runtimedb.Store
+	saved   map[int64]map[netip.Addr]activityBytes
 }
 
 // OpenActivityDB imports the old checkpoint once and restores retained buckets.
@@ -138,7 +149,9 @@ func OpenActivityDB(db *runtimedb.Store, legacy string) (*Activity, error) {
 	return a, nil
 }
 
-func NewActivity() *Activity { return &Activity{buckets: make(map[int64]map[netip.Addr]activityBytes)} }
+func NewActivity() *Activity {
+	return &Activity{buckets: make(map[int64]map[netip.Addr]activityBytes), ceiling: ActivityEntries}
+}
 
 // OpenActivity restores history, but never restores counter baselines across restarts.
 func OpenActivity(path string) (*Activity, error) {
@@ -194,7 +207,7 @@ func (a *Activity) Save() error {
 				}
 			}
 		}
-		if err := a.db.SaveActivity(rows, time.Now().Add(-ActivityRetention).Unix()); err != nil {
+		if err := a.db.SaveActivity(rows, a.persistedCutoff()); err != nil {
 			return err
 		}
 		if a.saved == nil {
@@ -229,6 +242,28 @@ func (a *Activity) Save() error {
 	return core.WriteFileAtomic(a.path, data, 0o600)
 }
 
+// persistedCutoff is the oldest bucket still worth storing. Rows older than it
+// are deleted with the checkpoint, so a bucket the ceiling evicted cannot return
+// on the next restart and fill the map again. Retention alone is not enough: it
+// would keep everything the ceiling dropped for another ninety days.
+//
+// Nothing retained means nothing to keep, and the whole table goes. An empty
+// series is not a load error — every caller that cares reads the buckets — and
+// leaving rows behind would resurrect history no screen is showing. The caller
+// holds the lock.
+func (a *Activity) persistedCutoff() int64 {
+	oldest, found := int64(0), false
+	for at := range a.buckets {
+		if !found || at < oldest {
+			oldest, found = at, true
+		}
+	}
+	if !found {
+		return time.Now().Unix() + 1
+	}
+	return oldest
+}
+
 func (a *Activity) observe(now time.Time, usage []Usage, valid bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -260,7 +295,7 @@ func (a *Activity) observe(now time.Time, usage []Usage, valid bool) {
 		}
 		value, held := bucket[u.Addr]
 		if !held {
-			if a.entries >= ActivityEntries {
+			if !a.makeRoom(at) {
 				continue
 			}
 			a.entries++
@@ -270,6 +305,40 @@ func (a *Activity) observe(now time.Time, usage []Usage, valid bool) {
 		bucket[u.Addr] = value
 	}
 	a.previous, a.last = next, now
+}
+
+// makeRoom frees one entry at the ceiling by dropping the oldest whole bucket,
+// and reports whether a new (bucket, address) pair may be recorded.
+//
+// The bucket being written is never a candidate, so the sample in hand always
+// lands and the matrix's right edge keeps moving. Whole buckets go rather than
+// single addresses because a displayed cell has to stay internally consistent:
+// a four-hour total partly made of evicted half-hours would be a number nobody
+// could check. The caller holds the lock.
+func (a *Activity) makeRoom(current int64) bool {
+	for a.entries >= a.ceiling {
+		oldest, found := int64(0), false
+		for at := range a.buckets {
+			if at == current {
+				continue
+			}
+			if !found || at < oldest {
+				oldest, found = at, true
+			}
+		}
+		if !found {
+			// Everything retained is the bucket being written; the ceiling is
+			// smaller than a single sample and cannot be honoured.
+			return false
+		}
+		a.entries -= len(a.buckets[oldest])
+		delete(a.buckets, oldest)
+		if !a.trimmed {
+			a.trimmed = true
+			slog.Warn("activity history reached its entry ceiling; the oldest retained buckets are dropped so recording continues", "ceiling", a.ceiling)
+		}
+	}
+	return true
 }
 
 func (a *Activity) Run(ctx context.Context, applier Applier) {

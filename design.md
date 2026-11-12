@@ -1409,7 +1409,11 @@ belongs to the network, a second and deliberate act.
    kernel's cumulative counter.
    It samples every ten seconds independently of browsers, respects traffic
    counting being off, caps retained address/bucket pairs at 250,000 and never
-   stores raw flows. History is atomically checkpointed every minute and on
+   stores raw flows. That ceiling is a memory bound rather than a retention
+   promise: when it is reached the oldest buckets are dropped and the window
+   shortens, because privacy addresses rotate often enough for a busy LAN to
+   fill a quarter million pairs in weeks, and letting the ceiling instead block
+   new buckets froze the matrix for months while the trapdoor emptied. History is atomically checkpointed every minute and on
    graceful shutdown to SQLite (0600). Only changed buckets are checkpointed;
    the old `activity.json` is imported once.
    Missing intervals, resets and initial baselines are

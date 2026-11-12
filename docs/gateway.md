@@ -1009,8 +1009,11 @@ different class of gap, and it is why the topology rule exists.
 Counters are monotonic-since-load; everything anyone wants is deltas over time.
 
 Live counters are read from nftables and aged out by `statTimeout`. The activity
-sampler retains bounded half-hour differences in SQLite for 90 days, rather
-than raw flows. That window is also what a client page's total covers: the total
+sampler retains bounded half-hour differences in SQLite for up to 90 days, rather
+than raw flows. Retention is additionally capped at 250,000 address/bucket pairs;
+a LAN whose clients rotate IPv6 privacy addresses reaches that cap, and there the
+oldest buckets are dropped so the recorded window shortens while sampling
+continues. A frozen right edge would be indistinguishable from a broken router. That window is also what a client page's total covers: the total
 is the matrix above it added up, not the cumulative counter, so neither a
 restart's reset nor a day of silence can make one cell of the page exceed the
 page's own total — the mismatch that made two honest numbers look like a bug.

@@ -328,7 +328,10 @@ It begins accumulating after daemon startup. Sampling runs every ten seconds and
 the matrix refreshes every minute; the first reading establishes a baseline.
 History retains at most 90 days and is restored from
 SQLite's `activity` table in `/var/lib/open-linux-router/runtime.db` after
-restarts/upgrades. Transactional
+restarts/upgrades. Silently dropped history is not an error state: when the
+table's address/bucket ceiling is reached the oldest periods go and the matrix
+simply begins later, so an operator sees a shorter left edge rather than an
+empty current column. Transactional
 checkpoints run every minute and on normal shutdown; an abrupt power loss may
 lose the latest minute. It is not reconstructed from cumulative counters. Changing
 device addresses can hide samples associated with its previous addresses.

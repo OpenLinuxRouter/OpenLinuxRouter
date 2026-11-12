@@ -6,7 +6,70 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/open-linux-router/open-linux-router/internal/runtimedb"
 )
+
+func TestActivityCeilingEvictsOldestAndKeepsRecording(t *testing.T) {
+	a := NewActivity()
+	// A real ceiling is a quarter of a million pairs; lowering it is what makes
+	// the reached-ceiling path testable without materializing them.
+	a.ceiling = 3
+	at := time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
+	addr := netip.MustParseAddr("192.168.1.2")
+	busy := netip.MustParseAddr("192.168.1.3")
+	older := at.Add(-time.Hour).Unix()
+	newer := at.Add(-30 * time.Minute).Unix()
+	a.buckets[older] = map[netip.Addr]activityBytes{busy: {Up: 1}, addr: {Up: 1}}
+	a.buckets[newer] = map[netip.Addr]activityBytes{busy: {Up: 1}}
+	a.entries = 3
+
+	a.observe(at, []Usage{{Addr: addr, UpBytes: 100}}, true)
+	a.observe(at.Add(10*time.Second), []Usage{{Addr: addr, UpBytes: 150}}, true)
+
+	if got := a.snapshot([]netip.Addr{addr}); len(got) != 1 || got[0].Bytes.Up != 50 {
+		t.Fatalf("a full history stopped recording: %+v", got)
+	}
+	if _, ok := a.buckets[older]; ok {
+		t.Fatal("the oldest bucket was kept instead of making room")
+	}
+	if _, ok := a.buckets[newer]; !ok {
+		t.Fatal("a newer bucket was evicted before the oldest")
+	}
+	if a.entries > a.ceiling {
+		t.Fatalf("ceiling exceeded: %d entries", a.entries)
+	}
+}
+
+func TestActivitySaveForgetsEvictedBuckets(t *testing.T) {
+	store, err := runtimedb.Open(filepath.Join(t.TempDir(), "runtime.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	now := time.Now()
+	old := now.Add(-2 * time.Hour).Truncate(30 * time.Minute).Unix()
+	addr := netip.MustParseAddr("192.168.1.2")
+	a := NewActivity()
+	a.db = store
+	a.buckets[old] = map[netip.Addr]activityBytes{addr: {Up: 10, Down: 5}}
+	a.entries = 1
+	if err := a.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if rows, err := store.Activity(0, now.Unix()); err != nil || len(rows) != 1 {
+		t.Fatalf("history was not stored: %+v %v", rows, err)
+	}
+
+	delete(a.buckets, old)
+	a.entries = 0
+	if err := a.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if rows, err := store.Activity(0, now.Unix()); err != nil || len(rows) != 0 {
+		t.Fatalf("an evicted bucket would come back after a restart: %+v %v", rows, err)
+	}
+}
 
 func TestActivityPersistenceAndRestartBaseline(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state", "activity.json")
