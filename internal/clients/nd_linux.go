@@ -43,6 +43,12 @@ func (ND) Presence(_ context.Context) ([]Sighting, []Problem, error) {
 		if n.Family != netlink.FAMILY_V6 || len(n.HardwareAddr) < 6 || len(n.IP) == 0 {
 			continue
 		}
+		// A tunnel or loopback entry carries no hardware address at all — the
+		// kernel prints zeros — and a client keyed by it would be a device that
+		// does not exist, holding traffic that nobody asked about.
+		if net.HardwareAddr(n.HardwareAddr).String() == "00:00:00:00:00:00" {
+			continue
+		}
 		// INCOMPLETE and FAILED entries are a question the kernel is still
 		// asking, not an answer: the hardware address beside them is a
 		// placeholder, and treating one as an owner would hand a client another
