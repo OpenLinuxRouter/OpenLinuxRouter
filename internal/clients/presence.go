@@ -3,6 +3,7 @@ package clients
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"slices"
 	"strings"
 	"time"
@@ -34,6 +35,12 @@ const (
 	// printer that never speaks DHCP, which is the case §10 decision 7 was
 	// worried about.
 	SourceARP Source = "arp"
+
+	// SourceND is the same table's IPv6 half. It is a source of its own rather
+	// than a mode of ARP because the two are read differently — a text file the
+	// kernel formats versus netlink — and because an operator diagnosing "why
+	// does this phone show no address" needs to know which half answered.
+	SourceND Source = "nd"
 )
 
 // Sighting is one source's observation of one hardware address.
@@ -71,6 +78,54 @@ type PresenceSource interface {
 
 	// Presence returns what the source can see right now.
 	Presence(ctx context.Context) ([]Sighting, []Problem, error)
+}
+
+// Owners maps every address a source has seen to the client that holds it.
+//
+// The accounting sets are keyed by address and every screen is keyed by client,
+// so this is the join between them, and the reason traffic history is stored per
+// client: one phone rotating its IPv6 address daily would otherwise be a new
+// history row every day, none of which the phone's own page could ever ask for.
+//
+// A neighbour entry beats a lease. A lease outlives the device that took it and
+// an address is handed to the next client while the old lease is still on file;
+// the neighbour table is what the kernel currently believes, which is the only
+// claim worth keying history to. Among neighbours — and among leases — the one
+// that is still active wins, and a tie keeps the first, so two reads of an
+// unchanged network produce the same map.
+func Owners(sightings []Sighting) map[netip.Addr]string {
+	type claim struct {
+		mac    string
+		rank   int
+		active bool
+	}
+	best := map[netip.Addr]claim{}
+	for _, s := range sightings {
+		mac, err := core.NormalizeMAC(s.MAC)
+		if err != nil {
+			continue
+		}
+		addr, err := netip.ParseAddr(strings.TrimSpace(s.IP))
+		if err != nil {
+			continue
+		}
+		rank := 2
+		if s.Source == SourceDHCPLease {
+			rank = 1
+		}
+		next := claim{mac: mac, rank: rank, active: s.Active}
+		if current, ok := best[addr.Unmap()]; ok {
+			if next.rank < current.rank || (next.rank == current.rank && (!next.active || current.active)) {
+				continue
+			}
+		}
+		best[addr.Unmap()] = next
+	}
+	out := make(map[netip.Addr]string, len(best))
+	for addr, c := range best {
+		out[addr] = c.mac
+	}
+	return out
 }
 
 // Presence is every source's observations of one device, merged.

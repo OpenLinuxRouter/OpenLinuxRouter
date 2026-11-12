@@ -412,12 +412,16 @@ func run(args []string) error {
 	// from two that could drift.
 	clientsApplier := clients.Applier{
 		Store: store,
-		// Two presence sources, and the pair is the point: leases know about
+		// Three presence sources, and the set is the point: leases know about
 		// anything that asked for an address, ARP sees the statically-addressed
-		// printer that never did (§10 decision 7).
+		// printer that never did (§10 decision 7), and ND is the IPv6 half ARP
+		// has never had. Without ND a dual-stack client is one address on screen
+		// and five in the kernel, which is also what traffic history used to be
+		// keyed by.
 		Presence: []clients.PresenceSource{
 			dhcpPresence{applier: applier},
 			clients.ARP{},
+			clients.ND{},
 		},
 		Fixed:    dhcpFixedAddresses{applier: applier},
 		Networks: dhcpNetworks{applier: applier},

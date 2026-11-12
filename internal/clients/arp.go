@@ -21,9 +21,9 @@ import (
 // dependencies and that restraint is a stated project value; pulling in a
 // netlink library to read a table the kernel already formats as text would be
 // the wrong first reach. The cost is that this is IPv4 only — /proc/net/arp has
-// no IPv6 half, and ND needs netlink, which is `link`'s problem to solve in
-// milestone 1. Because both live behind PresenceSource, ND lands later as a
-// third implementation and nothing else moves.
+// no IPv6 half. That half is ND, which reads the same table through the netlink
+// library the last-heard sampler already links; both live behind PresenceSource,
+// so the client list joins them without knowing which half answered.
 type ARP struct {
 	// Path is the table to read. Empty means ARPPath. Injectable so the parser
 	// is testable against fixtures — including malformed ones — on a machine
