@@ -441,13 +441,17 @@ explicit apply actions; selected values are batch choices, not observed shared
 settings. List member devices below the summary.
 
 Gateway's landing page is a directory of choices, not a status report. It has
-five groups, each naming a part of the router and each holding the ways of
+six groups, each naming a part of the router and each holding the ways of
 building that part: Internet (DHCP, PPPoE, a static address), Interfaces &
 routing (the interfaces, the route table, external rules), DHCP (dnsmasq, and
-Kea when it lands), DNS (unbound, and the resolvers OLR will offer beside it)
-and Firewall (nftables, port forwarding, external filtering). The order runs
-from the two parts an operator sets up once to the three whose shipped defaults
-most installs keep.
+Kea when it lands), DNS (unbound, and the resolvers OLR will offer beside it),
+Firewall (nftables, firewalld, ufw, port forwarding, external filtering) and
+Intrusion prevention (fail2ban, CrowdSec). The order runs from the two parts an
+operator sets up once to the three whose shipped defaults most installs keep,
+and closes with the two services that act on what the firewall and the daemons
+log. A choice OLR does not configure — firewalld, ufw, fail2ban, CrowdSec —
+links to the project's own site and says the setup is external, never claiming
+a page OLR does not have.
 
 A tile names a choice, never a module and never a mechanism: the word on it is
 the one an operator would use to pick it, and the sentence that explains it is

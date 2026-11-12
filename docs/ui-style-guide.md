@@ -185,9 +185,9 @@ page title is accessible but visually hidden; avoid a repeated introductory
 heading above the step navigation.
 
 Gateway's landing page is a directory, in the launcher Access and Advanced
-already use: five groups in the order an operator arrives at them — Internet,
-Interfaces & routing, DHCP, DNS and Firewall — each holding one tile per way of
-building that part. Use three columns on phones, five from 640px, seven from
+already use: six groups in the order an operator arrives at them — Internet,
+Interfaces & routing, DHCP, DNS, Firewall and Intrusion prevention — each
+holding one tile per way of building that part. Use three columns on phones, five from 640px, seven from
 1024px and eight from 1280px, with the group's 24px/32px heading above it and
 each tile a letter in the group's hue, so the tint groups the tiles without a
 legend. Names stay on one line and nothing prints under them.
@@ -196,8 +196,10 @@ A choice OLR cannot configure yet keeps its tile at 55% opacity, with no pointer
 and no destination: a group states what it will contain instead of growing a
 tile at a time. It is not an external setup, so it never borrows that state's
 language, and its tooltip says plainly that nothing opens. A tile that is a link
-opens the one page that configures the choice; the directory has no status
-strip, no switch, no draft, and no tile that opens a dialog.
+opens the one page that configures the choice. A choice OLR does not configure
+at all — firewalld, ufw, fail2ban, CrowdSec — links to the project's own site in
+a new tab instead, and its tooltip says the setup is external. The directory has
+no status strip, no switch, no draft, and no tile that opens a dialog.
 
 The interface cards and the two stacks, IPv4 and IPv6, that used to be this
 page are not on it any more: a stack card's answer and the switch that changes

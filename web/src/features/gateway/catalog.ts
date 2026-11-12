@@ -27,6 +27,11 @@ export interface GatewayChoice {
   description: string
   /** The page that configures this choice. Absent while it is planned. */
   to?: string
+  /**
+   * The project's own site, for a choice OLR does not configure. A tile with
+   * neither `to` nor `planned` leaves the app and says so on hover.
+   */
+  href?: string
   /** A choice this group will carry, not yet configurable. */
   planned?: boolean
 }
@@ -168,6 +173,20 @@ export const GATEWAY_GROUPS: GatewayGroup[] = [
         to: '/firewall',
       },
       {
+        id: 'firewalld',
+        name: 'firewalld',
+        letter: 'F',
+        description: 'Zones and services over nftables, kept by a daemon of its own.',
+        href: 'https://firewalld.org/',
+      },
+      {
+        id: 'ufw',
+        name: 'ufw',
+        letter: 'U',
+        description: 'Ubuntu’s short list of allow and deny rules, applied through iptables-nft.',
+        href: 'https://launchpad.net/ufw',
+      },
+      {
         id: 'forwards',
         get name() { return t('Port forwarding') },
         letter: 'P',
@@ -180,6 +199,29 @@ export const GATEWAY_GROUPS: GatewayGroup[] = [
         letter: 'E',
         description: 'Forwarding policies outside OLR management, shown read-only.',
         to: '/advanced/filtering',
+      },
+    ],
+  },
+  {
+    // Not firewalls: they read what the services log and act on an address, so
+    // they sit after the rules rather than among the ways of writing them.
+    id: 'intrusion',
+    get title() { return t('Intrusion prevention') },
+    hue: 320,
+    choices: [
+      {
+        id: 'fail2ban',
+        name: 'fail2ban',
+        letter: 'F',
+        description: 'Bans an address after repeated failed logins, read from the services’ logs.',
+        href: 'https://github.com/fail2ban/fail2ban',
+      },
+      {
+        id: 'crowdsec',
+        name: 'CrowdSec',
+        letter: 'C',
+        description: 'Applies community decisions through a bouncer beside the packet filter.',
+        href: 'https://www.crowdsec.net/',
       },
     ],
   },

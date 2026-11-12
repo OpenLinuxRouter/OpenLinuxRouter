@@ -26,6 +26,7 @@ export function GatewayDirectory() {
               description={choice.description}
               mark={{ kind: 'letter', letter: choice.letter, hue: group.hue }}
               to={choice.to}
+              href={choice.href}
               planned={choice.planned}
             />
           ))}
