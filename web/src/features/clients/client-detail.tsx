@@ -1,7 +1,8 @@
 import { t, useLocale } from '@/lib/i18n'
-import { Tag, Trash2 } from 'lucide-react'
+import { Cable, Tag, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
+import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -28,7 +29,8 @@ import { DeviceIcon } from '@/features/clients/client-icon'
 import { groupOptions } from '@/features/clients/group-tree'
 import { categoryLabel } from '@/features/clients/icons'
 import { lastHeardTitle } from '@/features/clients/last-heard'
-import type { ClientRow } from '@/lib/api-types'
+import { describeError } from '@/features/clients/queries'
+import type { ClientLocation, ClientRow } from '@/lib/api-types'
 import type { Client, ClientsGroup, GatewayConfig } from '@/lib/config-types'
 
 /**
@@ -240,6 +242,8 @@ export function ClientDetail({
             </div>
           )}
 
+          <Attached device={device} />
+
           <Observed device={device} />
         </div>
 
@@ -318,6 +322,88 @@ function FixedAddress({ device, onEdit }: { device: ClientRow; onEdit: () => voi
           {device.fixed_ip ? t('Change') : 'Reserve'}
         </Button>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Where the device is plugged in, asked of the equipment rather than claimed.
+ *
+ * Not fetched when the dialog opens: the answer costs a round trip to every
+ * switch that can report a forwarding table, and a switch that is off would
+ * hold the dialog open for up to twenty seconds. So this is a question the
+ * operator asks, and the button says so. A device that cannot report its ports
+ * is named in the answer — "that switch cannot say" is different from "it
+ * looked and the device is not there".
+ */
+function Attached({ device }: { device: ClientRow }) {
+  useLocale()
+  const [state, setState] = useState<'idle' | 'asking' | 'done'>('idle')
+  const [result, setResult] = useState<ClientLocation>()
+  const [error, setError] = useState('')
+
+  async function ask() {
+    setState('asking')
+    setError('')
+    try {
+      const answer = await api.get<ClientLocation>(
+        `/api/clients/${encodeURIComponent(device.mac)}/location`,
+      )
+      setResult(answer)
+    } catch (e) {
+      setError(describeError(e))
+    } finally {
+      setState('done')
+    }
+  }
+
+  const answers = result?.locations ?? []
+  const problems = result?.problems ?? []
+
+  return (
+    <div className="rounded-lg border p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            <Cable className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />{' '}
+            {t('Attached to')}{' '}
+          </div>
+          <div className="mt-0.5 text-[0.8rem] text-muted-foreground">
+            {state === 'idle' && t('Ask the switches which port this device is plugged into.')}
+            {state === 'asking' && t('Asking the switches…')}
+            {state === 'done' && error !== '' && error}
+            {state === 'done' &&
+              error === '' &&
+              answers.length === 0 &&
+              t('No switch that can report its ports has this device.')}
+            {state === 'done' &&
+              answers.map((a) => (
+                <div key={`${a.device_id}-${a.port}`} className="mt-1 font-mono">
+                  {a.device ?? a.device_id} · {t('Port')} {a.port}
+                  {a.vlan ? ` · VLAN ${a.vlan}` : ''}
+                </div>
+              ))}
+          </div>
+          {state === 'done' && error === '' && answers.length > 0 && (
+            <div className="mt-1 text-[0.8rem] text-muted-foreground">
+              {t('As the switch learnt it, so it is the last time the device spoke.')}
+            </div>
+          )}
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={state === 'asking'}
+          onClick={() => void ask()}
+        >
+          {state === 'done' ? t('Ask again') : t('Find it')}
+        </Button>
+      </div>
+      {state === 'done' && problems.length > 0 && (
+        <p className="mt-2 text-[0.8rem] text-muted-foreground">
+          {problems.map((p) => p.message).join('; ')}
+        </p>
+      )}
     </div>
   )
 }

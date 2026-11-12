@@ -785,6 +785,33 @@ export interface ClientList {
 }
 
 /**
+ * What the network equipment says about where one client is attached.
+ *
+ * A separate request from /list on purpose: answering costs a round trip to
+ * every switch that can report a forwarding table, and a list of forty clients
+ * would pay that forty times on every repaint. Empty `locations` with no
+ * `problems` means every device was asked and none of them has the client.
+ */
+export interface ClientLocation {
+  mac: string
+  locations: ClientLocationEntry[]
+
+  /** The devices that could not answer: no forwarding table, or no reply. */
+  problems?: Problem[]
+  as_of: string
+}
+
+export interface ClientLocationEntry {
+  device_id: string
+  device?: string
+
+  /** The device's own port identifier, verbatim: "5" or "lan2". */
+  port: string
+  vlan?: number
+  observed_at: string
+}
+
+/**
  * The result of storing identity.
  *
  * No `steps`, unlike dhcp's ApplyResult: this module writes one document

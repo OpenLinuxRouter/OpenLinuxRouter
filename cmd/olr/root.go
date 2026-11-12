@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-linux-router/open-linux-router/internal/cli"
+	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/dhcp"
 	"github.com/open-linux-router/open-linux-router/internal/dial"
@@ -37,6 +38,7 @@ func newRoot() *cobra.Command {
 	root.AddCommand(
 		system.Command(),
 		link.Command(),
+		clients.Command(),
 		devices.Command(),
 		dial.Command(),
 		dhcp.Command(),

@@ -1,0 +1,12 @@
+List every client, joining identity to observed presence
+
+Usage:
+  olr clients show list [flags]
+
+Flags:
+  -h, --help   help for list
+
+Global Flags:
+      --dry-run         show what would change and exit without applying it
+  -o, --output string   output format: text|json (default "text")
+      --socket string   olrd control socket (default "/run/olr/olrd.sock")

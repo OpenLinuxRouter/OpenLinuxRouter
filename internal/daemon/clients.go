@@ -2,12 +2,16 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"net/netip"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/open-linux-router/open-linux-router/internal/clients"
 	"github.com/open-linux-router/open-linux-router/internal/core"
+	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/dhcp"
 	"github.com/open-linux-router/open-linux-router/internal/dns"
 )
@@ -240,4 +244,90 @@ func (d dnsReservations) Reservations() ([]dns.Reservation, error) {
 		out = append(out, dns.Reservation{MAC: mac, IP: r.IP, Hostname: r.Hostname})
 	}
 	return out, nil
+}
+
+// deviceLocations answers "which port is this client on" from the equipment
+// inventory: every switch or access point that can report a forwarding table is
+// asked the same question, in parallel.
+//
+// Parallel because each device is an independent endpoint and the page would
+// otherwise wait for the sum; the service's per-device lanes still serialize two
+// requests to the same switch. A device that cannot answer is a problem, not an
+// error: "this switch has no such feature" and "this switch looked and the
+// client is not there" are different answers, and only the first is a problem.
+type deviceLocations struct {
+	service *devices.Service
+}
+
+func (d deviceLocations) Locations(ctx context.Context, mac string) ([]clients.Location, []core.Problem, error) {
+	cfg, err := devices.Load(d.service.Store)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var (
+		mu        sync.Mutex
+		locations []clients.Location
+		problems  []core.Problem
+		wg        sync.WaitGroup
+	)
+	for _, dev := range cfg.Devices {
+		wg.Add(1)
+		go func(dev devices.Device) {
+			defer wg.Done()
+
+			name := dev.Name
+			if name == "" {
+				name = dev.ID
+			}
+
+			result, err := d.service.Lookup(ctx, dev.ID, devices.FDBQuery{MAC: mac})
+
+			mu.Lock()
+			defer mu.Unlock()
+			switch {
+			case errors.Is(err, devices.ErrUnsupported):
+				problems = append(problems, core.Problem{
+					Path:    dev.ID,
+					Message: name + " cannot report which of its ports a client is on",
+				})
+			case err != nil:
+				problems = append(problems, core.Problem{
+					Path:    dev.ID,
+					Message: "could not ask " + name + ": " + err.Error(),
+				})
+			default:
+				for _, e := range result.Entries {
+					locations = append(locations, clients.Location{
+						DeviceID:   dev.ID,
+						Device:     name,
+						Port:       e.PortID,
+						VLAN:       vlanID(e.VLAN),
+						ObservedAt: result.ObservedAt,
+					})
+				}
+			}
+		}(dev)
+	}
+	wg.Wait()
+
+	// Device order is configuration order, and two reads of an unchanged
+	// network must produce the same reply — the same reason Merge sorts.
+	sort.Slice(locations, func(i, j int) bool {
+		if locations[i].DeviceID != locations[j].DeviceID {
+			return locations[i].DeviceID < locations[j].DeviceID
+		}
+		return locations[i].Port < locations[j].Port
+	})
+	sort.Slice(problems, func(i, j int) bool { return problems[i].Path < problems[j].Path })
+
+	return locations, problems, nil
+}
+
+// vlanID is the device's VLAN, zero when it did not report one.
+func vlanID(vlan *int) int {
+	if vlan == nil {
+		return 0
+	}
+	return *vlan
 }

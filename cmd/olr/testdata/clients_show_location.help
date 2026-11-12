@@ -1,0 +1,12 @@
+Ask the network equipment which port a client is attached to
+
+Usage:
+  olr clients show location <mac> [flags]
+
+Flags:
+  -h, --help   help for location
+
+Global Flags:
+      --dry-run         show what would change and exit without applying it
+  -o, --output string   output format: text|json (default "text")
+      --socket string   olrd control socket (default "/run/olr/olrd.sock")

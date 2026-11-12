@@ -407,6 +407,12 @@ func run(args []string) error {
 		}
 	}
 
+	// One equipment service for the whole process: the client list asks it
+	// where a client is attached, and the devices module serves the same
+	// inventory, so a cached credential or a pending operation cannot be seen
+	// by one surface and not the other.
+	devicesService := devices.NewService(store)
+
 	// Hoisted out of the Mount call because `ingress` reads devices through it
 	// too. One Applier, so both surfaces answer from the same join rather than
 	// from two that could drift.
@@ -425,7 +431,11 @@ func run(args []string) error {
 		},
 		Fixed:    dhcpFixedAddresses{applier: applier},
 		Networks: dhcpNetworks{applier: applier},
-		Seen:     seen,
+		// Where a client is attached is the switches' answer, not this
+		// router's: the router routes, and only a bridge or a switch learns
+		// which port a frame arrived on. Absent equipment means no answer.
+		Locator: deviceLocations{service: devicesService},
+		Seen:    seen,
 	}
 	clientsApplier.BeforeSave = func(doc *core.Document) error {
 		return preserveIngressClients(doc, ingressClients{applier: clientsApplier})
@@ -439,7 +449,7 @@ func run(args []string) error {
 
 	// Remote equipment is observed on demand; inventory writes never alter it.
 	srv.Mount(devices.ModuleName, devices.HTTP{
-		Service: devices.NewService(store), Lock: srv.ApplyLock(), Events: srv.Events(),
+		Service: devicesService, Lock: srv.ApplyLock(), Events: srv.Events(),
 	}.Routes(), devices.Config{})
 
 	bootID, bootErr := os.ReadFile("/proc/sys/kernel/random/boot_id")

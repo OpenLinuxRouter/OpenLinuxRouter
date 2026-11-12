@@ -1,0 +1,18 @@
+Inspect the client inventory
+
+Usage:
+  olr clients show [command]
+
+Available Commands:
+  list        List every client, joining identity to observed presence
+  location    Ask the network equipment which port a client is attached to
+
+Flags:
+  -h, --help   help for show
+
+Global Flags:
+      --dry-run         show what would change and exit without applying it
+  -o, --output string   output format: text|json (default "text")
+      --socket string   olrd control socket (default "/run/olr/olrd.sock")
+
+Use "olr clients show [command] --help" for more information about a command.

@@ -149,6 +149,39 @@ type listResponse struct {
 	AsOf time.Time `json:"as_of"`
 }
 
+// locationResponse is what the equipment said about one client.
+type locationResponse struct {
+	MAC       string         `json:"mac"`
+	Locations []locationView `json:"locations"`
+
+	// Problems are the devices that could not answer: no forwarding table, or
+	// no reply. An empty Locations with no Problems means every device answered
+	// and none of them has the client.
+	Problems []core.Problem `json:"problems,omitempty"`
+
+	AsOf time.Time `json:"as_of"`
+}
+
+// locationView is one device's answer, kept verbatim for the reason
+// Location.Port gives: "5" and "lan2" are what the labels on the hardware say.
+type locationView struct {
+	DeviceID   string    `json:"device_id"`
+	Device     string    `json:"device,omitempty"`
+	Port       string    `json:"port"`
+	VLAN       int       `json:"vlan,omitempty"`
+	ObservedAt time.Time `json:"observed_at"`
+}
+
+func viewLocation(l Location) locationView {
+	return locationView{
+		DeviceID:   l.DeviceID,
+		Device:     l.Device,
+		Port:       l.Port,
+		VLAN:       l.VLAN,
+		ObservedAt: l.ObservedAt,
+	}
+}
+
 // --- plan ------------------------------------------------------------------
 
 // planView mirrors internal/dhcp's plan shape on purpose.

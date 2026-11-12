@@ -7,6 +7,7 @@ Usage:
   olr [command]
 
 Modules:
+  clients     Name devices and see where they are attached
   devices     Devices: switches, access points and routers olr can read
   dhcp        DHCP server (dnsmasq)
   dial        Internet uplink, and a public name that follows it

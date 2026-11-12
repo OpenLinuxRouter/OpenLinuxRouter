@@ -1,0 +1,17 @@
+Name devices and see where they are attached
+
+Usage:
+  olr clients [command]
+
+Available Commands:
+  show        Inspect the client inventory
+
+Flags:
+  -h, --help   help for clients
+
+Global Flags:
+      --dry-run         show what would change and exit without applying it
+  -o, --output string   output format: text|json (default "text")
+      --socket string   olrd control socket (default "/run/olr/olrd.sock")
+
+Use "olr clients [command] --help" for more information about a command.

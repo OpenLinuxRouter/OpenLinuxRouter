@@ -2,6 +2,7 @@ package clients
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,6 +18,12 @@ import (
 // in config.go, validate.go, list.go and apply.go, and this file only translates
 // between those and HTTP. A rule that appears here and nowhere else is in the
 // wrong place, because the CLI would not get it.
+
+// locationTimeout bounds the whole "where is this client" question. It is
+// shorter than the device service's own thirty-second read budget on purpose: a
+// switch that is unplugged is the common failure, and a page that waits thirty
+// seconds to say "we could not ask" is worse than one that says it in twenty.
+const locationTimeout = 20 * time.Second
 
 // HTTP serves the module. Its fields are what the module needs from core
 // (design.md §3.1 — modules call core, not the reverse).
@@ -119,6 +126,18 @@ func (h HTTP) Routes() []core.Route {
 			Summary: "List every client known on the network, joining stored identity to observed presence: " +
 				"who is here now, what address they hold, and when they were last seen.",
 			Handler: h.getList,
+		},
+
+		// Where, not what. Deliberately not a field on /list: answering it costs
+		// a round trip to every switch that can report a forwarding table, and a
+		// list of forty clients would pay that forty times on every repaint.
+		// Asked one client at a time, it is one round trip per switch.
+		{
+			Method: "GET", Path: "/{mac}/location", Tool: "show location",
+			Summary: "Ask the network equipment which port a client is attached to. " +
+				"A switch that cannot report a forwarding table is reported as unable to answer, " +
+				"not as having looked and found nothing.",
+			Handler: h.getLocation,
 		},
 	}
 }
@@ -449,6 +468,40 @@ func (h HTTP) postPlan(w http.ResponseWriter, r *http.Request) {
 }
 
 // --- the list -------------------------------------------------------------
+
+// getLocation asks the equipment where one client is attached.
+//
+// It returns what each device said, not a single winner: the same MAC can be
+// learnt on ports of two switches (a downstream switch between them), and
+// picking one would be inventing a topology this router cannot see.
+func (h HTTP) getLocation(w http.ResponseWriter, r *http.Request) {
+	mac, err := core.NormalizeMAC(r.PathValue("mac"))
+	if err != nil {
+		core.WriteError(w, http.StatusBadRequest, "invalid MAC address")
+		return
+	}
+
+	resp := locationResponse{MAC: mac, Locations: []locationView{}, AsOf: time.Now()}
+	if h.Applier.Locator != nil {
+		// Bounded: the device service allows one read thirty seconds, and a
+		// switch that is off must not hold a page open for that long. The
+		// devices are asked in parallel, so this bounds the slowest, not the sum.
+		ctx, cancel := context.WithTimeout(r.Context(), locationTimeout)
+		defer cancel()
+
+		locations, problems, err := h.Applier.Locator.Locations(ctx, mac)
+		if err != nil {
+			core.WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		resp.Problems = problems
+		for _, l := range locations {
+			resp.Locations = append(resp.Locations, viewLocation(l))
+		}
+	}
+
+	core.WriteJSON(w, http.StatusOK, resp)
+}
 
 func (h HTTP) getList(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()

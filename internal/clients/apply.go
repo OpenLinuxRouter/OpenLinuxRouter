@@ -37,6 +37,11 @@ type Applier struct {
 	// omits them rather than claiming there are none.
 	Fixed FixedAddressView
 
+	// Locator answers where a client is attached, from the equipment inventory.
+	// Nil means no port can be reported, which is what a router with no managed
+	// switch in front of it honestly knows.
+	Locator Locator
+
 	// Networks is the window onto whoever owns the address ranges. Nil means a
 	// device is placed only when a source saw which interface it was on, which
 	// is a smaller answer rather than a wrong one.
