@@ -70,8 +70,8 @@ function isTableRow(line) {
 export function extractMeta(source) {
   const lines = source.split('\n')
   let title = ''
-  let summary = ''
   let seenTitle = false
+  const paragraphs = []
   let buffer = []
 
   for (const line of lines) {
@@ -82,21 +82,34 @@ export function extractMeta(source) {
       }
       continue
     }
-    if (summary) break
-    if (!line.trim()) {
+
+    const blockStart = /^(#{1,4}\s|\|\s*$|```)/.test(line)
+    if (blockStart) {
       if (buffer.length) {
-        summary = buffer.join(' ').trim()
+        paragraphs.push(buffer.join(' ').trim())
         buffer = []
       }
       continue
     }
-    if (line.startsWith('#') || line.startsWith('|') || line.startsWith('```')) {
-      if (buffer.length) summary = buffer.join(' ').trim()
+
+    if (!line.trim()) {
+      if (buffer.length) {
+        paragraphs.push(buffer.join(' ').trim())
+        buffer = []
+      }
+      if (paragraphs.length >= 3) break
       continue
     }
+
     buffer.push(line.trim())
+    if (paragraphs.length >= 3) break
   }
-  if (!summary && buffer.length) summary = buffer.join(' ').trim()
+  if (buffer.length) paragraphs.push(buffer.join(' ').trim())
+
+  // "Status: built" tells a maintainer where the code is, not a reader what the
+  // page is for. Prefer the first paragraph that introduces the subject.
+  const summary =
+    paragraphs.find((p) => p && !/^Status:/i.test(p)) ?? paragraphs[0] ?? ''
 
   return { title: plain(title) || 'Untitled', summary: plain(summary) }
 }
