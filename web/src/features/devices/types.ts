@@ -120,6 +120,8 @@ export interface Radio {
   id: string
   enabled?: boolean
   band?: string
+  /** The PHY standard the radio runs now; `protocols` is what it could run. */
+  protocol?: string
   channel?: number
   width_mhz?: number
   configured_width_mhz?: number
@@ -130,6 +132,14 @@ export interface Radio {
   utilization_percent?: number
 }
 
+/** Roaming is what the access point offers, not what any client has used. */
+export interface Roaming {
+  fast_transition?: boolean
+  mobility_domain?: string
+  neighbor_reports?: boolean
+  bss_transition?: boolean
+}
+
 export interface WirelessNetwork {
   id: string
   radio_id: string
@@ -138,6 +148,7 @@ export interface WirelessNetwork {
   bssid?: string
   mode?: string
   encryption?: string
+  roaming?: Roaming
   network_names?: string[]
 }
 
@@ -154,6 +165,9 @@ export interface Association {
   tx_rate_mbps?: number
   rx_mcs?: number
   tx_mcs?: number
+  /** The standard each direction used; one can be newer than the other. */
+  rx_protocol?: string
+  tx_protocol?: string
   rx_width_mhz?: number
   tx_width_mhz?: number
   expected_mbps?: number

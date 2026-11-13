@@ -24,7 +24,7 @@ import { DeviceIcon } from '@/features/clients/client-icon'
 import { useClientList } from '@/features/clients/queries'
 import { DeviceDialog, type DeviceDraft } from '@/features/devices/device-dialog'
 import { useDeviceEditor, useDevicesConfig, useNetworkSnapshot } from '@/features/devices/queries'
-import type { Association, Neighbour, Device, Radio, ScanResult, Snapshot } from '@/features/devices/types'
+import type { Association, Neighbour, Device, Radio, Roaming, ScanResult, Snapshot } from '@/features/devices/types'
 import type { ClientRow } from '@/lib/api-types'
 import { cn, formatBytes } from '@/lib/utils'
 
@@ -36,17 +36,19 @@ import {
   formatDuration,
   formatIdle,
   isPrivateAddress,
-  linkTech,
+  linkLabel,
+  linkMode,
   networkFor,
   occupancyByChannel,
   radioFor,
+  radioStandard,
   scanSummary,
+  securityLabel,
   signalBars,
   signalLevel,
   snr,
   sortClients,
   sortNeighbours,
-  standardLabel,
   wirelessQuery,
 } from './wireless'
 
@@ -268,7 +270,7 @@ function WirelessBody({ tab, snapshot, devices, onChangeTab }: {
 function BandCard({ radio, snapshot }: { radio: Radio; snapshot: Snapshot }) {
   const network = networkForRadio(radio, snapshot)
   const clients = (snapshot.associations ?? []).filter(client => client.radio_id === radio.id).length
-  const standard = standardLabel(radio.protocols)
+  const standard = radioStandard(radio)
   const mismatch = radio.width_mhz != null && radio.configured_width_mhz != null && radio.width_mhz < radio.configured_width_mhz
   const enabled = radio.enabled !== false
 
@@ -276,9 +278,10 @@ function BandCard({ radio, snapshot }: { radio: Radio; snapshot: Snapshot }) {
     <Card className="gap-0 py-0">
       <div className="space-y-4 p-5">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Heading as="h2" size="sm">{bandLabel(radio.band)}</Heading>
-            {standard && <Badge variant="secondary">{standard}</Badge>}
+            {standard.label && <Badge variant="secondary">{standard.label}</Badge>}
+            {standard.newer && <span className="text-xs text-muted-foreground">{t('supports {standard}', { standard: standard.newer })}</span>}
           </div>
           <StatusInline tone={enabled ? 'ok' : 'off'}>{enabled ? t('On') : t('Off')}</StatusInline>
         </div>
@@ -312,9 +315,49 @@ function BandCard({ radio, snapshot }: { radio: Radio; snapshot: Snapshot }) {
             <span>{t('Configured {configured} MHz, running {actual} MHz. The driver may have fallen back.', { configured: radio.configured_width_mhz ?? 0, actual: radio.width_mhz ?? 0 })}</span>
           </div>
         )}
+        <NetworkFacts network={network} />
       </div>
     </Card>
   )
+}
+
+/**
+ * What the network offers besides a channel: how it authenticates, and whether
+ * devices can move to another access point without reconnecting.
+ */
+function NetworkFacts({ network }: { network: ReturnType<typeof networkForRadio> }) {
+  if (!network) return null
+  return (
+    <dl className="space-y-1.5 border-t border-border pt-3 text-xs">
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <dt className="text-muted-foreground">{t('Security')}</dt>
+        <dd>{t(securityLabel(network.encryption))}</dd>
+      </div>
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <dt className="text-muted-foreground">{t('Roaming')}</dt>
+        <dd className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <RoamingList roaming={network.roaming} />
+        </dd>
+      </div>
+    </dl>
+  )
+}
+
+/** Three mechanisms, each named for what a client gets, with the dot carrying on or off. */
+function RoamingList({ roaming }: { roaming?: Roaming }) {
+  const features = [
+    { label: t('Fast roaming'), on: roaming?.fast_transition },
+    { label: t('Neighbour reports'), on: roaming?.neighbor_reports },
+    { label: t('Client steering'), on: roaming?.bss_transition },
+  ].filter(feature => feature.on != null)
+  if (!features.length) return <span className="text-muted-foreground">{t('Not reported')}</span>
+  return features.map(feature => (
+    <span key={feature.label} className="inline-flex items-center gap-1.5">
+      <StatusDot tone={feature.on ? 'ok' : 'off'} />
+      {feature.label}
+      <span className="sr-only">{feature.on ? t('On') : t('Off')}</span>
+    </span>
+  ))
 }
 
 function Metric({ label, value, sub, subClassName, bar }: {
@@ -728,7 +771,7 @@ function ClientTable({ snapshot, clients, devices, expanded, onSelect, onToggle 
                     <span className="text-receive">↓ {rate(client.tx_rate_mbps)}</span>
                     <span className="text-transmit">↑ {rate(client.rx_rate_mbps)}</span>
                   </div>
-                  <div className="text-[11px] text-muted-foreground">{linkTech(client, radio) || t('Rate unknown')}</div>
+                  <div className="text-[11px] text-muted-foreground">{linkLabel(client)}</div>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   <div className="text-sm tabular-nums">{formatDuration(client.connected_seconds)}</div>
@@ -738,7 +781,7 @@ function ClientTable({ snapshot, clients, devices, expanded, onSelect, onToggle 
               {onToggle && open && (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={5} className="whitespace-normal bg-muted/20 p-4">
-                    <ClientDetail client={client} snapshot={snapshot} network={network} band={band} />
+                    <ClientDetail client={client} network={network} band={band} />
                   </TableCell>
                 </TableRow>
               )}
@@ -751,9 +794,8 @@ function ClientTable({ snapshot, clients, devices, expanded, onSelect, onToggle 
   )
 }
 
-function ClientDetail({ client, snapshot, network, band }: {
+function ClientDetail({ client, network, band }: {
   client: Association
-  snapshot: Snapshot
   network: ReturnType<typeof networkFor>
   band: string
 }) {
@@ -761,10 +803,19 @@ function ClientDetail({ client, snapshot, network, band }: {
     <div className="grid gap-5 sm:grid-cols-3">
       <section className="space-y-1.5">
         <DetailTitle>{t('Link')}</DetailTitle>
-        <DetailRow label={t('Downlink rate')}>{mbps(client.tx_rate_mbps)}</DetailRow>
-        <DetailRow label={t('Uplink rate')}>{mbps(client.rx_rate_mbps)}</DetailRow>
+        <DetailRow label={t('Downlink rate')}>
+          <span className="block">{mbps(client.tx_rate_mbps)}</span>
+          {linkMode(client.tx_protocol, client.tx_mcs, client.tx_width_mhz) && (
+            <span className="block text-xs text-muted-foreground">{linkMode(client.tx_protocol, client.tx_mcs, client.tx_width_mhz)}</span>
+          )}
+        </DetailRow>
+        <DetailRow label={t('Uplink rate')}>
+          <span className="block">{mbps(client.rx_rate_mbps)}</span>
+          {linkMode(client.rx_protocol, client.rx_mcs, client.rx_width_mhz) && (
+            <span className="block text-xs text-muted-foreground">{linkMode(client.rx_protocol, client.rx_mcs, client.rx_width_mhz)}</span>
+          )}
+        </DetailRow>
         <DetailRow label={t('Expected throughput')}>{mbps(client.expected_mbps)}</DetailRow>
-        <DetailRow label={t('Technology')}>{linkTech(client, radioFor(client, snapshot)) || '—'}</DetailRow>
         <DetailRow label={t('Network')}>{network?.ssid || '—'}</DetailRow>
         <DetailRow label={t('Band')}>{band}</DetailRow>
       </section>

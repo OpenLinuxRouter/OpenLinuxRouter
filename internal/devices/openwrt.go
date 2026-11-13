@@ -547,6 +547,8 @@ func (o *OpenWrt) Read(ctx context.Context, d Device) (Snapshot, error) {
 				association.TXRateMbps = openwrtRate(c.TX.Rate)
 				association.RXMCS = c.RX.MCS
 				association.TXMCS = c.TX.MCS
+				association.RXProtocol = openwrtRateProtocol(c.RX)
+				association.TXProtocol = openwrtRateProtocol(c.TX)
 				association.RXWidthMHz = c.RX.MHz
 				association.TXWidthMHz = c.TX.MHz
 				association.Retries = c.TX.Retries
@@ -690,6 +692,13 @@ type openwrtWirelessConfig struct {
 	SSID       string          `json:"ssid"`
 	Encryption string          `json:"encryption"`
 	Networks   []string        `json:"network"`
+	// Roaming options are read as raw values: uci holds strings ("1") and
+	// LuCI's read model holds booleans, so a strict bool would fail a whole
+	// interface over a flag that is only ever enrichment.
+	FastTransition  json.RawMessage `json:"ieee80211r"`
+	NeighborReports json.RawMessage `json:"ieee80211k"`
+	BSSTransition   json.RawMessage `json:"bss_transition"`
+	MobilityDomain  string          `json:"mobility_domain"`
 }
 type openwrtWirelessRadio struct {
 	Up         *bool                 `json:"up"`
@@ -705,7 +714,8 @@ type openwrtWirelessRadio struct {
 func (s *openwrtSession) wireless(ctx context.Context) ([]Radio, []WirelessNetwork, error) {
 	var raw map[string]openwrtWirelessRadio
 	err := s.call(ctx, "network.wireless", "status", map[string]any{}, &raw, true)
-	if err != nil {
+	netifd := err == nil
+	if !netifd {
 		// Some builds do not grant netifd's wireless object to the management
 		// account. LuCI's own read model exposes the same radios and interfaces,
 		// including each interface's iwinfo, through a method those builds do
@@ -736,14 +746,14 @@ func (s *openwrtSession) wireless(ctx context.Context) ([]Radio, []WirelessNetwo
 		}
 		// Config.channel can be a preference (including auto); only get_status
 		// later supplies the radio's observed runtime channel.
-		radio := Radio{ID: id, Enabled: enabled, Band: r.Config.Band, ConfiguredWidthMHz: openwrtWidth(r.Config.HTMode)}
+		radio := Radio{ID: id, Enabled: enabled, Band: r.Config.Band, Protocol: openwrtProtocol(r.Config.HTMode), ConfiguredWidthMHz: openwrtWidth(r.Config.HTMode)}
 		radioIndex := len(radios)
 		radios = append(radios, radio)
 		for _, i := range r.Interfaces {
 			if i.Ifname == "" {
 				continue
 			}
-			network := WirelessNetwork{ID: i.Ifname, RadioID: id, InterfaceID: i.Ifname, SSID: i.Config.SSID, Mode: i.Config.Mode, Encryption: i.Config.Encryption, NetworkNames: i.Config.Networks}
+			network := WirelessNetwork{ID: i.Ifname, RadioID: id, InterfaceID: i.Ifname, SSID: i.Config.SSID, Mode: i.Config.Mode, Encryption: i.Config.Encryption, Roaming: openwrtRoaming(i.Config), NetworkNames: i.Config.Networks}
 			if i.IWInfo != nil {
 				openwrtApplyRadioInfo(radios[radioIndex:], id, *i.IWInfo)
 				if network.SSID == "" {
@@ -756,7 +766,39 @@ func (s *openwrtSession) wireless(ctx context.Context) ([]Radio, []WirelessNetwo
 			networks = append(networks, network)
 		}
 	}
+	// netifd's status carries the settings it needs to bring an interface up,
+	// not every wifi-iface option, so roaming is usually missing there even
+	// when the access point offers it. LuCI's read model returns the section
+	// as uci holds it. It is enrichment: a build without LuCI answers nothing
+	// and the snapshot reports roaming as unknown rather than absent.
+	if netifd {
+		if configs, e := s.wirelessConfigs(ctx); e == nil {
+			for i := range networks {
+				if networks[i].Roaming == nil {
+					networks[i].Roaming = openwrtRoaming(configs[networks[i].InterfaceID])
+				}
+			}
+		}
+	}
 	return radios, networks, shapeErr
+}
+
+// wirelessConfigs reads LuCI's view of the wifi-iface sections, keyed by
+// interface name.
+func (s *openwrtSession) wirelessConfigs(ctx context.Context) (map[string]openwrtWirelessConfig, error) {
+	var raw map[string]openwrtWirelessRadio
+	if err := s.call(ctx, "luci-rpc", "getWirelessDevices", map[string]any{}, &raw, true); err != nil {
+		return nil, err
+	}
+	configs := map[string]openwrtWirelessConfig{}
+	for _, r := range raw {
+		for _, i := range r.Interfaces {
+			if i.Ifname != "" {
+				configs[i.Ifname] = i.Config
+			}
+		}
+	}
+	return configs, nil
 }
 
 type openwrtHostStatus struct {
@@ -865,11 +907,95 @@ func openwrtApplyRadioInfo(radios []Radio, radioID string, info openwrtIWInfo) {
 		if width := openwrtWidth(info.HTMode); width != nil {
 			radios[i].WidthMHz = width
 		}
+		// iwinfo reports the mode the driver is running, which can be older
+		// than what the radio's advertised modes allow.
+		if protocol := openwrtProtocol(info.HTMode); protocol != "" {
+			radios[i].Protocol = protocol
+		} else if protocol := openwrtProtocol(info.HWMode); protocol != "" {
+			radios[i].Protocol = protocol
+		}
 		if len(info.HWMods) > 0 {
 			radios[i].Protocols = append([]string(nil), info.HWMods...)
 		}
 		return
 	}
+}
+
+// openwrtProtocol names the PHY standard behind an htmode ("EHT80") or a
+// single hwmode ("be"), because a link is labelled by generation.
+func openwrtProtocol(mode string) string {
+	value := strings.ToUpper(strings.TrimSpace(mode))
+	for _, known := range []struct{ prefix, protocol string }{
+		{"EHT", "be"},
+		{"HE", "ax"},
+		{"VHT", "ac"},
+		{"HT", "n"},
+	} {
+		if strings.HasPrefix(value, known.prefix) {
+			return known.protocol
+		}
+	}
+	switch strings.ToLower(value) {
+	case "be", "ax", "ac", "n":
+		return strings.ToLower(value)
+	}
+	return ""
+}
+
+// openwrtRateProtocol is the standard one direction of a link used. iwinfo
+// sets the flag of the rate it reports, and a newer standard implies the older
+// ones, so the newest flag wins.
+func openwrtRateProtocol(rate openwrtIWRate) string {
+	switch {
+	case rate.EHT != nil && *rate.EHT:
+		return "be"
+	case rate.HE != nil && *rate.HE:
+		return "ax"
+	case rate.VHT != nil && *rate.VHT:
+		return "ac"
+	case rate.HT != nil && *rate.HT:
+		return "n"
+	}
+	return ""
+}
+
+// openwrtRoaming reads the roaming options a wifi-iface carries. Absent
+// options stay unknown; an interface that names none of them reports no
+// roaming rather than "off" on every flag.
+func openwrtRoaming(c openwrtWirelessConfig) *Roaming {
+	roaming := Roaming{
+		FastTransition:  openwrtFlag(c.FastTransition),
+		MobilityDomain:  strings.TrimSpace(c.MobilityDomain),
+		NeighborReports: openwrtFlag(c.NeighborReports),
+		BSSTransition:   openwrtFlag(c.BSSTransition),
+	}
+	if roaming.FastTransition == nil && roaming.NeighborReports == nil && roaming.BSSTransition == nil && roaming.MobilityDomain == "" {
+		return nil
+	}
+	return &roaming
+}
+
+// openwrtFlag accepts what uci stores ("1") and what its JSON readers emit
+// (true). Anything else is unknown, never false.
+func openwrtFlag(raw json.RawMessage) *bool {
+	if len(raw) == 0 {
+		return nil
+	}
+	var flag bool
+	if json.Unmarshal(raw, &flag) == nil {
+		return Ptr(flag)
+	}
+	var text string
+	if json.Unmarshal(raw, &text) != nil {
+		return nil
+	}
+	switch strings.ToLower(strings.TrimSpace(text)) {
+	case "1", "true", "on", "yes", "enabled":
+		return Ptr(true)
+	case "0", "false", "off", "no", "disabled":
+		return Ptr(false)
+	}
+	return nil
 }
 func openwrtMAC(value string) (string, error) {
 	mac, err := net.ParseMAC(value)

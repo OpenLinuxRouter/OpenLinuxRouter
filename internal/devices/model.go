@@ -146,9 +146,14 @@ type Neighbor struct {
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 type Radio struct {
-	ID                 string   `json:"id"`
-	Enabled            *bool    `json:"enabled,omitempty"`
-	Band               string   `json:"band,omitempty"`
+	ID      string `json:"id"`
+	Enabled *bool  `json:"enabled,omitempty"`
+	Band    string `json:"band,omitempty"`
+	// Protocol is the PHY standard the radio is running now, one of be, ax,
+	// ac or n. Protocols is everything the driver advertises, which may be
+	// newer: Wi-Fi 7 hardware left at HE80 reports protocol ax and protocols
+	// including be.
+	Protocol           string   `json:"protocol,omitempty"`
 	Channel            *int     `json:"channel,omitempty"`
 	WidthMHz           *int     `json:"width_mhz,omitempty"`
 	ConfiguredWidthMHz *int     `json:"configured_width_mhz,omitempty"`
@@ -166,7 +171,24 @@ type WirelessNetwork struct {
 	BSSID        string   `json:"bssid,omitempty"`
 	Mode         string   `json:"mode,omitempty"`
 	Encryption   string   `json:"encryption,omitempty"`
+	Roaming      *Roaming `json:"roaming,omitempty"`
 	NetworkNames []string `json:"network_names,omitempty"`
+}
+
+// Roaming is what an access point offers a client that moves between access
+// points. It is configuration read back from the access point, not an
+// observation: no client is followed from one BSS to the next, so these flags
+// say offered, never worked.
+type Roaming struct {
+	// FastTransition is 802.11r: a client rekeys at the next access point
+	// instead of authenticating from the beginning.
+	FastTransition *bool  `json:"fast_transition,omitempty"`
+	MobilityDomain string `json:"mobility_domain,omitempty"`
+	// NeighborReports is 802.11k: the access point tells a client which other
+	// BSS are worth considering.
+	NeighborReports *bool `json:"neighbor_reports,omitempty"`
+	// BSSTransition is 802.11v: the access point may ask a client to move.
+	BSSTransition *bool `json:"bss_transition,omitempty"`
 }
 type Association struct {
 	MAC              string   `json:"mac"`
@@ -181,18 +203,23 @@ type Association struct {
 	TXRateMbps       *float64 `json:"tx_rate_mbps,omitempty"`
 	RXMCS            *int     `json:"rx_mcs,omitempty"`
 	TXMCS            *int     `json:"tx_mcs,omitempty"`
-	RXWidthMHz       *int     `json:"rx_width_mhz,omitempty"`
-	TXWidthMHz       *int     `json:"tx_width_mhz,omitempty"`
-	ExpectedMbps     *float64 `json:"expected_mbps,omitempty"`
-	Retries          *uint64  `json:"retries,omitempty"`
-	Failed           *uint64  `json:"failed,omitempty"`
-	RXBytes          *uint64  `json:"rx_bytes,omitempty"`
-	TXBytes          *uint64  `json:"tx_bytes,omitempty"`
-	RXPackets        *uint64  `json:"rx_packets,omitempty"`
-	TXPackets        *uint64  `json:"tx_packets,omitempty"`
-	TXAirtimeUS      *uint64  `json:"tx_airtime_us,omitempty"`
-	MFP              *bool    `json:"mfp,omitempty"`
-	WMM              *bool    `json:"wmm,omitempty"`
+	// RXProtocol and TXProtocol are the PHY standard each direction actually
+	// used, one of be, ax, ac or n; empty means legacy or unreported. One
+	// direction can use a newer standard than the other.
+	RXProtocol   string   `json:"rx_protocol,omitempty"`
+	TXProtocol   string   `json:"tx_protocol,omitempty"`
+	RXWidthMHz   *int     `json:"rx_width_mhz,omitempty"`
+	TXWidthMHz   *int     `json:"tx_width_mhz,omitempty"`
+	ExpectedMbps *float64 `json:"expected_mbps,omitempty"`
+	Retries      *uint64  `json:"retries,omitempty"`
+	Failed       *uint64  `json:"failed,omitempty"`
+	RXBytes      *uint64  `json:"rx_bytes,omitempty"`
+	TXBytes      *uint64  `json:"tx_bytes,omitempty"`
+	RXPackets    *uint64  `json:"rx_packets,omitempty"`
+	TXPackets    *uint64  `json:"tx_packets,omitempty"`
+	TXAirtimeUS  *uint64  `json:"tx_airtime_us,omitempty"`
+	MFP          *bool    `json:"mfp,omitempty"`
+	WMM          *bool    `json:"wmm,omitempty"`
 }
 
 // A Neighbour is another BSS heard during an explicit scan, not a live view.

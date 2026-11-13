@@ -32,6 +32,7 @@ export interface Finding {
 }
 
 const protocolRank: Record<string, number> = { be: 7, ax: 6, ac: 5, n: 4, g: 3, b: 2, a: 2 }
+const generationNames: Record<string, string> = { be: 'Wi-Fi 7', ax: 'Wi-Fi 6', ac: 'Wi-Fi 5', n: 'Wi-Fi 4' }
 
 export function bandLabel(band?: string): string {
   if (band === '2g') return '2.4 GHz'
@@ -40,33 +41,89 @@ export function bandLabel(band?: string): string {
   return band || 'Unknown band'
 }
 
+/** One PHY standard, named the way people buy it. */
+export function generationLabel(protocol?: string): string {
+  return protocol ? generationNames[protocol] ?? '' : ''
+}
+
+function newestProtocol(protocols?: string[]): string {
+  let best = ''
+  for (const protocol of protocols ?? []) {
+    if ((protocolRank[protocol] ?? 0) > (protocolRank[best] ?? 0)) best = protocol
+  }
+  return best
+}
+
 /** The newest standard the driver advertises, named the way people buy it. */
 export function standardLabel(protocols?: string[]): string {
-  let best = 0
-  for (const protocol of protocols ?? []) best = Math.max(best, protocolRank[protocol] ?? 0)
-  if (best >= 7) return 'Wi-Fi 7'
-  if (best >= 6) return 'Wi-Fi 6'
-  if (best >= 5) return 'Wi-Fi 5'
-  if (best >= 4) return 'Wi-Fi 4'
-  return ''
+  return generationLabel(newestProtocol(protocols))
 }
 
-/** The PHY prefix that belongs beside an MCS index. */
-export function mcsPrefix(protocols?: string[]): string {
-  if (protocols?.includes('be')) return 'EHT'
-  if (protocols?.includes('ax')) return 'HE'
-  if (protocols?.includes('ac')) return 'VHT'
-  return ''
+/**
+ * The standard a radio is running, and the newer one it could run.
+ *
+ * The badge names what the radio is doing now, because "am I on Wi-Fi 7" is
+ * the question the card answers. `newer` only appears when the driver
+ * advertises something the configured mode does not use; a radio left at
+ * HE80 on Wi-Fi 7 hardware is the case that hides otherwise.
+ */
+export function radioStandard(radio: Radio): { label: string; newer?: string } {
+  const label = generationLabel(radio.protocol) || standardLabel(radio.protocols)
+  const supported = newestProtocol(radio.protocols)
+  const newer = radio.protocol && (protocolRank[supported] ?? 0) > (protocolRank[radio.protocol] ?? 0) ? generationLabel(supported) : ''
+  return newer ? { label, newer } : { label }
 }
 
-export function linkTech(client: Association, radio?: Radio): string {
-  const parts: string[] = []
-  if (client.tx_mcs != null) {
-    const prefix = mcsPrefix(radio?.protocols)
-    parts.push(prefix ? `${prefix}-MCS ${client.tx_mcs}` : `MCS ${client.tx_mcs}`)
+/**
+ * How a person names a network's security, from the option uci stores.
+ *
+ * The value is a wifi-encryption token such as `psk2` or `sae-mixed`, sometimes
+ * with a cipher suffix (`psk2+ccmp`); the cipher does not change the name. An
+ * unknown token is shown as it is, because a guess would be worse than jargon.
+ */
+export function securityLabel(encryption?: string): string {
+  const [base] = (encryption ?? '').toLowerCase().split('+')
+  switch (base) {
+    case '':
+    case 'none':
+    case 'open': return 'Open'
+    case 'owe': return 'Enhanced Open'
+    case 'wep':
+    case 'wep-open':
+    case 'wep-shared': return 'WEP'
+    case 'psk': return 'WPA-Personal'
+    case 'psk2': return 'WPA2-Personal'
+    case 'psk-mixed': return 'WPA/WPA2-Personal'
+    case 'sae': return 'WPA3-Personal'
+    case 'sae-mixed': return 'WPA2/WPA3-Personal'
+    case 'wpa': return 'WPA-Enterprise'
+    case 'wpa2':
+    case '8021x': return 'WPA2-Enterprise'
+    case 'wpa-mixed': return 'WPA/WPA2-Enterprise'
+    case 'wpa3': return 'WPA3-Enterprise'
+    default: return encryption ?? ''
   }
-  if (client.tx_width_mhz) parts.push(`${client.tx_width_mhz} MHz`)
-  return parts.join(' · ')
+}
+
+/** The direction with the newer standard; a tie goes to the downlink. */
+export function linkProtocol(client: Association): string {
+  const rx = protocolRank[client.rx_protocol ?? ''] ?? 0
+  const tx = protocolRank[client.tx_protocol ?? ''] ?? 0
+  return rx > tx ? client.rx_protocol ?? '' : client.tx_protocol ?? ''
+}
+
+/** Generation and width, without an MCS index: the row's own summary. */
+export function linkLabel(client: Association): string {
+  const rx = protocolRank[client.rx_protocol ?? ''] ?? 0
+  const tx = protocolRank[client.tx_protocol ?? ''] ?? 0
+  const newer = rx > tx
+  const width = newer ? client.rx_width_mhz : client.tx_width_mhz
+  return [generationLabel(newer ? client.rx_protocol : client.tx_protocol), width ? `${width} MHz` : ''].filter(Boolean).join(' · ')
+}
+
+/** One direction of a link: generation, MCS index and width. */
+export function linkMode(protocol?: string, mcs?: number, width?: number): string {
+  return [generationLabel(protocol), mcs != null ? `MCS ${mcs}` : '', width ? `${width} MHz` : ''].filter(Boolean).join(' · ')
 }
 
 export type SignalLevel = 'good' | 'fair' | 'weak' | 'unknown'

@@ -208,6 +208,9 @@ func TestOpenWrtRead(t *testing.T) {
 	if radio.NoiseDBm == nil || *radio.NoiseDBm != -95 || radio.TxPowerDBm == nil || *radio.TxPowerDBm != 20 || radio.Country != "US" || radio.UtilizationPercent == nil || *radio.UtilizationPercent != 17.5 || !reflect.DeepEqual(radio.Protocols, []string{"n", "ac", "ax"}) {
 		t.Fatalf("radio observations: %+v", radio)
 	}
+	if radio.Protocol != "ac" {
+		t.Fatalf("running standard follows iwinfo's htmode: %+v", radio)
+	}
 	if len(snap.Wireless) != 1 || snap.Wireless[0].BSSID != "02:11:22:33:44:60" || snap.Wireless[0].SSID != "Test network" {
 		t.Fatalf("wireless: %+v", snap.Wireless)
 	}
@@ -220,6 +223,9 @@ func TestOpenWrtRead(t *testing.T) {
 	}
 	if a.SignalAvgDBm == nil || *a.SignalAvgDBm != -53 || a.NoiseDBm == nil || *a.NoiseDBm != -95 || a.ExpectedMbps == nil || *a.ExpectedMbps != 866.7 || a.RXMCS == nil || *a.RXMCS != 7 || a.TXMCS == nil || *a.TXMCS != 9 || a.RXWidthMHz == nil || *a.RXWidthMHz != 40 || a.TXWidthMHz == nil || *a.TXWidthMHz != 80 || a.Retries == nil || *a.Retries != 3 || a.Failed == nil || *a.Failed != 4 || a.RXPackets == nil || *a.RXPackets != 9 || a.TXPackets == nil || *a.TXPackets != 10 || a.TXAirtimeUS == nil || *a.TXAirtimeUS != 1234 || a.MFP == nil || *a.MFP || a.WMM == nil || !*a.WMM {
 		t.Fatalf("association enrichment: %+v", a)
+	}
+	if a.RXProtocol != "ac" || a.TXProtocol != "ax" {
+		t.Fatalf("each direction keeps its own standard: %+v", a)
 	}
 	if snap.Associations[1].SignalDBm != nil || snap.Associations[1].RXBytes != nil {
 		t.Fatal("missing client metrics must remain unknown")
@@ -237,6 +243,103 @@ func TestOpenWrtRead(t *testing.T) {
 		t.Fatal("read performed mutation or extra login")
 	}
 }
+func TestOpenWrtRoaming(t *testing.T) {
+	// uci holds flags as strings and LuCI's read model emits booleans, so the
+	// payload mixes both.
+	devices := map[string]any{
+		"radio0": map[string]any{
+			"up":       true,
+			"disabled": false,
+			"config":   map[string]any{"band": "5g", "channel": "36", "htmode": "EHT80"},
+			"interfaces": []any{map[string]any{
+				"ifname": "phy0-ap0",
+				"config": map[string]any{
+					"mode": "ap", "ssid": "Test network", "encryption": "sae",
+					"ieee80211r": "1", "ieee80211k": true, "bss_transition": "1",
+					"mobility_domain": "4f57",
+				},
+			}},
+		},
+	}
+	for _, netifd := range []bool{true, false} {
+		t.Run(fmt.Sprintf("netifd=%v", netifd), func(t *testing.T) {
+			f := newOpenwrtTestServer(t)
+			f.override = func(w http.ResponseWriter, r *http.Request, req openwrtTestRequest, c openwrtTestCall) bool {
+				if c.Object == "network.wireless" && !netifd {
+					openwrtTestReply(w, req, 6, nil)
+					return true
+				}
+				if c.Object == "luci-rpc" && c.Method == "getWirelessDevices" {
+					openwrtTestReply(w, req, 0, devices)
+					return true
+				}
+				return false
+			}
+			snap, err := f.adapter().Read(context.Background(), f.device())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if f.count("luci-rpc", "getWirelessDevices") != 1 || snap.Collections["wireless"].State != "ok" {
+				t.Fatalf("roaming read: %+v", snap.Collections["wireless"])
+			}
+			if len(snap.Wireless) != 1 || snap.Wireless[0].Roaming == nil {
+				t.Fatalf("wireless: %+v", snap.Wireless)
+			}
+			roaming := snap.Wireless[0].Roaming
+			if roaming.FastTransition == nil || !*roaming.FastTransition || roaming.NeighborReports == nil || !*roaming.NeighborReports || roaming.BSSTransition == nil || !*roaming.BSSTransition || roaming.MobilityDomain != "4f57" {
+				t.Fatalf("roaming: %+v", roaming)
+			}
+		})
+	}
+}
+
+func TestOpenWrtProtocolsAndFlags(t *testing.T) {
+	for _, tt := range []struct{ mode, want string }{
+		{"EHT80", "be"}, {"HE160", "ax"}, {"VHT40", "ac"}, {"HT20", "n"},
+		{"be", "be"}, {"ax", "ax"}, {"ac", "ac"}, {"n", "n"},
+		{"", ""}, {"NOHT", ""}, {"g", ""},
+	} {
+		if got := openwrtProtocol(tt.mode); got != tt.want {
+			t.Errorf("openwrtProtocol(%q) = %q, want %q", tt.mode, got, tt.want)
+		}
+	}
+	yes := Ptr(true)
+	no := Ptr(false)
+	for _, tt := range []struct {
+		name string
+		rate openwrtIWRate
+		want string
+	}{
+		{"newest flag wins", openwrtIWRate{HT: yes, VHT: yes, HE: yes}, "ax"},
+		{"one flag", openwrtIWRate{HT: yes}, "n"},
+		{"no flag", openwrtIWRate{}, ""},
+		{"explicit false", openwrtIWRate{EHT: no, HE: no}, ""},
+	} {
+		if got := openwrtRateProtocol(tt.rate); got != tt.want {
+			t.Errorf("%s: openwrtRateProtocol() = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+	flag := func(value *bool) string {
+		switch {
+		case value == nil:
+			return "unknown"
+		case *value:
+			return "on"
+		default:
+			return "off"
+		}
+	}
+	for _, tt := range []struct{ raw, want string }{
+		{`true`, "on"}, {`"1"`, "on"}, {`"on"`, "on"},
+		{`false`, "off"}, {`"0"`, "off"},
+		{`""`, "unknown"}, {`"maybe"`, "unknown"}, {``, "unknown"},
+	} {
+		if got := flag(openwrtFlag(json.RawMessage(tt.raw))); got != tt.want {
+			t.Errorf("openwrtFlag(%s) = %s, want %s", tt.raw, got, tt.want)
+		}
+	}
+}
+
 func TestOpenWrtPartialFailures(t *testing.T) {
 	f := newOpenwrtTestServer(t)
 	f.override = func(w http.ResponseWriter, r *http.Request, req openwrtTestRequest, c openwrtTestCall) bool {

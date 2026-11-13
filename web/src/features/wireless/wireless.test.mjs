@@ -9,11 +9,15 @@ import {
   deviceForRoute,
   findingsFor,
   formatDuration,
+  generationLabel,
   isPrivateAddress,
-  linkTech,
+  linkLabel,
+  linkMode,
   occupancyByChannel,
   scanSummary,
   signalBars,
+  radioStandard,
+  securityLabel,
   signalLevel,
   snr,
   sortClients,
@@ -30,10 +34,30 @@ test('bands and standards are named the way people ask for them', () => {
   assert.equal(bandLabel('2g'), '2.4 GHz')
   assert.equal(bandLabel('5g'), '5 GHz')
   assert.equal(bandLabel(undefined), 'Unknown band')
+  assert.equal(generationLabel('be'), 'Wi-Fi 7')
+  assert.equal(generationLabel('ax'), 'Wi-Fi 6')
+  assert.equal(generationLabel('g'), '')
   assert.equal(standardLabel(['n', 'ac', 'ax']), 'Wi-Fi 6')
   assert.equal(standardLabel(['n', 'ac', 'ax', 'be']), 'Wi-Fi 7')
   assert.equal(standardLabel(['n']), 'Wi-Fi 4')
   assert.equal(standardLabel([]), '')
+})
+
+test('the badge names what the radio runs and mentions a newer mode it could run', () => {
+  assert.deepEqual(radioStandard(radio({ protocol: 'ax', protocols: ['n', 'ac', 'ax', 'be'] })), { label: 'Wi-Fi 6', newer: 'Wi-Fi 7' })
+  assert.deepEqual(radioStandard(radio({ protocol: 'be', protocols: ['n', 'ac', 'ax', 'be'] })), { label: 'Wi-Fi 7' })
+  assert.deepEqual(radioStandard(radio({ protocols: ['n', 'ax'] })), { label: 'Wi-Fi 6' })
+  assert.deepEqual(radioStandard(radio({ protocols: [] })), { label: '' })
+})
+
+test('a security option is named the way people buy it, and an unknown token survives', () => {
+  assert.equal(securityLabel('psk2'), 'WPA2-Personal')
+  assert.equal(securityLabel('sae'), 'WPA3-Personal')
+  assert.equal(securityLabel('sae-mixed'), 'WPA2/WPA3-Personal')
+  assert.equal(securityLabel('psk2+ccmp'), 'WPA2-Personal')
+  assert.equal(securityLabel('none'), 'Open')
+  assert.equal(securityLabel(undefined), 'Open')
+  assert.equal(securityLabel('vendor-mode'), 'vendor-mode')
 })
 
 test('signal thresholds and bars follow one scale', () => {
@@ -44,10 +68,16 @@ test('signal thresholds and bars follow one scale', () => {
   assert.deepEqual([-50, -60, -70, -80, undefined].map(signalBars), [4, 3, 2, 1, 0])
 })
 
-test('the negotiated link names its MCS family and width', () => {
-  assert.equal(linkTech(client({ tx_mcs: 9, tx_width_mhz: 80 }), radio({ band: '5g', protocols: ['ax'] })), 'HE-MCS 9 · 80 MHz')
-  assert.equal(linkTech(client({ tx_mcs: 7, tx_width_mhz: 20 }), radio({ protocols: ['n'] })), 'MCS 7 · 20 MHz')
-  assert.equal(linkTech(client({}), radio()), '')
+test('a client link names its own standard, not the radio it sits on', () => {
+  const link = client({ rx_protocol: 'ac', tx_protocol: 'ax', rx_mcs: 7, tx_mcs: 9, rx_width_mhz: 40, tx_width_mhz: 80 })
+  assert.equal(linkLabel(link), 'Wi-Fi 6 · 80 MHz')
+  assert.equal(linkMode(link.tx_protocol, link.tx_mcs, link.tx_width_mhz), 'Wi-Fi 6 · MCS 9 · 80 MHz')
+  assert.equal(linkLabel(client({ rx_protocol: 'ax', tx_protocol: 'ac', rx_width_mhz: 80 })), 'Wi-Fi 6 · 80 MHz')
+  assert.equal(linkLabel(client({})), '')
+  assert.equal(linkMode(undefined, 5, 20), 'MCS 5 · 20 MHz')
+})
+
+test('signal to noise needs both numbers', () => {
   assert.equal(snr(client({ signal_dbm: -60, noise_dbm: -95 })), 35)
   assert.equal(snr(client({ signal_dbm: -60 })), undefined)
 })

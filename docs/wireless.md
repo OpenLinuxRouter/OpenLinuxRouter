@@ -64,10 +64,19 @@ stall the Wi-Fi to fill in a diagram.
 
 | Area | Content |
 | --- | --- |
-| Radios | SSID, BSSID, band, advertised standard, runtime channel, actual and configured width, transmit power, country, noise, clients, utilization |
+| Radios | SSID, BSSID, band, the standard the radio runs and the newer one it could run, security, roaming options, runtime channel, actual and configured width, transmit power, country, noise, clients, utilization |
 | Findings | configured-versus-actual width, clients at or below -75 dBm, utilization at or above 60% |
-| Clients | signal and SNR, directional rates, MCS and width, expected throughput, retries and failures, idle and connected time, bytes and packets, airtime, MFP and WMM |
+| Clients | signal and SNR, directional rates with their own standard, MCS and width, expected throughput, retries and failures, idle and connected time, bytes and packets, airtime, MFP and WMM |
 | Channels | on request, one band's scan: every BSS heard with its primary channel, width, signal and security, a strip counting BSS per channel, and how many overlap the radio's own channel |
+
+The badge names the standard the radio is running, not the newest one its
+driver advertises, because that is the question the card answers; when the two
+differ the card also says what the radio could run. A client's row names the newer of
+its two directions, which can be older than the radio's; the expanded row
+splits the directions apart, because one can be older than the other. Roaming is what the access point offers devices
+that move between access points — fast transition, neighbour reports and client
+steering — and each is drawn with a dot rather than a word, so "off" and "not
+reported" stay distinguishable.
 
 Client names come from the clients module when that MAC is known. Otherwise the
 page says “Private address” for a locally administered address, or shows the
@@ -89,6 +98,10 @@ MAC. A dash means the access point did not report the value.
   steering and channel changes remain operations with their own capability
   checks and confirmations. The snapshot can report that
   `client.disconnect` is supported; the page does not yet offer it.
+- **Roaming is offered, not proven.** 802.11r/802.11k/802.11v are read from the
+  access point's own configuration. Nothing here follows a client from one BSS
+  to another, so the page never claims a handover happened, only that the
+  access point says it is available.
 - **No history.** A reading is a point in time. Trend lines need a sampler and a
   retention decision; none is implied by this page.
 
