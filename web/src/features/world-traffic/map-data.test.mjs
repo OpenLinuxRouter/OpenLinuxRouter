@@ -69,27 +69,26 @@ test('province names and major cities are available before maximum zoom', () => 
   }
 })
 
-test('countries sharing a border have distinct palette indices', () => {
+test('countries carry outlines and names, not fill indices', () => {
+  // Geometry is enough to draw the map: land and sea are each one neutral
+  // tone, so a per-country palette index would be data nothing reads, and
+  // colour on this map belongs to traffic alone.
   const countries = features.filter(f => f.properties.kind === 'country')
-  const colors = new Map(countries.map(f => [f.properties.country, f.properties.color]))
-  for (const color of colors.values()) assert.ok(Number.isInteger(color) && color >= 0 && color < 8)
-  // Explicit regressions also cover borders whose vertices may be simplified
-  // differently on the two sides (and so have no identical output segment).
-  for (const [a, b] of [['CN', 'RU'], ['CN', 'MN'], ['CN', 'IN'], ['CN', 'NP'], ['CN', 'VN'], ['CN', 'KP'], ['IN', 'PK'], ['DE', 'FR'], ['US', 'CA'], ['US', 'MX']]) {
-    assert.notEqual(colors.get(a), colors.get(b), `${a}/${b}`)
-  }
+  assert.ok(countries.length > 200, 'every country keeps its outline')
+  for (const { properties } of features) assert.ok(!('color' in properties), 'no leftover fill index')
+})
+
+test('neighbouring countries still meet exactly at shared borders', () => {
+  const countries = features.filter(f => f.properties.kind === 'country')
   const edges = new Map()
   let shared = 0
   for (const { properties: p, geometry } of countries) for (const polygon of geometry.coordinates) for (const ring of polygon) {
     for (let i = 1; i < ring.length; i++) {
       const edge = [ring[i - 1].join(','), ring[i].join(',')].sort().join(':')
       const other = edges.get(edge)
-      if (other && other !== p.country) {
-        shared++
-        assert.notEqual(colors.get(other), p.color, `${other}/${p.country} at ${edge}`)
-      }
+      if (other && other !== p.country) shared++
       edges.set(edge, p.country)
     }
   }
-  assert.ok(shared > 1000, 'check shared geometry across the global map')
+  assert.ok(shared > 1000, 'shared borders still meet at identical vertices')
 })

@@ -43,9 +43,16 @@ interface Visual {
   lastTurn: number
 }
 const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] }
-// Traffic is one colour, outside the teal-green-blue family the map itself
-// uses. A line-progress gradient only fades the alpha in at the router, where
-// every arc starts, so the shared pixel becomes a fan instead of a knot.
+// Geography is neutral at both sizes: one land tone above one sea tone, with
+// white country hairlines, and the same values in the card and on the page, so
+// opening the card never repaints the world. Country fills from a palette
+// would put hue on land, and on this map hue belongs to traffic.
+const seaColor = (dark: boolean) => dark ? '#232731' : '#f6f7f9'
+const landColor = (dark: boolean) => dark ? '#424b5b' : '#e2e6ec'
+// Traffic is the map's only colour; land and sea carry none, so an arc can
+// never be mistaken for geography. A line-progress gradient only fades the
+// alpha in at the router, where every arc starts, so the shared pixel becomes
+// a fan instead of a knot.
 const flowColor = (dark: boolean) => dark ? '#fb923c' : '#ea580c'
 // A lighter amber under the line, so overlap adds up as light instead of as a
 // darker stain.
@@ -237,12 +244,8 @@ function TrafficMap({ peers, origin, dark, expanded = false }: { peers: Peer[]; 
   useEffect(() => {
     const instance = map.current
     if (!instance || !ready) return
-    // MapLibre's demo palette, with a muted counterpart for dark mode. The
-    // generator assigns stable indices after checking country adjacency.
-    const palette = dark ? ['#686083', '#80754f', '#526c58', '#797748', '#416d50', '#496e7a', '#535f85', '#815f52'] : ['#d6c7ff', '#ebca8a', '#c1e599', '#e7e58f', '#98dda1', '#83d5f4', '#b1bbf9', '#eab38f']
-    instance.setPaintProperty('ocean', 'background-color', expanded ? (dark ? '#1c3545' : '#d6effb') : (dark ? '#232731' : '#f6f7f9'))
-    const countryColors: ExpressionSpecification = ['match', ['get', 'color'], 0, palette[0], ...palette.slice(1).flatMap((color, index) => [index + 1, color]), dark ? '#424b5b' : '#e2e6ec']
-    instance.setPaintProperty('land', 'fill-color', expanded ? countryColors : (dark ? '#424b5b' : '#e2e6ec'))
+    instance.setPaintProperty('ocean', 'background-color', seaColor(dark))
+    instance.setPaintProperty('land', 'fill-color', landColor(dark))
     instance.setPaintProperty('borders', 'line-color', dark ? '#232731' : '#ffffff')
     instance.setPaintProperty('flow-halo', 'line-gradient', flowGradient(dark, true))
     instance.setPaintProperty('flows', 'line-gradient', flowGradient(dark))
@@ -397,7 +400,7 @@ function TrafficMap({ peers, origin, dark, expanded = false }: { peers: Peer[]; 
     frame = requestAnimationFrame(animate)
     return () => cancelAnimationFrame(frame)
   }, [ready])
-  return <div className={cn('relative h-full min-h-32 w-full overflow-hidden', !expanded && 'rounded-lg')} style={expanded ? { backgroundColor: dark ? '#1c3545' : '#d6effb' } : undefined}><div ref={container} style={{ position: 'absolute', inset: 0 }} aria-hidden={!expanded} />{failed && <p className="absolute inset-0 flex items-center justify-center bg-muted p-3 text-xs text-muted-foreground">{t('Map unavailable.')}</p>}</div>
+  return <div className={cn('relative h-full min-h-32 w-full overflow-hidden', !expanded && 'rounded-lg')} style={expanded ? { backgroundColor: seaColor(dark) } : undefined}><div ref={container} style={{ position: 'absolute', inset: 0 }} aria-hidden={!expanded} />{failed && <p className="absolute inset-0 flex items-center justify-center bg-muted p-3 text-xs text-muted-foreground">{t('Map unavailable.')}</p>}</div>
 }
 
 function useWorldTraffic() {

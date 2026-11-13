@@ -139,9 +139,9 @@ hidden page title. Detail and operation pages keep their identifying titles.
   retain the visible fault alerts below the cards.
   Latency and Map have no information icons. Traffic flips to reveal its map
   on the back, without a Map details row;
-  clicking the grayscale map links to the color map at /map. All three detail
+  clicking the grayscale map opens the same grayscale map at /map. All three detail
   pages use the shared header, PageHeading, content area and footer, with Overview
-  selected in navigation. Country colors distinguish geography,
+  selected in navigation. Land and sea are neutral at both sizes,
   while download/upload retain their semantic colors.
   omit the inline direction legend and top-ten summary.
 - Overview Status shows one public-network summary using IPv4's country flag,
@@ -202,7 +202,7 @@ that page's dials for its own result rather than shipping its own charts.
 World traffic combines IPs at the same remote coordinates into one map connection.
 Line width represents that connection's combined upload and download relative
 to the busiest one; per-IP rates stay in details. Arcs are one amber
-hue, outside the map's country colours, and each connection has one neutral dot
+hue, the map's only colour, and each connection has one neutral dot
 that travels out and back, illustrating both directions without selecting a
 direction based on traffic volume.
 
@@ -222,7 +222,8 @@ details dialog, which also carries the sampling caveats and ip.sb attribution. T
 administrative map adds country, province/state and major-city names progressively
 on zoom, stopping at regional detail because IP locations are approximate; it
 sits in a bounded panel below the page heading, with no text overlay or close button.
-Country fill colors distinguish geography and carry no traffic or status meaning.
+Country fills are one neutral land tone on one sea tone and carry no traffic or
+status meaning.
 Traffic has no GeoIP city, region or country labels. Map labels use bundled
 geography and local fonts, without fetching an external basemap.
 Show their share of observed traffic in the details dialog,

@@ -41,8 +41,10 @@ World traffic is the one map where hue belongs to data rather than to status.
 Every location gets one translucent amber arc of the same weight: 2px where the
 map fits the world into a laptop or a large window, about 1px in the card
 preview and on a phone, where the same world is only a few hundred pixels wide.
-Amber sits outside the country palette, so traffic reads as an overlay on
-geography; the arc fades in at the router, and a blurred halo underneath
+Amber is the map's only colour, at both sizes: land and sea are each one
+neutral tone, country borders are white hairlines, and nothing else on the map
+takes a hue, so traffic reads as the one thing drawn over geography. The arc
+fades in at the router, and a blurred halo underneath
 accumulates where arcs bunch up so busy junctions read as light rather than as
 spaghetti. An arc holds its weight for as long as its location reports traffic
 in the sampled window and fades only when the location leaves it: a line that
@@ -518,15 +520,16 @@ the first plain disclosure row in Status, above system health. Both rows use
 aligned 16px Lucide CircleCheck icons in success color when healthy. Uptime
 opens a dialog with CPU, memory and root disk used/total values. Map has no information icon,
 direction legend or top-ten summary. The
-grayscale preview fills Traffic's remaining content area. /map contains a
-pastel country map (muted colors in dark mode) in a bounded responsive panel
+grayscale preview fills Traffic's remaining content area. /map contains the
+same grayscale map — one land tone above one sea tone, white country hairlines,
+gray administrative boundaries — in a bounded responsive panel
 below the page heading, with pan/zoom. Keep direction labels, status, credit and
 other text outside the map. The local
 detailed map reveals province/state boundaries, their names and major cities
 on zoom, stopping at regional detail (zoom 6). State names and capital/world-city
-names begin at zoom 3; other major cities appear at zooms 4–5. Country fill
-indices are stable and checked against neighboring countries, with separate
-light/dark palettes. Keep administrative labels neutral and secondary
+names begin at zoom 3; other major cities appear at zooms 4–5. Colour never
+distinguishes geography, at either size or in either theme, so opening the
+card's preview changes nothing but the size. Keep administrative labels neutral and secondary
 to traffic; traffic carries no GeoIP text labels.
 Pan, pinch, scroll and double-click zoom stand alone, so place no zoom or
 whole-world reset buttons over the map. Resizing must preserve the current

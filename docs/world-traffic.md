@@ -38,13 +38,10 @@ explicit maintenance step; normal builds and runtime never download data.
 See the [source dataset](https://github.com/nvkelso/natural-earth-vector/tree/v5.1.2/geojson)
 and [public-domain terms](https://www.naturalearthdata.com/about/terms-of-use/).
 
-Country fills use MapLibre's demo palette in light mode and muted equivalents
-in dark mode. Each country has a stable palette index generated from the
-country adjacency graph, preferring Natural Earth's MAPCOLOR8 assignment.
-Shared vertices in both source and simplified geometry determine adjacency,
-including corner contacts. Deterministic saturation-degree coloring resolves
-conflicts and regeneration verifies all detected neighbors have different
-indices. Dataset order and traffic volume do not affect country colors.
+The dataset carries outlines and names, not country fill colours. Land and sea
+are one neutral tone each in both themes, with white country hairlines, so the
+map page shows the same geography as the card preview that links to it and hue
+stays reserved for traffic.
 
 The daemon samples IPv4/IPv6 conntrack counters every two seconds, shared
 across browsers. It retains counter differences over up to thirty seconds
@@ -55,8 +52,8 @@ top forty's share of all observed eligible remote-IP traffic, not a share of
 the separate nftables interface/device totals.
 
 Blue indicates download and teal upload in the details list. The map itself
-uses one amber hue for every arc, deliberately outside the teal-green-blue
-country palette, so colour marks traffic as a category. Every arc carries one
+uses one amber hue for every arc, and nothing else on the map carries a hue, so
+colour marks traffic as a category. Every arc carries one
 weight — 2px where the map fits the world into a laptop or a large window,
 about 1px where it fits into a few hundred pixels, as the card preview and a
 phone's detail map do — and keeps that weight for as long as its location
