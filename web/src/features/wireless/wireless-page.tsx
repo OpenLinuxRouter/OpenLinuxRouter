@@ -31,6 +31,7 @@ import { cn, formatBytes } from '@/lib/utils'
 import { useRadioScan } from './queries'
 import {
   bandLabel,
+  deviceForRoute,
   findingsFor,
   formatDuration,
   formatIdle,
@@ -46,6 +47,7 @@ import {
   sortClients,
   sortNeighbours,
   standardLabel,
+  wirelessQuery,
 } from './wireless'
 
 type Tab = 'overview' | 'clients' | 'channels'
@@ -66,18 +68,16 @@ export function WirelessPage() {
   const directory = useClientList().data?.clients
   const byMAC = useMemo(() => new Map((directory ?? []).map(device => [device.mac.toUpperCase(), device])), [directory])
   const [params, setParams] = useSearchParams()
-  const preferred = preferredDevice(devices)
-  const requested = params.get('client')
-  const selected = devices.find(device => device.id === requested) ?? preferred
+  const selected = deviceForRoute(devices, params.get(wirelessQuery.device))
   const snapshot = useNetworkSnapshot(selected?.id)
   const editor = useDeviceEditor()
   const [dialog, setDialog] = useState<'add' | 'edit' | null>(null)
-  const [tab, setTabState] = useState<Tab>(tabFrom(params.get('tab')))
+  const [tab, setTabState] = useState<Tab>(tabFrom(params.get(wirelessQuery.tab)))
   const setTab = (next: Tab) => {
     setTabState(next)
     const nextParams: Record<string, string> = {}
-    if (selected) nextParams.device = selected.id
-    if (next !== 'overview') nextParams.tab = next
+    if (selected) nextParams[wirelessQuery.device] = selected.id
+    if (next !== 'overview') nextParams[wirelessQuery.tab] = next
     setParams(nextParams, { replace: true })
   }
 
@@ -87,12 +87,12 @@ export function WirelessPage() {
     const device: Device = { ...draft, name: draft.name || undefined, username: draft.username || undefined }
     if (!(await editor.save(device))) return
     setDialog(null)
-    setParams({ ...(tab !== 'overview' ? { tab } : {}), device: device.id }, { replace: true })
+    setParams({ ...(tab !== 'overview' ? { [wirelessQuery.tab]: tab } : {}), [wirelessQuery.device]: device.id }, { replace: true })
   }
   const forget = async (id: string) => {
     if (!(await editor.remove(id))) return
     setDialog(null)
-    setParams(tab !== 'overview' ? { tab } : {}, { replace: true })
+    setParams(tab !== 'overview' ? { [wirelessQuery.tab]: tab } : {}, { replace: true })
   }
   const dialogElement = dialog === null ? null : (
     <DeviceDialog
@@ -126,7 +126,7 @@ export function WirelessPage() {
               <select
                 aria-label={t('Access point')}
                 value={selected.id}
-                onChange={event => setParams({ device: event.target.value, ...(tab !== 'overview' ? { tab } : {}) }, { replace: true })}
+                onChange={event => setParams({ [wirelessQuery.device]: event.target.value, ...(tab !== 'overview' ? { [wirelessQuery.tab]: tab } : {}) }, { replace: true })}
                 className="h-8 rounded-lg border border-border bg-card px-2 text-sm font-medium text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
               >
                 {devices.map(device => <option key={device.id} value={device.id}>{device.name || device.id}</option>)}
@@ -820,10 +820,6 @@ function SignalBars({ signal }: { signal?: number }) {
 
 function tabFrom(value: string | null): Tab {
   return value === 'clients' || value === 'channels' ? value : 'overview'
-}
-
-function preferredDevice(devices: Device[]): Device | undefined {
-  return devices.find(device => device.roles?.includes('ap')) ?? devices.find(device => device.adapter === 'openwrt') ?? devices[0]
 }
 
 function networkForRadio(radio: Radio, snapshot: Snapshot) {

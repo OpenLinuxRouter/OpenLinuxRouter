@@ -6,6 +6,7 @@ import {
   channelFrequency,
   channelOverlap,
   channelsFor,
+  deviceForRoute,
   findingsFor,
   formatDuration,
   isPrivateAddress,
@@ -18,6 +19,7 @@ import {
   sortClients,
   sortNeighbours,
   standardLabel,
+  wirelessQuery,
 } from './wireless.ts'
 
 const radio = (over = {}) => ({ id: 'radio0', band: '2g', protocols: ['n', 'ax'], ...over })
@@ -143,4 +145,28 @@ test('neighbours sort by signal and occupy the strip by primary channel', () => 
   const strip = occupancyByChannel(neighbours, '2g')
   assert.equal(strip.length, 13)
   assert.deepEqual(strip.filter(item => item.count > 0), [{ channel: 1, count: 2 }, { channel: 11, count: 1 }])
+})
+
+const equipment = (over = {}) => ({ id: '172-16-1-163', name: 'XiaomiBE7000', adapter: 'openwrt', roles: ['ap'], ...over })
+
+test('the page shows the access point a link names, and a sensible one otherwise', () => {
+  const devices = [
+    equipment({ id: '172-16-1-238', name: 'MercurySwitch', adapter: 'mercury', roles: ['switch'] }),
+    equipment(),
+    equipment({ id: '172-16-1-250', name: 'N60Pro' }),
+  ]
+  // A link that names an access point is followed, even past another one.
+  assert.equal(deviceForRoute(devices, '172-16-1-250')?.id, '172-16-1-250')
+  // Nothing named, or a name the inventory no longer has, lands on an access
+  // point rather than on whichever device happens to be stored first.
+  assert.equal(deviceForRoute(devices, null)?.id, '172-16-1-163')
+  assert.equal(deviceForRoute(devices, 'renamed-last-week')?.id, '172-16-1-163')
+  assert.equal(deviceForRoute([], 'anything'), undefined)
+})
+
+test('the page keeps its choices in the parameters links write', () => {
+  // Other pages link here as `/wireless?device=<id>`; the page must read the
+  // same names it writes, or a selection is silently ignored.
+  assert.equal(wirelessQuery.device, 'device')
+  assert.equal(wirelessQuery.tab, 'tab')
 })

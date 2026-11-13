@@ -1,4 +1,26 @@
-import type { Association, Neighbour, Radio, Snapshot, WirelessNetwork } from '@/features/devices/types'
+import type { Association, Device, Neighbour, Radio, Snapshot, WirelessNetwork } from '@/features/devices/types'
+
+/**
+ * The two choices this page keeps in the URL: which access point, and which
+ * view. Both the reads and the writes name them here, because a page that
+ * writes one name and reads another silently ignores every selection.
+ */
+export const wirelessQuery = { device: 'device', tab: 'tab' } as const
+
+/**
+ * The access point to show: the one a link names, else the likeliest one.
+ *
+ * A name that no longer exists never leaves the page empty — it falls back to
+ * the first device that calls itself an access point, so an old bookmark still
+ * shows something true. Switches and modems are skipped for the same reason:
+ * they have no radios to report.
+ */
+export function deviceForRoute(devices: Device[], requested: string | null | undefined): Device | undefined {
+  return devices.find(device => device.id === requested)
+    ?? devices.find(device => device.roles?.includes('ap'))
+    ?? devices.find(device => device.adapter === 'openwrt')
+    ?? devices[0]
+}
 
 /** A finding is a sentence plus the values that fill it, so it can be translated. */
 export interface Finding {
