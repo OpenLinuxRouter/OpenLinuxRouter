@@ -262,7 +262,8 @@ this box has to be added by hand.
 | `/etc/unbound/open-linux-router/` | the resolver's rendered config — unbound may read nowhere else |
 | `/var/lib/unbound/open-linux-router/` | the resolver's DNSSEC anchor, rewritten as the root key rolls |
 | `/var/lib/open-linux-router/dhcp/` | the lease database |
-| `journalctl -u olrd -u olr-dhcp` | logs; olr keeps no log files of its own |
+| `/var/lib/open-linux-router/audit/` | every change made through the API — the one log olr keeps ([audit.md](audit.md)) |
+| `journalctl -u olrd -u olr-dhcp` | logs; apart from the audit record, olr keeps no log files of its own |
 
 The document in `olr.json` is meant to be read. If you ever need to recover a
 box, SSH in and open it — that is the point of intent being a plain file.

@@ -23,6 +23,7 @@ Modules:
 
 Operations:
   adopt       Take ownership of an interface
+  audit       Show the record of changes made to this box
   backup      Back up complete olr.json, including stored credentials
   claim       Set this router up for the first time
   diff        Show drifted or pending configuration, per module

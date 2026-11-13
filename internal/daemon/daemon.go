@@ -257,6 +257,7 @@ func run(args []string) error {
 	}
 
 	srv := core.New()
+	srv.Audit = core.NewAudit(filepath.Join(opts.root, "/var/lib/open-linux-router/audit"))
 	recovery := &core.Recovery{Store: store, Lock: srv.ApplyLock(), Path: filepath.Join(opts.root, "/var/lib/open-linux-router/connectivity.json"), Capture: captureConnectivity}
 	srv.Recovery = recovery
 	runtimeDB, runtimeErr := runtimedb.Open(filepath.Join(opts.root, runtimedb.Path))

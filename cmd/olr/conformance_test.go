@@ -385,7 +385,7 @@ func TestHelpIsUnchanged(t *testing.T) {
 		{"remote", "set", "peer"},
 		{"remote", "enable"}, {"remote", "disable"},
 		{"ingress"}, {"ingress", "show"}, {"ingress", "add"}, {"ingress", "set"}, {"ingress", "rm"},
-		{"listen"}, {"status"}, {"enable"}, {"disable"},
+		{"listen"}, {"status"}, {"audit"}, {"enable"}, {"disable"},
 		{"claim"}, {"system"}, {"system", "set"}, {"system", "set", "password"},
 		{"recovery"}, {"recovery", "status"}, {"recovery", "confirm"}, {"recovery", "revert"},
 		{"backup"}, {"restore"},

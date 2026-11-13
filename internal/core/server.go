@@ -16,7 +16,9 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // APIPrefix is the root of the HTTP API (design.md §6.2).
@@ -27,6 +29,17 @@ type Server struct {
 	Recovery *Recovery
 	lock     *Lock
 	events   *Events
+
+	// Audit records every mutating request, whoever made it. Nil disables the
+	// record, which is what a test server and a scratch daemon get unless they
+	// ask for one.
+	//
+	// It is wired here rather than in each module because the route table is
+	// already the one place that knows a route can change the box (`Mutating`)
+	// and which module mounted it. A module that forgot to record its own
+	// writes would be a hole nobody could see, and every module would have to
+	// be trusted to remember.
+	Audit *Audit
 
 	modules []*module
 	byName  map[string]*module
@@ -104,6 +117,15 @@ func (s *Server) Mount(name string, routes []Route, schema any) {
 			routes[i] = s.Recovery.Wrap(routes[i])
 		}
 	}
+	// Outside recovery, so that the 500 a panic produced is recorded as the
+	// client saw it rather than as a change that silently vanished. Inside the
+	// mux, so the module name is the mount point and never parsed out of a
+	// path an operator's service name could confuse.
+	for i := range routes {
+		if routes[i].Mutating {
+			routes[i].Handler = s.audited(name, routes[i].Handler)
+		}
+	}
 	m := &module{
 		name:    name,
 		handler: RouteTable(routes),
@@ -112,6 +134,40 @@ func (s *Server) Mount(name string, routes []Route, schema any) {
 	}
 	s.modules = append(s.modules, m)
 	s.byName[name] = m
+}
+
+// audited wraps one mutating handler with an audit record.
+//
+// The wrapper sits inside the module's prefix, so the request path it sees is
+// module-relative and has to be put back together for the record to name
+// something a reader can open. The query is dropped on purpose: `dry_run` is
+// carried as its own field, and nothing else in a mutation's query is worth
+// keeping.
+func (s *Server) audited(module string, next http.HandlerFunc) http.HandlerFunc {
+	audit := s.Audit
+	if audit == nil {
+		return next
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		rec := &recorder{ResponseWriter: w, status: http.StatusOK}
+		start := time.Now()
+		next(rec, r)
+
+		source, forwarded := auditSource(r)
+		audit.Record(AuditEntry{
+			At:           start,
+			Module:       module,
+			Method:       r.Method,
+			Path:         APIPrefix + "/" + module + r.URL.Path,
+			Source:       source,
+			ForwardedFor: forwarded,
+			UserAgent:    r.UserAgent(),
+			Status:       rec.status,
+			Outcome:      auditOutcome(rec.status),
+			DryRun:       r.URL.Query().Get("dry_run") == "true",
+			DurationMS:   time.Since(start).Milliseconds(),
+		})
+	}
 }
 
 // Modules returns the mounted module names, sorted.
@@ -141,6 +197,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET "+APIPrefix+"/schema", s.handleSchema)
 	mux.HandleFunc("GET "+APIPrefix+"/schema/{module}", s.handleModuleSchema)
 	mux.HandleFunc("GET "+APIPrefix+"/routes", s.handleRoutes)
+	mux.HandleFunc("GET "+APIPrefix+"/audit", s.handleAudit)
 	mux.Handle("GET "+APIPrefix+"/events", s.events.Handler())
 
 	for _, m := range s.modules {
@@ -230,6 +287,38 @@ func (s *Server) handleRoutes(w http.ResponseWriter, r *http.Request) {
 		out[m.name] = views
 	}
 	WriteJSON(w, http.StatusOK, map[string]any{"modules": out})
+}
+
+// handleAudit returns the newest changes and says when they were read.
+//
+// The limit is clamped rather than refused above what Read keeps: a client
+// asking for more than the record holds is asking for everything, and
+// "everything" is a well-defined answer. A malformed one is refused, because
+// silently substituting a default would make a typo look like an empty record.
+func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
+	limit := 100
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 0 {
+			WriteError(w, http.StatusBadRequest, "limit must be a non-negative integer")
+			return
+		}
+		if n > 0 {
+			limit = n
+		}
+	}
+	entries, err := s.Audit.Read(limit)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "reading the audit record: "+err.Error())
+		return
+	}
+	if entries == nil {
+		entries = []AuditEntry{}
+	}
+	WriteJSON(w, http.StatusOK, map[string]any{
+		"entries": entries,
+		"as_of":   time.Now(),
+	})
 }
 
 func (s *Server) handleModuleSchema(w http.ResponseWriter, r *http.Request) {

@@ -1,0 +1,22 @@
+Shows every mutating request olrd accepted, refused or failed, newest first.
+
+The record names the module, the route, the client it was attributed to, and the
+answer the box gave. It does not keep request bodies: the ingress configuration
+route carries a DNS credential, and an audit that stored it would be a copy of
+the secret written to disk. The path is enough to say what was changed.
+
+Reads are not recorded. The record lives on the box under
+/var/lib/open-linux-router/audit and is bounded by size; it is a record of what
+happened, not a guarantee that nothing was removed.
+
+Usage:
+  olr audit [flags]
+
+Flags:
+  -h, --help        help for audit
+      --limit int   how many entries to show, newest first (default 50)
+
+Global Flags:
+      --dry-run         show what would change and exit without applying it
+  -o, --output string   output format: text|json (default "text")
+      --socket string   olrd control socket (default "/run/olr/olrd.sock")
