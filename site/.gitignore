@@ -1,0 +1,11 @@
+# Production output and dependencies
+dist/
+node_modules/
+.astro/
+
+# Generated from the capture library by scripts/optimize-screens.mjs. The
+# images themselves are committed; the manifest is rewritten whenever they are.
+# (Kept committed on purpose — the site builds without marketing/.)
+
+.DS_Store
+*.log

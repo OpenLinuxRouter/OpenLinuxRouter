@@ -1,0 +1,88 @@
+---
+// The six capability families, shared by the home page and /capabilities.
+// Each card states what the module is for; the detail page lists the controls.
+import type { Lang } from '../lib/i18n'
+import type { Capability } from '../lib/content'
+import ThemedShot from './ThemedShot.astro'
+
+interface Props {
+  lang: Lang
+  items: Capability[]
+  detailed?: boolean
+}
+
+const { lang, items, detailed = false } = Astro.props
+
+const paths: Record<Capability['icon'], string> = {
+  network: 'M4 7h6m4 0h6M4 17h6m4 0h6M10 7a2 2 0 1 0-4 0 2 2 0 0 0 4 0ZM18 7a2 2 0 1 0-4 0 2 2 0 0 0 4 0ZM10 17a2 2 0 1 0-4 0 2 2 0 0 0 4 0ZM18 17a2 2 0 1 0-4 0 2 2 0 0 0 4 0ZM12 7v10',
+  clients: 'M4 6h16v9H4zM8 19h8M12 15v4M8.5 10.5h2M13.5 10.5h2',
+  traffic: 'M3 17l5-6 4 3 5-7 4 4M3 21h18',
+  security: 'M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6l7-3ZM9 12l2 2 4-4',
+  services: 'M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+  surfaces: 'M4 5h16v11H4zM8 20h8M12 16v4M8 9h3M8 12h5',
+}
+---
+
+<div class:list={[detailed ? 'space-y-4' : 'grid gap-4 md:grid-cols-2 lg:grid-cols-3']}>
+  {
+    items.map((item, index) => (
+      <article
+        id={item.id}
+        class:list={[
+          'scroll-mt-24 rounded-xl border border-border bg-card p-5 transition-colors hover:border-input sm:p-6',
+          detailed ? 'grid gap-6 sm:grid-cols-[1.05fr_1fr] sm:items-start' : '',
+        ]}
+      >
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex size-8 items-center justify-center rounded-lg border border-border bg-muted text-primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="size-4" aria-hidden="true">
+                <path d={paths[item.icon]} stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <span class="font-mono text-[0.6875rem] text-muted-foreground">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+          </div>
+
+          <h3 class:list={['mt-4 font-semibold tracking-tight', detailed ? 'text-xl' : 'text-base']}>
+            {item.title[lang]}
+          </h3>
+          <p class="mt-2 text-sm leading-relaxed text-muted-foreground">{item.summary[lang]}</p>
+
+          {detailed && (
+            <>
+              <ul class="mt-5 space-y-2">
+                {item.points[lang].map((point) => (
+                  <li class="flex gap-2.5 text-sm leading-relaxed">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mt-1 size-3.5 shrink-0 text-[var(--success)]" aria-hidden="true">
+                      <path d="m5 12.5 4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+              <p class="mt-5 font-mono text-[0.6875rem] uppercase tracking-wider text-muted-foreground">
+                {item.backend}
+              </p>
+            </>
+          )}
+
+          {!detailed && (
+            <p class="mt-4 line-clamp-1 font-mono text-[0.6875rem] text-muted-foreground/80">{item.backend}</p>
+          )}
+        </div>
+
+        {detailed && item.screen && (
+          <div class="order-first sm:order-last">
+            <ThemedShot
+              id={item.screen}
+              lang={lang}
+              alt={`${item.title[lang]} — interface screenshot`}
+            />
+          </div>
+        )}
+      </article>
+    ))
+  }
+</div>

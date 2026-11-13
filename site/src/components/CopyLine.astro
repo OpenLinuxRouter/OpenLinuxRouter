@@ -1,0 +1,43 @@
+---
+// A one-line install command with a copy button. The button reports success
+// instead of silently doing nothing, and falls back to selecting the text when
+// the clipboard API is unavailable (plain-http origins).
+interface Props {
+  command: string
+  lang?: 'en' | 'zh'
+  copyLabel?: string
+  copiedLabel?: string
+}
+
+const { command, lang = 'en', copyLabel = 'Copy', copiedLabel = 'Copied' } = Astro.props
+---
+
+<div class="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 font-mono text-[0.8125rem]">
+  <span class="text-muted-foreground" aria-hidden="true">$</span>
+  <code data-copy-source class="min-w-0 flex-1 truncate">{command}</code>
+  <button
+    type="button"
+    data-copy="{command}"
+    class="shrink-0 rounded-md border border-border px-2 py-1 text-[0.6875rem] font-sans text-muted-foreground transition-colors hover:border-input hover:text-foreground"
+  >
+    {copyLabel}
+  </button>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const text = button.dataset.copy ?? ''
+      const original = button.textContent ?? ''
+      try {
+        await navigator.clipboard.writeText(text)
+        button.textContent = button.dataset.copied ?? 'Copied'
+      } catch {
+        button.textContent = text
+      }
+      window.setTimeout(() => {
+        button.textContent = original
+      }, 1600)
+    })
+  })
+</script>

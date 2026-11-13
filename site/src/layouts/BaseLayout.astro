@@ -1,0 +1,86 @@
+---
+import '../styles/global.css'
+import type { Lang } from '../lib/i18n'
+import { href, site } from '../lib/i18n'
+import Header from '../components/Header.astro'
+import Footer from '../components/Footer.astro'
+import SearchDialog from '../components/SearchDialog.astro'
+
+interface Props {
+  lang: Lang
+  title: string
+  description: string
+  /** Path on this locale's side of the site, used for canonical + hreflang. */
+  path: string
+  noIndex?: boolean
+}
+
+const { lang, title, description, path, noIndex = false } = Astro.props
+
+const fullTitle = title === site.name ? title : `${title} · ${site.name}`
+const canonical = Astro.site ? new URL(href(lang, path), Astro.site).href : undefined
+const alternate =
+  lang === 'en'
+    ? href('zh', path)
+    : path.replace(/^\/zh/, '') || '/'
+const localeTag = lang === 'en' ? 'en' : 'zh-CN'
+---
+
+<!doctype html>
+<html lang={localeTag}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title data-pagefind-meta="title">{fullTitle}</title>
+    <meta name="description" content={description} />
+    {canonical && <link rel="canonical" href={canonical} />}
+    <link rel="alternate" hreflang="en" href={Astro.site ? new URL(href('en', path), Astro.site).href : href('en', path)} />
+    <link rel="alternate" hreflang="zh-CN" href={Astro.site ? new URL(href('zh', path), Astro.site).href : href('zh', path)} />
+    {noIndex && <meta name="robots" content="noindex" />}
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f7f9" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111318" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:locale" content={lang === 'en' ? 'en_US' : 'zh_CN'} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script is:inline>
+      // Resolve the theme before first paint so a dark reader never sees a
+      // white flash. "system" is the default and follows the OS live.
+      ;(() => {
+        try {
+          const forced = new URLSearchParams(location.search).get('theme')
+          const chosen = forced ?? localStorage.getItem('olr-theme')
+          const system = matchMedia('(prefers-color-scheme: dark)').matches
+          const dark = chosen === 'dark' || ((!chosen || chosen === 'system') && system)
+          document.documentElement.classList.toggle('dark', dark)
+          // Persist the URL choice: the header's toggle reads storage, and a
+          // conflicting value there would undo this before first paint.
+          if (forced === 'dark' || forced === 'light') localStorage.setItem('olr-theme', forced)
+        } catch {}
+      })()
+    </script>
+  </head>
+  <body class="min-h-dvh bg-background text-foreground antialiased">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-lg focus:bg-card focus:px-4 focus:py-2 focus:text-sm focus:shadow-md"
+    >
+      {lang === 'en' ? 'Skip to content' : '跳到正文'}
+    </a>
+
+    <Header lang={lang} path={path} />
+
+    <main id="main" data-pagefind-body data-pagefind-filter={`lang:${lang}`}>
+      <slot />
+    </main>
+
+    <Footer lang={lang} />
+    <SearchDialog lang={lang} />
+  </body>
+</html>

@@ -1,0 +1,292 @@
+---
+import SectionHeading from './SectionHeading.astro'
+import CapabilityGrid from './CapabilityGrid.astro'
+import ThemedShot from './ThemedShot.astro'
+import CopyLine from './CopyLine.astro'
+import { capabilities, beliefs, install } from '../lib/content'
+import type { Lang } from '../lib/i18n'
+import { href, site, t } from '../lib/i18n'
+import { screenUrl } from '../lib/images'
+
+interface Props {
+  lang: Lang
+}
+const { lang } = Astro.props
+const copy = t(lang)
+
+const text = {
+  en: {
+    status: 'Status: Early — working, not finished',
+    h1a: 'Your Linux box,',
+    h1b: 'as a router.',
+    lead: 'Not an operating system to flash. A package that turns the Debian machine you already run into a router — a web UI, a CLI, a REST API and an MCP server over the same configuration. It stays a normal Linux machine the whole time.',
+    primary: 'See what it does',
+    secondary: 'Browse the gallery',
+    facts: [
+      { label: 'Runs on', value: 'Debian 13 · Ubuntu' },
+      { label: 'Installed as', value: 'a .deb package' },
+      { label: 'Surfaces', value: 'Web · CLI · REST · MCP' },
+      { label: 'License', value: 'MIT' },
+    ],
+    beliefsEyebrow: 'What it believes',
+    beliefsTitle: 'A control plane, not a network stack',
+    beliefsLead:
+      'Six decisions that shape every page and every command. They are the reason the product looks and behaves the way it does.',
+    capEyebrow: 'Capabilities',
+    capTitle: 'Six things it actually does',
+    capLead:
+      'Each module renders configuration into a daemon that already knows how to do the job, and keeps an escape hatch open for the rest.',
+    capLink: 'All capabilities',
+    galEyebrow: 'Gallery',
+    galTitle: 'The console, page by page',
+    galLead: 'Captured from a real box, in both themes. Every screen is a real state, not a mockup.',
+    docEyebrow: 'Documentation',
+    docTitle: 'Written for the person operating it',
+    docLead: 'One file per subject, in the repository next to the code it describes.',
+    closeTitle: 'One apt install. Nothing else changes.',
+    closeLead:
+      'The control plane starts and serves its own UI. No DHCP server appears, no resolver takes port 53, no interface is touched — until you hand one over.',
+    installGuide: 'Install guide',
+    source: 'Source on GitHub',
+    screenshotAlt: "The console's Overview page: status, traffic, latency and quality",
+    home: 'Home',
+  },
+  zh: {
+    status: '状态：早期 —— 能用，但还没做完',
+    h1a: '把你手边那台 Linux，',
+    h1b: '变成路由器。',
+    lead: '不是一个要刷进去的系统，而是一个包：装在你已经在用的 Debian 上，它就成了路由器——网页界面、CLI、REST API 和 MCP server，共用同一份配置。而它始终还是一台普通的 Linux 机器。',
+    primary: '看看它能做什么',
+    secondary: '看图库',
+    facts: [
+      { label: '运行于', value: 'Debian 13 · Ubuntu' },
+      { label: '安装方式', value: '一个 .deb 包' },
+      { label: '表面', value: '网页 · CLI · REST · MCP' },
+      { label: '许可证', value: 'MIT' },
+    ],
+    beliefsEyebrow: '它相信什么',
+    beliefsTitle: '是控制面，不是网络栈',
+    beliefsLead: '六个决定，塑造了每一个页面和每一条命令。这个产品为什么长这样、为什么这么行为，都从这里来。',
+    capEyebrow: '能力',
+    capTitle: '它实际做的六件事',
+    capLead: '每个模块把配置渲染给一个本来就会干这活的守护进程，同时为剩下的部分留一道逃生门。',
+    capLink: '全部能力',
+    galEyebrow: '图库',
+    galTitle: '控制台，一页一页看',
+    galLead: '截自真实设备，明暗两套主题。每一个界面都是真实状态，不是效果图。',
+    docEyebrow: '文档',
+    docTitle: '写给真正要运维它的人',
+    docLead: '一个主题一个文件，就放在它所描述的代码旁边。',
+    closeTitle: '一条 apt install，别的什么都不动。',
+    closeLead:
+      '控制面起来，提供自己的界面。不会冒出 DHCP 服务器，不会有解析器占用 53 端口，也不会碰任何接口——直到你亲手交付一条。',
+    installGuide: '安装指南',
+    source: 'GitHub 源码',
+    screenshotAlt: '控制台总览页：状态、流量、延迟与质量',
+    home: '首页',
+  },
+}
+
+const s = text[lang]
+
+const galleryIds = ['overview', 'map', 'quality', 'wireless', 'access-wireguard', 'backup']
+const galleryTitles: Record<string, { en: string; zh: string }> = {
+  overview: { en: 'Overview', zh: '总览' },
+  map: { en: 'World traffic', zh: '世界流量' },
+  quality: { en: 'Quality', zh: '质量' },
+  wireless: { en: 'Wireless', zh: '无线' },
+  'access-wireguard': { en: 'WireGuard', zh: 'WireGuard' },
+  backup: { en: 'Backup', zh: '备份' },
+}
+const gallery = galleryIds
+  .map((id) => {
+    const shot = screenUrl(id, lang, 'light')
+    return shot ? { id, url: shot.url } : null
+  })
+  .filter(Boolean) as { id: string; url: string }[]
+
+const docs = {
+  en: [
+    { slug: 'install', title: 'Install on Debian', deck: 'What apt does before any olr code runs, and what it deliberately does not.' },
+    { slug: 'dns', title: 'DNS', deck: 'Unbound in front of the LAN, with zones, forwards and DNSSEC under one schema.' },
+    { slug: 'remote-access', title: 'Remote access', deck: 'The way back into the network, and the route home it advertises.' },
+    { slug: 'system', title: 'System', deck: 'Why installing a router’s control plane must never cut your SSH session.' },
+  ],
+  zh: [
+    { slug: 'install', title: '在 Debian 上安装', deck: '在任何 olr 代码跑起来之前 apt 做了什么，以及它刻意不做什么。' },
+    { slug: 'dns', title: 'DNS', deck: '面向内网的 Unbound：区域、转发与 DNSSEC，都在一份 schema 之下。' },
+    { slug: 'remote-access', title: '远程访问', deck: '从外面回到家里的那条路，以及它向外通告的回程路由。' },
+    { slug: 'system', title: '系统', deck: '为什么安装一个路由器的控制面，绝不该切断你正在用的 SSH 会话。' },
+  ],
+}
+---
+
+<!-- Hero -->
+<section class="relative overflow-hidden border-b border-border">
+  <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" aria-hidden="true"></div>
+  <div class="shell pt-16 text-center sm:pt-24">
+    <p class="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground">
+      <span class="size-1.5 rounded-full bg-[var(--success)]" aria-hidden="true"></span>
+      {s.status}
+    </p>
+
+    <h1 class="mx-auto mt-6 max-w-3xl text-[2.5rem] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-6xl">
+      {s.h1a}{' '}<br class="hidden sm:block" />{s.h1b}
+    </h1>
+
+    <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">{s.lead}</p>
+
+    <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+      <a
+        href={href(lang, '/capabilities')}
+        class="inline-flex items-center gap-1.5 rounded-lg bg-primary-fill px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
+      >
+        {s.primary}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4" aria-hidden="true">
+          <path d="M5 12h14M13 6l6 6-6 6" />
+        </svg>
+      </a>
+      <a
+        href={href(lang, '/gallery')}
+        class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium transition-colors hover:border-input"
+      >
+        {s.secondary}
+      </a>
+    </div>
+
+    <div class="mx-auto mt-8 max-w-md text-left">
+      <CopyLine command={install[lang]} copyLabel={copy.copy} copiedLabel={copy.copied} />
+      <p class="mt-2.5 text-center text-xs text-muted-foreground">Debian 13 · Ubuntu · systemd · nftables · MIT</p>
+    </div>
+  </div>
+
+  <div class="shell mt-14 pb-12">
+    <ThemedShot id="overview" lang={lang} alt={s.screenshotAlt} loading="eager" class="shadow-lg" />
+  </div>
+</section>
+
+<!-- Facts -->
+<section class="border-b border-border bg-card/60">
+  <dl class="shell grid grid-cols-2 gap-x-6 gap-y-5 py-8 sm:grid-cols-4">
+    {
+      s.facts.map((fact) => (
+        <div>
+          <dt class="text-[0.6875rem] font-medium uppercase tracking-wider text-muted-foreground">{fact.label}</dt>
+          <dd class="mt-1 text-sm font-medium">{fact.value}</dd>
+        </div>
+      ))
+    }
+  </dl>
+</section>
+
+<!-- Beliefs -->
+<section class="shell py-20 sm:py-24">
+  <SectionHeading lang={lang} eyebrow={s.beliefsEyebrow} title={s.beliefsTitle} lead={s.beliefsLead} />
+
+  <div class="mt-10 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+    {
+      beliefs.map((belief, index) => (
+        <div class="border-t border-border pt-5">
+          <span class="font-mono text-[0.6875rem] text-muted-foreground">{String(index + 1).padStart(2, '0')}</span>
+          <h3 class="mt-2 text-[0.9375rem] font-semibold tracking-tight">{belief.title[lang]}</h3>
+          <p class="mt-2 text-sm leading-relaxed text-muted-foreground">{belief.body[lang]}</p>
+        </div>
+      ))
+    }
+  </div>
+</section>
+
+<!-- Capabilities -->
+<section class="border-y border-border bg-card/40">
+  <div class="shell py-20 sm:py-24">
+    <SectionHeading
+      lang={lang}
+      eyebrow={s.capEyebrow}
+      title={s.capTitle}
+      lead={s.capLead}
+      link={{ href: href(lang, '/capabilities'), label: s.capLink }}
+    />
+    <div class="mt-10">
+      <CapabilityGrid lang={lang} items={capabilities} />
+    </div>
+  </div>
+</section>
+
+<!-- Gallery preview -->
+<section class="shell py-20 sm:py-24">
+  <SectionHeading
+    lang={lang}
+    eyebrow={s.galEyebrow}
+    title={s.galTitle}
+    lead={s.galLead}
+    link={{ href: href(lang, '/gallery'), label: copy.viewAll }}
+  />
+  <div class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {
+      gallery.map((shot) => (
+        <a
+          href={href(lang, '/gallery')}
+          class="group overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-input"
+        >
+          <img
+            src={shot.url}
+            alt={`${galleryTitles[shot.id][lang]} — interface screenshot`}
+            width="1440"
+            height="900"
+            loading="lazy"
+            class="aspect-[16/10] w-full object-cover object-top"
+          />
+          <div class="flex items-center justify-between border-t border-border px-4 py-2.5">
+            <span class="text-[0.8125rem] font-medium">{galleryTitles[shot.id][lang]}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </div>
+        </a>
+      ))
+    }
+  </div>
+</section>
+
+<!-- Docs preview -->
+<section class="border-y border-border bg-card/40">
+  <div class="shell py-20 sm:py-24">
+    <SectionHeading
+      lang={lang}
+      eyebrow={s.docEyebrow}
+      title={s.docTitle}
+      lead={s.docLead}
+      link={{ href: href(lang, '/docs'), label: copy.readDocs }}
+    />
+    <div class="mt-10 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2">
+      {
+        docs[lang].map((doc) => (
+          <a href={href(lang, `/docs/${doc.slug}`)} class="group bg-card p-6 transition-colors hover:bg-accent">
+            <h3 class="text-[0.9375rem] font-semibold tracking-tight group-hover:text-primary">{doc.title}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-muted-foreground">{doc.deck}</p>
+            <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-primary">
+              {copy.learnMore}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-3" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </span>
+          </a>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<!-- Closing -->
+<section class="shell py-20 text-center sm:py-28">
+  <h2 class="mx-auto max-w-2xl text-2xl font-semibold tracking-tight sm:text-4xl">{s.closeTitle}</h2>
+  <p class="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">{s.closeLead}</p>
+  <div class="mx-auto mt-8 max-w-md text-left">
+    <CopyLine command={install[lang]} copyLabel={copy.copy} copiedLabel={copy.copied} />
+  </div>
+  <div class="mt-6 flex flex-wrap items-center justify-center gap-3 text-sm">
+    <a href={href(lang, '/docs/install')} class="font-medium text-primary hover:underline">{s.installGuide}</a>
+    <span class="text-border" aria-hidden="true">·</span>
+    <a href={site.repo} target="_blank" rel="noreferrer" class="font-medium text-primary hover:underline">{s.source}</a>
+  </div>
+</section>

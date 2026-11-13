@@ -1,0 +1,453 @@
+{
+  "overview": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "overview--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "overview--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "overview--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "overview--zh--dark.webp"
+    }
+  ],
+  "map": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "map--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "map--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "map--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "map--zh--dark.webp"
+    }
+  ],
+  "gateway": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "gateway--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "gateway--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "gateway--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "gateway--zh--dark.webp"
+    }
+  ],
+  "interfaces": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "interfaces--en--light.webp"
+    }
+  ],
+  "gateway-interfaces": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "gateway-interfaces--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "gateway-interfaces--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "gateway-interfaces--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "gateway-interfaces--zh--dark.webp"
+    }
+  ],
+  "gateway-routes": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "gateway-routes--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "gateway-routes--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "gateway-routes--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "gateway-routes--zh--dark.webp"
+    }
+  ],
+  "gateway-dhcp": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "gateway-dhcp--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "gateway-dhcp--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "gateway-dhcp--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "gateway-dhcp--zh--dark.webp"
+    }
+  ],
+  "gateway-dns": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "gateway-dns--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "gateway-dns--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "gateway-dns--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "gateway-dns--zh--dark.webp"
+    }
+  ],
+  "unmanaged": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "unmanaged--en--light.webp"
+    }
+  ],
+  "device-mac": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "device-mac--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "device-mac--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "device-mac--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "device-mac--zh--dark.webp"
+    }
+  ],
+  "device-nuc": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "device-nuc--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "device-nuc--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "device-nuc--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "device-nuc--zh--dark.webp"
+    }
+  ],
+  "wireless": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "wireless--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "wireless--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "wireless--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "wireless--zh--dark.webp"
+    }
+  ],
+  "firewall": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "firewall--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "firewall--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "firewall--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "firewall--zh--dark.webp"
+    }
+  ],
+  "filtering": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "filtering--en--light.webp"
+    }
+  ],
+  "dns-blocking": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "dns-blocking--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "dns-blocking--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "dns-blocking--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "dns-blocking--zh--dark.webp"
+    }
+  ],
+  "forwards": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "forwards--en--light.webp"
+    }
+  ],
+  "access": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "access--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "access--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "access--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "access--zh--dark.webp"
+    }
+  ],
+  "access-gateway": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "access-gateway--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "access-gateway--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "access-gateway--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "access-gateway--zh--dark.webp"
+    }
+  ],
+  "access-wireguard": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "access-wireguard--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "access-wireguard--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "access-wireguard--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "access-wireguard--zh--dark.webp"
+    }
+  ],
+  "caddy": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "caddy--en--light.webp"
+    }
+  ],
+  "socks5": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "socks5--en--light.webp"
+    }
+  ],
+  "tunnelbroker": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "tunnelbroker--en--light.webp"
+    }
+  ],
+  "ping": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "ping--en--light.webp"
+    }
+  ],
+  "traceroute": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "traceroute--en--light.webp"
+    }
+  ],
+  "speedtest": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "speedtest--en--light.webp"
+    }
+  ],
+  "quality": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "quality--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "quality--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "quality--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "quality--zh--dark.webp"
+    }
+  ],
+  "advanced": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "advanced--en--light.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "light",
+      "file": "advanced--zh--light.webp"
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "file": "advanced--en--dark.webp"
+    },
+    {
+      "lang": "zh",
+      "theme": "dark",
+      "file": "advanced--zh--dark.webp"
+    }
+  ],
+  "backup": [
+    {
+      "lang": "en",
+      "theme": "light",
+      "file": "backup--en--light.webp"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import HomePage from '../../components/HomePage.astro'
+import { site } from '../../lib/i18n'
+---
+
+<BaseLayout
+  lang="zh"
+  title={site.name}
+  description="一个 Debian 包形态的路由器：网页界面、CLI、REST API 与 MCP server 共用一份配置，而它始终是一台普通的 Linux 机器。"
+  path="/"
+>
+  <HomePage lang="zh" />
+</BaseLayout>

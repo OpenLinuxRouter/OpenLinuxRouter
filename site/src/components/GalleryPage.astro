@@ -1,0 +1,367 @@
+---
+// The gallery: every captured screen, grouped the way the console's navigation
+// groups them. The lightbox is a dialog; variants are data attributes, so the
+// page needs no client-side data fetch and no framework.
+import type { Lang } from '../lib/i18n'
+import { groups, screens } from '../lib/screens'
+import { screenUrl, variantsOf } from '../lib/images'
+
+interface Props {
+  lang: Lang
+}
+const { lang } = Astro.props
+
+const copy =
+  lang === 'en'
+    ? {
+        eyebrow: 'Gallery',
+        title: 'Every screen, from a real box',
+        lead: 'The console has no mockups. Every page below was captured on a running installation, in both themes and both interface languages where available.',
+        hint: 'Click any screenshot to enlarge. Arrow keys move; Esc closes. Some early pages were only captured in English and light.',
+        filterLabel: 'Filter by area',
+        all: 'All',
+        lightboxLabel: 'Screenshot viewer',
+        variantLang: 'Interface language',
+        variantTheme: 'Theme',
+        light: 'Light',
+        dark: 'Dark',
+        close: 'Close',
+        previous: 'Previous screenshot',
+        next: 'Next screenshot',
+        keys: '← → move · Esc close',
+      }
+    : {
+        eyebrow: '图库',
+        title: '每一个界面，都来自真机',
+        lead: '控制台里没有效果图。下面每一页都截自一套正在运行的安装，明暗两套主题；能拿到两种界面语言的也都给了。',
+        hint: '点任意截图放大。左右键切换，Esc 关闭。少数早期页面只截了英文浅色版。',
+        filterLabel: '按区域筛选',
+        all: '全部',
+        lightboxLabel: '截图查看器',
+        variantLang: '界面语言',
+        variantTheme: '主题',
+        light: '浅色',
+        dark: '深色',
+        close: '关闭',
+        previous: '上一张',
+        next: '下一张',
+        keys: '← → 切换 · Esc 关闭',
+      }
+
+const cards = screens
+  .map((screen) => {
+    const variants = variantsOf(screen.id)
+    if (!variants.length) return null
+    const shot = screenUrl(screen.id, lang, 'light')
+    if (!shot) return null
+    return {
+      id: screen.id,
+      group: screen.group,
+      title: screen.title[lang],
+      blurb: screen.blurb[lang],
+      url: shot.url,
+      variants: variants.map((variant) => ({
+        lang: variant.lang,
+        theme: variant.theme,
+        url: screenUrl(screen.id, variant.lang, variant.theme)?.url ?? '',
+      })),
+    }
+  })
+  .filter(Boolean) as {
+  id: string
+  group: string
+  title: string
+  blurb: string
+  url: string
+  variants: { lang: string; theme: string; url: string }[]
+}[]
+
+const present = groups.filter((group) => cards.some((card) => card.group === group.id))
+const total = cards.length
+---
+
+<section class="shell pb-8 pt-16 sm:pt-20">
+  <p class="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{copy.eyebrow}</p>
+  <h1 class="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-5xl">{copy.title}</h1>
+  <p class="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">{copy.lead}</p>
+  <p class="mt-3 text-xs text-muted-foreground">{copy.hint}</p>
+</section>
+
+<section class="shell">
+  <div class="sticky top-14 z-30 -mx-5 border-y border-border bg-background/90 px-5 py-3 backdrop-blur-md md:mx-0 md:rounded-lg md:border md:px-3">
+    <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label={copy.filterLabel}>
+      <button
+        type="button"
+        data-filter="all"
+        aria-pressed="true"
+        class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-foreground transition-colors"
+      >
+        {copy.all}
+        <span class="ms-1 font-mono text-[0.6875rem] text-muted-foreground">{total}</span>
+      </button>
+      {
+        present.map((group) => (
+          <button
+            type="button"
+            data-filter={group.id}
+            aria-pressed="false"
+            class="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-pressed:bg-accent aria-pressed:font-medium aria-pressed:text-foreground"
+          >
+            {group[lang]}
+            <span class="ms-1 font-mono text-[0.6875rem] text-muted-foreground">
+              {cards.filter((card) => card.group === group.id).length}
+            </span>
+          </button>
+        ))
+      }
+    </div>
+  </div>
+
+  <div data-gallery-grid class="py-10">
+    {
+      present.map((group) => (
+        <section data-group-section={group.id} class="mb-14 scroll-mt-32">
+          <div class="mb-5 flex items-baseline justify-between gap-4">
+            <h2 id={group.id} class="scroll-mt-32 text-lg font-semibold tracking-tight">
+              {group[lang]}
+            </h2>
+            <span class="font-mono text-[0.6875rem] text-muted-foreground">
+              {cards.filter((card) => card.group === group.id).length}
+            </span>
+          </div>
+          <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {cards
+              .filter((card) => card.group === group.id)
+              .map((card) => (
+                <button
+                  type="button"
+                  data-gallery-item
+                  data-id={card.id}
+                  data-title={card.title}
+                  data-blurb={card.blurb}
+                  data-variants={JSON.stringify(card.variants)}
+                  class="group text-left"
+                >
+                  <div class="overflow-hidden rounded-xl border border-border bg-card transition-all group-hover:border-input group-hover:shadow-md">
+                    <img
+                      src={card.url}
+                      alt={`${card.title} — ${card.blurb}`}
+                      width="1440"
+                      height="900"
+                      loading="lazy"
+                      class="aspect-[16/10] w-full object-cover object-top"
+                    />
+                  </div>
+                  <div class="mt-2.5 flex items-start justify-between gap-3">
+                    <div>
+                      <p class="text-sm font-medium">{card.title}</p>
+                      <p class="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                        {card.blurb}
+                      </p>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="mt-0.5 size-4 shrink-0 text-muted-foreground/60 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden="true">
+                      <path d="M14 4h6v6M20 4l-9 9M4 20l6-6" />
+                    </svg>
+                  </div>
+                </button>
+              ))}
+          </div>
+        </section>
+      ))
+    }
+  </div>
+</section>
+
+<dialog
+  data-lightbox
+  class="fixed inset-0 m-auto w-[min(72rem,calc(100vw-1.5rem))] max-w-none rounded-xl border border-border bg-card p-0 text-card-foreground shadow-lg backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+  aria-label={copy.lightboxLabel}
+>
+  <div class="flex items-center justify-between gap-4 border-b border-border px-4 py-2.5">
+    <div class="min-w-0">
+      <p data-lightbox-title class="truncate text-sm font-medium"></p>
+      <p data-lightbox-blurb class="truncate text-xs text-muted-foreground"></p>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <div class="hidden items-center rounded-md border border-border p-0.5 sm:flex" role="group" aria-label={copy.variantLang}>
+        <button type="button" data-variant-lang="en" class="rounded px-1.5 py-0.5 text-xs">EN</button>
+        <button type="button" data-variant-lang="zh" class="rounded px-1.5 py-0.5 text-xs">中文</button>
+      </div>
+      <div class="hidden items-center rounded-md border border-border p-0.5 sm:flex" role="group" aria-label={copy.variantTheme}>
+        <button type="button" data-variant-theme="light" class="rounded px-1.5 py-0.5 text-xs">{copy.light}</button>
+        <button type="button" data-variant-theme="dark" class="rounded px-1.5 py-0.5 text-xs">{copy.dark}</button>
+      </div>
+      <button
+        type="button"
+        data-lightbox-close
+        class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        aria-label={copy.close}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="relative bg-muted/40">
+    <img data-lightbox-image src="" alt="" class="mx-auto max-h-[68vh] w-auto max-w-full object-contain" />
+    <button
+      type="button"
+      data-lightbox-prev
+      class="absolute left-2 top-1/2 -translate-y-1/2 rounded-full border border-border bg-card/90 p-2 text-foreground shadow-sm transition-colors hover:bg-card"
+      aria-label={copy.previous}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4" aria-hidden="true">
+        <path d="M15 6l-6 6 6 6" />
+      </svg>
+    </button>
+    <button
+      type="button"
+      data-lightbox-next
+      class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-border bg-card/90 p-2 text-foreground shadow-sm transition-colors hover:bg-card"
+      aria-label={copy.next}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4" aria-hidden="true">
+        <path d="M9 6l6 6-6 6" />
+      </svg>
+    </button>
+  </div>
+
+  <div class="flex items-center justify-between border-t border-border px-4 py-2">
+    <span data-lightbox-count class="font-mono text-[0.6875rem] text-muted-foreground"></span>
+    <span class="text-[0.6875rem] text-muted-foreground">{copy.keys}</span>
+  </div>
+</dialog>
+
+<script>
+  type Variant = { lang: string; theme: string; url: string }
+
+  const dialog = document.querySelector<HTMLDialogElement>('[data-lightbox]')
+  const image = document.querySelector<HTMLImageElement>('[data-lightbox-image]')
+  const title = document.querySelector<HTMLElement>('[data-lightbox-title]')
+  const blurb = document.querySelector<HTMLElement>('[data-lightbox-blurb]')
+  const counter = document.querySelector<HTMLElement>('[data-lightbox-count]')
+  const items = [...document.querySelectorAll<HTMLButtonElement>('[data-gallery-item]')]
+  const filters = [...document.querySelectorAll<HTMLButtonElement>('[data-filter]')]
+
+  let visible = items
+  let index = 0
+  let lang = 'en'
+  let theme = 'light'
+
+  const variantsOf = (item: HTMLButtonElement): Variant[] => JSON.parse(item.dataset.variants ?? '[]')
+
+  const pick = (item: HTMLButtonElement, wantLang: string, wantTheme: string): Variant | undefined => {
+    const variants = variantsOf(item)
+    return (
+      variants.find((v) => v.lang === wantLang && v.theme === wantTheme) ??
+      variants.find((v) => v.theme === wantTheme) ??
+      variants.find((v) => v.lang === wantLang) ??
+      variants[0]
+    )
+  }
+
+  const syncButtons = () => {
+    document.querySelectorAll<HTMLButtonElement>('[data-variant-lang]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.variantLang === lang))
+      button.className =
+        button.dataset.variantLang === lang
+          ? 'rounded bg-accent px-1.5 py-0.5 text-xs font-medium'
+          : 'rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground'
+    })
+    document.querySelectorAll<HTMLButtonElement>('[data-variant-theme]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.variantTheme === theme))
+      button.className =
+        button.dataset.variantTheme === theme
+          ? 'rounded bg-accent px-1.5 py-0.5 text-xs font-medium'
+          : 'rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground'
+    })
+  }
+
+  const render = () => {
+    const item = visible[index]
+    if (!item || !image) return
+    const variant = pick(item, lang, theme)
+    if (!variant) return
+    image.src = variant.url
+    image.alt = `${item.dataset.title} — ${item.dataset.blurb}`
+    if (title) title.textContent = item.dataset.title ?? ''
+    if (blurb) blurb.textContent = item.dataset.blurb ?? ''
+    if (counter) counter.textContent = `${index + 1} / ${visible.length}`
+    syncButtons()
+  }
+
+  const openAt = (item: HTMLButtonElement) => {
+    visible = items.filter((candidate) => !candidate.closest<HTMLElement>('[data-group-section]')?.hidden)
+    index = Math.max(0, visible.indexOf(item))
+    render()
+    dialog?.showModal()
+    document.body.classList.add('overflow-hidden')
+  }
+
+  items.forEach((item) => item.addEventListener('click', () => openAt(item)))
+
+  const close = () => {
+    dialog?.close()
+    document.body.classList.remove('overflow-hidden')
+  }
+
+  document.querySelector('[data-lightbox-close]')?.addEventListener('click', close)
+  dialog?.addEventListener('close', () => document.body.classList.remove('overflow-hidden'))
+  dialog?.addEventListener('click', (event) => {
+    if (event.target === dialog) close()
+  })
+
+  const step = (delta: number) => {
+    if (!visible.length) return
+    index = (index + delta + visible.length) % visible.length
+    render()
+  }
+
+  document.querySelector('[data-lightbox-prev]')?.addEventListener('click', () => step(-1))
+  document.querySelector('[data-lightbox-next]')?.addEventListener('click', () => step(1))
+
+  document.querySelectorAll<HTMLButtonElement>('[data-variant-lang]').forEach((button) => {
+    button.addEventListener('click', () => {
+      lang = button.dataset.variantLang ?? 'en'
+      render()
+    })
+  })
+  document.querySelectorAll<HTMLButtonElement>('[data-variant-theme]').forEach((button) => {
+    button.addEventListener('click', () => {
+      theme = button.dataset.variantTheme ?? 'light'
+      render()
+    })
+  })
+
+  addEventListener('keydown', (event) => {
+    if (!dialog?.open) return
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      step(-1)
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      step(1)
+    } else if (event.key === 'Escape') {
+      close()
+    }
+  })
+
+  // Filters hide whole groups; the lightbox walks only what is still visible.
+  filters.forEach((filter) => {
+    filter.addEventListener('click', () => {
+      const value = filter.dataset.filter ?? 'all'
+      filters.forEach((button) => {
+        button.setAttribute('aria-pressed', String(button === filter))
+        button.className =
+          button === filter
+            ? 'rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-foreground transition-colors'
+            : 'rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+      })
+      document.querySelectorAll<HTMLElement>('[data-group-section]').forEach((section) => {
+        section.hidden = value !== 'all' && section.dataset.groupSection !== value
+      })
+    })
+  })
+</script>

@@ -1,0 +1,159 @@
+---
+import type { Lang } from '../lib/i18n'
+import { href } from '../lib/i18n'
+import { docBody, docGroups, docTitle, docsInGroup, neighbours } from '../lib/docs'
+
+interface Props {
+  lang: Lang
+  slug: string
+}
+
+const { lang, slug } = Astro.props
+const base = href(lang, '/docs')
+
+const group = docGroups.find((candidate) => candidate.slugs.includes(slug))
+const groupItems = group ? docsInGroup(group.id) : []
+const entry = groupItems.find((doc) => doc.slug === slug)
+const title = entry ? docTitle(entry, lang) : slug
+const summary = entry?.summary ?? ''
+const body = entry ? docBody(entry, lang) : { html: '', headings: [] }
+const toc = body.headings.filter((heading) => heading.text.length < 70)
+const { previous, next } = neighbours(slug)
+
+const nav = docGroups
+  .map((candidate) => ({ ...candidate, items: docsInGroup(candidate.id) }))
+  .filter((candidate) => candidate.items.length)
+
+const text =
+  lang === 'en'
+    ? {
+        docs: 'Documentation',
+        all: 'All docs',
+        previous: 'Previous',
+        next: 'Next',
+        toc: 'On this page',
+        translateNote: null as string | null,
+      }
+    : {
+        docs: '文档',
+        all: '全部文档',
+        previous: '上一篇',
+        next: '下一篇',
+        toc: '本页目录',
+        translateNote: entry?.zhHtml ? null : '本文正文目前为英文原文，译文尚未补齐。',
+      }
+---
+
+<div class="shell grid gap-10 py-10 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-14">
+  <!-- Sidebar -->
+  <aside class="hidden lg:block">
+    <div class="sticky top-20 max-h-[calc(100dvh-6rem)] overflow-y-auto pb-8 pe-2">
+      <a href={base} class="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground">
+        {text.docs}
+      </a>
+      <nav class="mt-4 space-y-5" aria-label={text.docs}>
+        {
+          nav.map((candidate) => (
+            <div>
+              <p class="text-xs font-medium text-foreground">{candidate[lang]}</p>
+              <ul class="mt-1.5 space-y-0.5 border-s border-border ps-3">
+                {candidate.items.map((doc) => (
+                  <li>
+                    <a
+                      href={`${base}/${doc.slug}`}
+                      aria-current={doc.slug === slug ? 'page' : undefined}
+                      class:list={[
+                        'block rounded py-0.5 text-[0.8125rem] leading-snug transition-colors',
+                        doc.slug === slug ? 'font-medium text-primary' : 'text-muted-foreground hover:text-foreground',
+                      ]}
+                    >
+                      {docTitle(doc, lang)}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        }
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Article -->
+  <article class="min-w-0">
+    <nav class="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground lg:hidden" aria-label="Breadcrumb">
+      <a href={base} class="hover:text-foreground">{text.all}</a>
+      {
+        group && (
+          <>
+            <span aria-hidden="true">/</span>
+            <span>{group[lang]}</span>
+          </>
+        )
+      }
+    </nav>
+
+    <header class="mt-4 border-b border-border pb-6 lg:mt-0">
+      {group && (
+        <p class="mb-2 hidden font-mono text-[0.6875rem] uppercase tracking-wider text-muted-foreground lg:block">
+          {group[lang]}
+        </p>
+      )}
+      <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>
+    </header>
+
+    {
+      text.translateNote && (
+        <p class="mt-6 rounded-lg border border-border bg-muted/60 px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground">
+          {text.translateNote}
+        </p>
+      )
+    }
+
+    {
+      toc.length > 2 && (
+        <details class="mt-6 rounded-lg border border-border bg-card px-4 py-3 lg:hidden">
+          <summary class="cursor-pointer text-sm font-medium">{text.toc}</summary>
+          <ul class="mt-2 space-y-1">
+            {toc.map((heading) => (
+              <li>
+                <a href={`#${heading.id}`} class="text-sm text-muted-foreground hover:text-primary">
+                  {heading.text}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )
+    }
+
+    <div class="prose-console mt-8 max-w-3xl" set:html={body.html} />
+
+    <nav class="mt-14 grid gap-3 border-t border-border pt-6 sm:grid-cols-2" aria-label="Pagination">
+      {
+        previous ? (
+          <a
+            href={`${base}/${previous.slug}`}
+            class="group rounded-lg border border-border bg-card p-4 transition-colors hover:border-input"
+          >
+            <span class="text-xs text-muted-foreground">{text.previous}</span>
+            <span class="mt-1 block text-sm font-medium group-hover:text-primary">{docTitle(previous, lang)}</span>
+          </a>
+        ) : (
+          <span />
+        )
+      }
+      {
+        next && (
+          <a
+            href={`${base}/${next.slug}`}
+            class="group rounded-lg border border-border bg-card p-4 text-right transition-colors hover:border-input sm:col-start-2"
+          >
+            <span class="text-xs text-muted-foreground">{text.next}</span>
+            <span class="mt-1 block text-sm font-medium group-hover:text-primary">{docTitle(next, lang)}</span>
+          </a>
+        )
+      }
+    </nav>
+  </article>
+</div>

@@ -1,0 +1,184 @@
+---
+import type { Lang } from '../lib/i18n'
+import { href, nav, site } from '../lib/i18n'
+
+interface Props {
+  lang: Lang
+  path: string
+}
+
+const { lang, path } = Astro.props
+const links = nav[lang]
+const isActive = (linkPath: string) => {
+  if (linkPath === '/' || linkPath === '/zh/') return path === '/' || path === '/zh/'
+  const bare = linkPath.replace(/^\/zh/, '') || '/'
+  return path === bare || path === linkPath || path.startsWith(`${bare}/`)
+}
+const other: Lang = lang === 'en' ? 'zh' : 'en'
+const otherHref = lang === 'en' ? href('zh', path) : path.replace(/^\/zh/, '') || '/'
+---
+
+<header class="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur-md">
+  <div class="shell flex h-14 items-center gap-3">
+    <a href={href(lang, '/')} class="flex shrink-0 items-center gap-2 rounded-md" aria-label={site.name}>
+      <svg viewBox="0 0 100 100" class="size-6" aria-hidden="true">
+        <path fill="#13a7f5" d="M50 8A42 42 0 0 0 50 92V69A19 19 0 0 1 50 31Z"></path>
+        <path fill="#fd605e" d="M50 8A42 42 0 0 1 50 92V69A19 19 0 0 0 50 31Z"></path>
+        <circle fill="#13a7f5" cx="50" cy="19.5" r="11.5"></circle>
+        <circle fill="#fd605e" cx="50" cy="80.5" r="11.5"></circle>
+      </svg>
+      <span class="text-[0.9375rem] font-semibold tracking-tight">{site.name}</span>
+    </a>
+
+    <nav class="ms-4 hidden items-center gap-1 md:flex" aria-label="Primary">
+      {
+        links.map((link) => (
+          <a
+            href={href(lang, link.href)}
+            aria-current={isActive(link.href) ? 'page' : undefined}
+            class:list={[
+              'rounded-md px-3 py-1.5 text-sm transition-colors',
+              isActive(link.href)
+                ? 'bg-accent font-medium text-foreground'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+            ]}
+          >
+            {link.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="ms-auto flex items-center gap-1.5">
+      <button
+        type="button"
+        data-search-open
+        class="hidden items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:border-input hover:text-foreground sm:flex"
+        aria-label={lang === 'en' ? 'Search the site' : '搜索站内内容'}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m16.5 16.5 4 4"></path>
+        </svg>
+        <span class="hidden lg:inline">{lang === 'en' ? 'Search' : '搜索'}</span>
+        <kbd class="hidden rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted-foreground lg:inline">⌘K</kbd>
+      </button>
+
+      <button
+        type="button"
+        data-search-open
+        class="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:hidden"
+        aria-label={lang === 'en' ? 'Search the site' : '搜索站内内容'}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-[1.15rem]" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m16.5 16.5 4 4"></path>
+        </svg>
+      </button>
+
+      <a
+        href={otherHref}
+        class="rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        hreflang={other}
+        aria-label={other === 'en' ? 'English' : '中文'}
+      >
+        {other === 'en' ? 'EN' : '中文'}
+      </a>
+
+      <button
+        type="button"
+        data-theme-toggle
+        class="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        aria-label={lang === 'en' ? 'Change theme' : '切换主题'}
+      >
+        <svg data-theme-icon="light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-[1.15rem]" aria-hidden="true">
+          <circle cx="12" cy="12" r="4.2"></circle>
+          <path d="M12 2v2.2M12 19.8V22M2 12h2.2M19.8 12H22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M19.1 4.9l-1.6 1.6M6.5 17.5l-1.6 1.6"></path>
+        </svg>
+        <svg data-theme-icon="dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-[1.15rem]" aria-hidden="true">
+          <path d="M20.5 14.2A8.6 8.6 0 0 1 9.8 3.5a8.6 8.6 0 1 0 10.7 10.7Z"></path>
+        </svg>
+        <svg data-theme-icon="system" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-[1.15rem]" aria-hidden="true">
+          <rect x="3" y="4.5" width="18" height="12.5" rx="1.6"></rect>
+          <path d="M8.5 20.5h7M12 17v3.5"></path>
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        data-menu-toggle
+        class="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
+        aria-label={lang === 'en' ? 'Menu' : '菜单'}
+        aria-expanded="false"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-[1.15rem]" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div data-menu-panel hidden class="border-t border-border bg-background md:hidden">
+    <nav class="shell flex flex-col gap-1 py-3" aria-label="Primary">
+      {
+        links.map((link) => (
+          <a
+            href={href(lang, link.href)}
+            aria-current={isActive(link.href) ? 'page' : undefined}
+            class:list={[
+              'rounded-md px-3 py-2 text-sm',
+              isActive(link.href) ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground',
+            ]}
+          >
+            {link.label}
+          </a>
+        ))
+      }
+    </nav>
+  </div>
+</header>
+
+<script>
+  // Menu disclosure.
+  const menuToggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]')
+  const menuPanel = document.querySelector<HTMLElement>('[data-menu-panel]')
+  menuToggle?.addEventListener('click', () => {
+    if (!menuPanel) return
+    const open = menuPanel.hasAttribute('hidden')
+    menuPanel.toggleAttribute('hidden', !open)
+    menuToggle.setAttribute('aria-expanded', String(open))
+  })
+
+  // Theme: light → dark → system, stored for the inline head script to apply
+  // before paint. The icon follows whichever mode is active.
+  const order = ['light', 'dark', 'system'] as const
+  type Theme = (typeof order)[number]
+
+  const toggle = document.querySelector<HTMLButtonElement>('[data-theme-toggle]')
+  const icons = document.querySelectorAll<SVGElement>('[data-theme-icon]')
+
+  const current = (): Theme => {
+    const stored = localStorage.getItem('olr-theme')
+    return stored === 'light' || stored === 'dark' ? stored : 'system'
+  }
+
+  const apply = (theme: Theme) => {
+    const systemDark = matchMedia('(prefers-color-scheme: dark)').matches
+    const dark = theme === 'dark' || (theme === 'system' && systemDark)
+    document.documentElement.classList.toggle('dark', dark)
+    localStorage.setItem('olr-theme', theme)
+    icons.forEach((icon) => {
+      icon.style.display = icon.dataset.themeIcon === theme ? 'block' : 'none'
+    })
+    toggle?.setAttribute('aria-label', `Theme: ${theme}`)
+  }
+
+  apply(current())
+  toggle?.addEventListener('click', () => {
+    const next = order[(order.indexOf(current()) + 1) % order.length]
+    apply(next)
+  })
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (current() === 'system') apply('system')
+  })
+</script>

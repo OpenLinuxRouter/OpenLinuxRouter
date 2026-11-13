@@ -1,0 +1,200 @@
+---
+import type { Lang } from '../lib/i18n'
+import { href, t } from '../lib/i18n'
+
+interface Props {
+  lang: Lang
+}
+const { lang } = Astro.props
+const copy = t(lang)
+---
+
+<dialog
+  data-search-dialog
+  data-lang={lang}
+  class="fixed inset-0 m-auto w-[min(42rem,calc(100vw-2rem))] rounded-xl border border-border bg-card p-0 text-card-foreground shadow-lg backdrop:bg-black/30 backdrop:backdrop-blur-[2px]"
+  aria-label={copy.search}
+>
+  <div class="flex items-center gap-2 border-b border-border px-4">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4 shrink-0 text-muted-foreground" aria-hidden="true">
+      <circle cx="11" cy="11" r="7"></circle>
+      <path d="m16.5 16.5 4 4"></path>
+    </svg>
+    <input
+      data-search-input
+      type="search"
+      placeholder={copy.searchPlaceholder}
+      class="h-13 w-full bg-transparent py-3.5 text-[0.9375rem] outline-none placeholder:text-muted-foreground"
+      autocomplete="off"
+      spellcheck="false"
+    />
+    <kbd class="hidden shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted-foreground sm:inline">Esc</kbd>
+  </div>
+
+  <div data-search-results class="max-h-[min(60vh,32rem)] overflow-y-auto p-2">
+    <p class="px-3 py-8 text-center text-sm text-muted-foreground" data-search-hint>
+      {lang === 'en' ? 'Search pages, capabilities and docs' : '搜索页面、能力与文档'}
+    </p>
+  </div>
+
+  <div class="flex items-center justify-between border-t border-border px-4 py-2 text-[0.6875rem] text-muted-foreground">
+    <span>{lang === 'en' ? '↑ ↓ to move · Enter to open' : '↑ ↓ 选择 · Enter 打开'}</span>
+    <span data-search-count></span>
+  </div>
+</dialog>
+
+<script>
+  type PagefindResult = { data: () => Promise<{ url: string; excerpt: string; meta: Record<string, string> }> }
+
+  const dialog = document.querySelector<HTMLDialogElement>('[data-search-dialog]')
+  const input = document.querySelector<HTMLInputElement>('[data-search-input]')
+  const list = document.querySelector<HTMLElement>('[data-search-results]')
+  const hint = document.querySelector<HTMLElement>('[data-search-hint]')
+  const count = document.querySelector<HTMLElement>('[data-search-count]')
+
+  let pagefind: { search: (q: string) => Promise<{ results: PagefindResult[] }> } | null = null
+  let loading: Promise<unknown> | null = null
+  let active = -1
+
+  const load = async () => {
+    if (pagefind) return pagefind
+    // Built by `pagefind --site dist` after the site build, so it exists only in
+    // the production output. A variable specifier keeps Vite from trying to
+    // resolve it during dev.
+    const searchPath = '/pagefind/pagefind.js'
+    loading ??= import(/* @vite-ignore */ searchPath)
+      .then((mod: unknown) => {
+        pagefind = mod as typeof pagefind
+        return mod
+      })
+      .catch(() => null)
+    return (await loading) as typeof pagefind
+  }
+
+  const open = () => {
+    if (!dialog) return
+    if (!dialog.open) dialog.showModal()
+    input?.focus()
+    input?.select()
+    load()
+  }
+
+  const close = () => dialog?.close()
+
+  document.querySelectorAll('[data-search-open]').forEach((button) => {
+    button.addEventListener('click', open)
+  })
+
+  addEventListener('keydown', (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault()
+      dialog?.open ? close() : open()
+    }
+  })
+
+  dialog?.addEventListener('click', (event) => {
+    if (event.target === dialog) close()
+  })
+
+  const escape = (html: string) => {
+    // Pagefind returns its own excerpt markup; keep only <mark>, escape the rest.
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    doc.querySelectorAll('mark').forEach((mark) => mark.replaceWith(`@@${mark.textContent}@@`))
+    return (doc.body.textContent ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/@@([\s\S]*?)@@/g, '<mark class="rounded-sm bg-primary/15 px-0.5 text-foreground">$1</mark>')
+  }
+
+  let request = 0
+  const search = async (query: string) => {
+    const current = ++request
+    if (!list) return
+    const q = query.trim()
+
+    if (!q) {
+      list.innerHTML = ''
+      if (hint) {
+        list.append(hint)
+        hint.hidden = false
+      }
+      if (count) count.textContent = ''
+      active = -1
+      return
+    }
+
+    hint?.remove()
+    if (loading === null) await load()
+    if (!pagefind) {
+      list.innerHTML = `<p class="px-3 py-8 text-center text-sm text-muted-foreground">${
+        document.documentElement.lang === 'zh-CN' ? '搜索索引尚未生成（仅生产构建包含）。' : 'The search index is not built yet — it ships with the production build.'
+      }</p>`
+      return
+    }
+
+        const lang = document.querySelector<HTMLElement>('[data-search-dialog]')?.dataset.lang ?? 'en'
+    const found = await pagefind.search(q, { filters: { lang } })
+    if (current !== request) return
+
+    const results = await Promise.all(found.results.slice(0, 12).map((result) => result.data()))
+    active = -1
+
+    list.replaceChildren(
+      ...results.map((result, index) => {
+        const a = document.createElement('a')
+        a.href = result.url
+        a.className =
+          'block rounded-lg px-3 py-2.5 transition-colors hover:bg-accent data-[active=true]:bg-accent'
+        a.dataset.index = String(index)
+        const title = document.createElement('p')
+        title.className = 'text-sm font-medium'
+        title.textContent = result.meta?.title ?? result.url
+        const excerpt = document.createElement('p')
+        excerpt.className = 'mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground'
+        excerpt.innerHTML = escape(result.excerpt ?? '')
+        a.append(title, excerpt)
+        return a
+      }),
+    )
+
+    if (!results.length) {
+      list.innerHTML = `<p class="px-3 py-8 text-center text-sm text-muted-foreground">${
+        document.documentElement.lang === 'zh-CN' ? '没有匹配的内容，换个词试试。' : 'Nothing matched. Try another word.'
+      }</p>`
+    }
+    if (count) count.textContent = results.length ? `${results.length}+` : ''
+  }
+
+  let timer: number | undefined
+  input?.addEventListener('input', () => {
+    const value = input.value
+    clearTimeout(timer)
+    timer = window.setTimeout(() => search(value), 120)
+  })
+
+  const move = (delta: number) => {
+    const items = [...(list?.querySelectorAll<HTMLAnchorElement>('a[data-index]') ?? [])]
+    if (!items.length) return
+    active = (active + delta + items.length) % items.length
+    items.forEach((item, index) => item.toggleAttribute('data-active', index === active))
+    items[active].scrollIntoView({ block: 'nearest' })
+  }
+
+  input?.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      move(1)
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      move(-1)
+    } else if (event.key === 'Enter') {
+      const items = [...(list?.querySelectorAll<HTMLAnchorElement>('a[data-index]') ?? [])]
+      const target = items[active >= 0 ? active : 0]
+      if (target) {
+        event.preventDefault()
+        location.href = target.href
+      }
+    }
+  })
+</script>

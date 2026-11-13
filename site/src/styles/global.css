@@ -1,0 +1,286 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/geist';
+
+/* The product site shares the console's tokens verbatim (web/src/index.css) so
+   a screenshot pasted into a page sits in the same colours as the UI it came
+   from. Only the parts a public page uses are carried here. */
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans:
+    'Geist Variable', -apple-system, BlinkMacSystemFont, 'PingFang SC',
+    'Noto Sans SC', 'Segoe UI', system-ui, sans-serif;
+  --font-mono:
+    'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-fill: var(--primary-fill);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-receive: var(--receive);
+  --color-transmit: var(--transmit);
+
+  --radius-lg: 0.5rem;
+  --radius-xl: var(--radius);
+  --radius-2xl: 1rem;
+
+  --shadow-xs: 0 1px 2px rgb(23 27 34 / 4%);
+  --shadow-sm: 0 1px 3px rgb(23 27 34 / 6%);
+  --shadow-md: 0 8px 24px rgb(23 27 34 / 10%);
+  --shadow-lg: 0 18px 48px rgb(23 27 34 / 14%);
+}
+
+:root {
+  --background: #f6f7f9;
+  --foreground: #171b22;
+  --card: #ffffff;
+  --card-foreground: #171b22;
+  --primary: #1d4ed8;
+  --primary-fill: #2563eb;
+  --primary-foreground: #ffffff;
+  --muted: #f0f2f5;
+  --muted-foreground: #5b6472;
+  --accent: #eef2f8;
+  --accent-foreground: #171b22;
+  --border: #e2e6ec;
+  --input: #a4adbb;
+  --ring: #1d4ed8;
+  --success: #22a06b;
+  --receive: #1d4ed8;
+  --transmit: #0f766e;
+  --radius: 0.75rem;
+  color-scheme: light;
+}
+
+.dark {
+  --background: #111318;
+  --foreground: #f1f3f7;
+  --card: #1a1d24;
+  --card-foreground: #f1f3f7;
+  --primary: #8ab4ff;
+  --primary-fill: #2563eb;
+  --primary-foreground: #ffffff;
+  --muted: #232731;
+  --muted-foreground: #abb4c3;
+  --accent: #232731;
+  --accent-foreground: #f1f3f7;
+  --border: #343b48;
+  --input: #67758b;
+  --ring: #8ab4ff;
+  --success: #39d353;
+  --receive: #8ab4ff;
+  --transmit: #4fd1c5;
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scrollbar-gutter: stable;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@layer components {
+  .shell {
+    width: 100%;
+    max-width: 76rem;
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+  }
+
+  @media (min-width: 768px) {
+    .shell {
+      padding-inline: 2rem;
+    }
+  }
+
+  /* Screenshots carry the UI's own border and radius so a framed shot reads as
+     the same surface it was captured from, not as a floating image. */
+  .shot {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .shot img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .prose-console {
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--foreground);
+  }
+
+  .prose-console > * + * {
+    margin-top: 1.25em;
+  }
+
+  .prose-console h2 {
+    margin-top: 2.5em;
+    margin-bottom: 0.6em;
+    font-size: 1.375rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .prose-console h3 {
+    margin-top: 2em;
+    margin-bottom: 0.5em;
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .prose-console p,
+  .prose-console li {
+    color: var(--foreground);
+  }
+
+  .prose-console ul,
+  .prose-console ol {
+    padding-left: 1.4em;
+  }
+
+  .prose-console ul {
+    list-style: disc;
+  }
+
+  .prose-console ol {
+    list-style: decimal;
+  }
+
+  .prose-console li + li {
+    margin-top: 0.4em;
+  }
+
+  .prose-console a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+  }
+
+  .prose-console code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 0.35rem;
+    padding: 0.1em 0.35em;
+  }
+
+  .prose-console pre {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.15rem;
+    overflow-x: auto;
+    font-size: 0.8125rem;
+    line-height: 1.65;
+  }
+
+  .prose-console pre code {
+    background: none;
+    border: 0;
+    padding: 0;
+    font-size: inherit;
+  }
+
+  .prose-console table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .prose-console th,
+  .prose-console td {
+    text-align: start;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .prose-console th {
+    color: var(--muted-foreground);
+    font-weight: 500;
+    font-size: 0.8125rem;
+    text-transform: none;
+  }
+
+  .prose-console blockquote {
+    border-left: 2px solid var(--primary);
+    padding-left: 1rem;
+    color: var(--muted-foreground);
+  }
+
+  .prose-console hr {
+    border: 0;
+    border-top: 1px solid var(--border);
+    margin-block: 2.5rem;
+  }
+
+  .prose-console strong {
+    font-weight: 600;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

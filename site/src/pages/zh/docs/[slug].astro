@@ -1,0 +1,24 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro'
+import DocPage from '../../../components/DocPage.astro'
+import { docs, docTitle } from '../../../lib/docs'
+
+export function getStaticPaths() {
+  return docs.map((doc) => ({
+    params: { slug: doc.slug },
+    props: { summary: doc.summary, title: doc.zhTitle, enTitle: doc.title },
+  }))
+}
+
+const { slug } = Astro.params
+const { summary, title, enTitle } = Astro.props
+---
+
+<BaseLayout
+  lang="zh"
+  title={title}
+  description={summary || `${enTitle} — 文档`}
+  path={`/docs/${slug}`}
+>
+  <DocPage lang="zh" slug={slug} />
+</BaseLayout>

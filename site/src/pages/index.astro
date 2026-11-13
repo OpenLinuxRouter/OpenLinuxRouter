@@ -1,0 +1,14 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import HomePage from '../components/HomePage.astro'
+import { site } from '../lib/i18n'
+---
+
+<BaseLayout
+  lang="en"
+  title={site.name}
+  description="A router as a Debian package: web UI, CLI, REST API and MCP server over one configuration. It stays a normal Linux machine."
+  path="/"
+>
+  <HomePage lang="en" />
+</BaseLayout>

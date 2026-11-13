@@ -1,0 +1,36 @@
+---
+// A console screenshot that swaps with the theme. Both variants are plain
+// committed images; CSS decides which one paints, so the switch costs no JS and
+// never shows the wrong theme on first paint.
+import type { Lang } from '../lib/i18n'
+import { screenUrl } from '../lib/images'
+
+interface Props {
+  id: string
+  lang: Lang
+  alt: string
+  class?: string
+  loading?: 'lazy' | 'eager'
+  priority?: boolean
+}
+
+const { id, lang, alt, class: className = '', loading = 'lazy' } = Astro.props
+const light = screenUrl(id, lang, 'light')
+const dark = screenUrl(id, lang, 'dark')
+const dual = Boolean(light && dark && light.url !== dark.url)
+---
+
+{
+  light ? (
+    <div class:list={['shot', className]}>
+      {dual ? (
+        <>
+          <img src={light.url} alt={alt} width="1440" height="900" loading={loading} class="dark:hidden" />
+          <img src={dark!.url} alt={alt} width="1440" height="900" loading={loading} class="hidden dark:block" />
+        </>
+      ) : (
+        <img src={light.url} alt={alt} width="1440" height="900" loading={loading} />
+      )}
+    </div>
+  ) : null
+}

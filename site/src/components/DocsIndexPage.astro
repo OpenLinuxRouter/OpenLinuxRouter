@@ -1,0 +1,83 @@
+---
+import type { Lang } from '../lib/i18n'
+import { href, t } from '../lib/i18n'
+import { docGroups, docTitle, docsInGroup } from '../lib/docs'
+
+interface Props {
+  lang: Lang
+}
+const { lang } = Astro.props
+const copy = t(lang)
+
+const text =
+  lang === 'en'
+    ? {
+        eyebrow: 'Documentation',
+        title: 'Every subject, one file',
+        lead: 'These are the same files that live in the repository next to the code. They are written for the person who has to operate the box, not for a marketing page.',
+        count: 'files',
+        search: 'Search the docs',
+        translated: 'Titles and summaries are in Chinese; the article bodies are currently the English originals.',
+      }
+    : {
+        eyebrow: '文档',
+        title: '一个主题，一个文件',
+        lead: '这里的文件和仓库里、代码旁边的那些是同一份。它们写给真正要运维这台机器的人，不是写给宣传页的。',
+        count: '篇',
+        search: '在文档里搜索',
+        translated: '标题与摘要是中文；正文目前仍是英文原文。',
+      }
+
+const groups = docGroups
+  .map((group) => ({ ...group, items: docsInGroup(group.id) }))
+  .filter((group) => group.items.length)
+---
+
+<section class="shell pb-8 pt-16 sm:pt-20">
+  <p class="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{text.eyebrow}</p>
+  <h1 class="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-5xl">{text.title}</h1>
+  <p class="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">{text.lead}</p>
+  <p class="mt-3 text-xs text-muted-foreground">
+    {groups.reduce((sum, group) => sum + group.items.length, 0)} {text.count}
+  </p>
+
+  <button
+    type="button"
+    data-search-open
+    class="mt-7 flex w-full max-w-xl items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:border-input hover:text-foreground"
+  >
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4 shrink-0" aria-hidden="true">
+      <circle cx="11" cy="11" r="7"></circle>
+      <path d="m16.5 16.5 4 4"></path>
+    </svg>
+    <span class="flex-1">{text.search}</span>
+    <kbd class="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[0.6875rem]">⌘K</kbd>
+  </button>
+</section>
+
+<div class="shell pb-20">
+  {
+    groups.map((group) => (
+      <section class="mb-12">
+        <div class="mb-4 flex items-baseline justify-between gap-4 border-b border-border pb-2">
+          <h2 class="text-sm font-semibold tracking-tight">{group[lang]}</h2>
+          <span class="font-mono text-[0.6875rem] text-muted-foreground">{group.items.length}</span>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {group.items.map((doc) => (
+            <a
+              href={href(lang, `/docs/${doc.slug}`)}
+              class="group flex h-full flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-input hover:bg-accent"
+            >
+              <h3 class="text-[0.9375rem] font-semibold tracking-tight group-hover:text-primary">
+                {docTitle(doc, lang)}
+              </h3>
+              <p class="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{doc.summary}</p>
+              <span class="mt-auto pt-4 font-mono text-[0.6875rem] text-muted-foreground/70">{doc.slug}.md</span>
+            </a>
+          ))}
+        </div>
+      </section>
+    ))
+  }
+</div>
