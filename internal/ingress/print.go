@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/open-linux-router/open-linux-router/internal/cli"
 	"github.com/open-linux-router/open-linux-router/internal/core"
@@ -238,12 +239,13 @@ func writeStatusText(w io.Writer, s statusResponse) error {
 // guards against is one where nothing looks wrong, so a line that only appears
 // when it is already too late would be a line nobody has learned to read.
 func writeCertText(w io.Writer, s statusResponse) {
+	remaining := certRemaining(s.Certificate)
 	switch {
 	case s.CertError != "":
 		fmt.Fprintf(w, "certificate: unknown (%s)\n", s.CertError)
 	case !s.Certificate.Found:
 		fmt.Fprintf(w, "certificate: none yet\n")
-	case s.Certificate.ExpiresIn <= 0:
+	case remaining <= 0:
 		fmt.Fprintf(w, "certificate: EXPIRED\n")
 	default:
 		note := ""
@@ -260,10 +262,11 @@ func writeCertText(w io.Writer, s statusResponse) {
 	if s.PublicCertificate == nil {
 		return
 	}
+	publicRemaining := certRemaining(*s.PublicCertificate)
 	switch {
 	case !s.PublicCertificate.Found:
 		fmt.Fprintf(w, "public cert: none yet — the provider token may not cover the public zone\n")
-	case s.PublicCertificate.ExpiresIn <= 0:
+	case publicRemaining <= 0:
 		fmt.Fprintf(w, "public cert: EXPIRED\n")
 	default:
 		note := ""
@@ -273,6 +276,21 @@ func writeCertText(w io.Writer, s statusResponse) {
 		fmt.Fprintf(w, "public cert: valid for %s%s\n",
 			core.Plural(s.PublicCertificate.ExpiresInDays, "day"), note)
 	}
+}
+
+// certRemaining is how long the certificate has left, computed from the
+// certificate itself when it is here.
+//
+// CertState.ExpiresIn is a duration and is deliberately not serialised (a
+// duration has no useful JSON shape), so a caller that decoded status over the
+// API always has zero in it. Reading zero as "expired" is how this line spent
+// its life reporting EXPIRED on a certificate with weeks left — so the answer
+// is taken from the expiry that did travel.
+func certRemaining(s CertState) time.Duration {
+	if s.Cert != nil {
+		return time.Until(s.Cert.NotAfter)
+	}
+	return s.ExpiresIn
 }
 
 func unitLine(s ProxyStatus) string {
