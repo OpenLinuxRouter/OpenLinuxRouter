@@ -211,14 +211,16 @@ func loadServices(c *cobra.Command) (servicesResponse, error) {
 
 func setCommand() *cobra.Command {
 	var (
-		domain    string
-		provider  string
-		token     string
-		tokenFile string
-		email     string
-		resolvers []string
-		raw       string
-		clearRaw  bool
+		domain       string
+		provider     string
+		token        string
+		tokenFile    string
+		email        string
+		resolvers    []string
+		raw          string
+		clearRaw     bool
+		publicDomain string
+		clearPublic  bool
 	)
 
 	return verb("set", "Set how certificates are obtained", func(c *cobra.Command) {
@@ -244,9 +246,13 @@ func setCommand() *cobra.Command {
 			"public resolver for the certificate propagation check, repeatable (default 1.1.1.1 and 8.8.8.8)")
 		c.Flags().StringVar(&raw, "raw-caddyfile", "", "extra Caddyfile configuration, appended verbatim")
 		c.Flags().BoolVar(&clearRaw, "no-raw-caddyfile", false, "remove the extra Caddyfile configuration")
+		c.Flags().StringVar(&publicDomain, "public-domain", "",
+			"suffix exposed services answer on, e.g. example.com (a second zone and a second wildcard certificate)")
+		c.Flags().BoolVar(&clearPublic, "no-public-domain", false, "remove the public suffix; exposed services must be made private first")
 
 		c.MarkFlagsMutuallyExclusive("token", "token-file")
 		c.MarkFlagsMutuallyExclusive("raw-caddyfile", "no-raw-caddyfile")
+		c.MarkFlagsMutuallyExclusive("public-domain", "no-public-domain")
 		// Completed from the running proxy rather than from a fixed list: what
 		// is legal depends on how the operator's binary was built, and a shell
 		// completion that offers a name the binary lacks is a worse lie than no
@@ -293,6 +299,12 @@ func setCommand() *cobra.Command {
 			}
 			if clearRaw {
 				patch["raw_caddyfile"] = ""
+			}
+			if c.Flags().Changed("public-domain") {
+				patch["public_domain"] = publicDomain
+			}
+			if clearPublic {
+				patch["public_domain"] = ""
 			}
 			return send(c, "PATCH", configEndpoint, patch)
 		}
@@ -374,7 +386,8 @@ func (f *upstreamFlags) apply(u *Upstream, c *cobra.Command) {
 
 func addCommand() *cobra.Command {
 	var flags upstreamFlags
-	var linkPath, icon string
+	var linkPath, icon, expose string
+	var allowFrom []string
 
 	c := verb("add", "Publish a service at a name", func(c *cobra.Command) {
 		c.Use = "add <name>"
@@ -393,6 +406,10 @@ func addCommand() *cobra.Command {
 		flags.register(c)
 		c.Flags().StringVar(&linkPath, "link-path", "", "page path to open and use for its icon (e.g. /ui); does not change proxy routing")
 		c.Flags().StringVar(&icon, "icon", "", "custom icon: theSVG ID (thesvg:grafana) or PNG/JPEG/WebP data URL; empty uses the site favicon")
+		c.Flags().StringVar(&expose, "expose", "", "who may reach it: lan (default), public, or restricted")
+		c.Flags().StringArrayVar(&allowFrom, "allow-from", nil,
+			"source address or CIDR allowed to reach a restricted service, repeatable")
+		cli.EnumFlag(c, "expose", "lan", "public", "restricted")
 		c.RunE = func(c *cobra.Command, args []string) error {
 			for _, entry := range flags.headers {
 				if !strings.Contains(entry, ":") {
@@ -403,7 +420,10 @@ func addCommand() *cobra.Command {
 			// holds the lock across the whole edit that way, and the rule that
 			// reduces `grafana` and `grafana.home.example.com` to one entry lives
 			// there rather than here (http.go).
-			s := Service{Name: args[0], LinkPath: linkPath, Icon: icon}
+			if len(allowFrom) > 0 && expose != "restricted" {
+				return fmt.Errorf("--allow-from only applies with --expose restricted")
+			}
+			s := Service{Name: args[0], LinkPath: linkPath, Icon: icon, Expose: Exposure(expose), AllowFrom: allowFrom}
 			flags.apply(&s.Upstream, c)
 			return send(c, "PUT", serviceEndpoint(args[0]), s)
 		}

@@ -16,7 +16,9 @@ Usage:
   olr ingress add <name> [flags]
 
 Flags:
+      --allow-from stringArray      source address or CIDR allowed to reach a restricted service, repeatable
       --client string               client to publish, by its name in the client list
+      --expose string               who may reach it: lan (default), public, or restricted
       --header stringArray          set an upstream request header as 'Name: value', repeatable
   -h, --help                        help for add
       --host string                 address or hostname to publish, for a target that is not a client

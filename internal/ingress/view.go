@@ -89,6 +89,21 @@ type serviceView struct {
 	// fetch separately.
 	URL string `json:"url"`
 
+	// PublicURL is where the same service answers from the internet, when it is
+	// exposed. Empty means this network only — the field is absent rather than
+	// duplicating URL, so a client can tell "not exposed" from "exposed at the
+	// same name".
+	PublicURL string `json:"public_url,omitempty"`
+
+	// Exposure is the stored state spelled out: "lan", "public" or
+	// "restricted". The config stores the empty string for lan, and reporting
+	// the empty string would make every client reimplement the default.
+	Exposure Exposure `json:"exposure"`
+
+	// AllowFrom is the source list of a restricted service, echoed back so the
+	// UI does not have to hold a second copy of it.
+	AllowFrom []string `json:"allow_from,omitempty"`
+
 	Client         string          `json:"client,omitempty"`
 	Host           string          `json:"host,omitempty"`
 	Port           uint16          `json:"port"`
@@ -103,15 +118,21 @@ type serviceView struct {
 	UpstreamError string `json:"upstream_error,omitempty"`
 }
 
-func viewService(s Service, domain string, clients ClientView) serviceView {
+func viewService(s Service, domain, publicDomain string, clients ClientView) serviceView {
+	expose := s.Expose.OrDefault()
 	v := serviceView{
 		Name:           s.Name,
 		URL:            "https://" + qualify(s.Name, domain) + s.LinkPath,
+		Exposure:       expose,
+		AllowFrom:      s.AllowFrom,
 		Client:         s.Upstream.Client,
 		Host:           s.Upstream.Host,
 		Port:           s.Upstream.Port,
 		Scheme:         s.Upstream.Scheme.OrDefault(),
 		RequestHeaders: s.Upstream.RequestHeaders,
+	}
+	if expose.IsPublic() && publicDomain != "" {
+		v.PublicURL = "https://" + qualify(s.Name, publicDomain) + s.LinkPath
 	}
 
 	if s.Upstream.Client == "" {

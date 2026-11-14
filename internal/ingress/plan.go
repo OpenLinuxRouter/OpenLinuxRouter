@@ -178,19 +178,35 @@ func adminDirective(data []byte) string {
 
 // servedNames extracts the published hostnames from a rendered Caddyfile.
 //
-// It parses our own output and only our own output — the `@svc_… host <fqdn>`
-// matcher lines the renderer emits. That narrowness is the point: this is not a
-// Caddyfile parser and must never grow into one. Anything it fails to recognise
-// simply is not reported as served, which costs a disruption warning and never
-// produces a wrong one.
+// It parses our own output and only our own output — the `@svc_…` matchers the
+// renderer emits, in either shape it emits them: a one-line `@svc_x host <fqdn>`
+// or the block that also carries the source guard. That narrowness is the
+// point: this is not a Caddyfile parser and must never grow into one. Anything
+// it fails to recognise simply is not reported as served, which costs a
+// disruption warning and never produces a wrong one.
+//
+// Only the `@svc_` matchers are read. The exposed names (`@pub_…`) are a second
+// block in a second zone, and losing one of those is not what the disruption
+// warning is about — a private name that stops answering is someone's open tab.
 func servedNames(data []byte) []string {
 	var out []string
+	inMatcher := false
 	for _, line := range strings.Split(string(data), "\n") {
 		fields := strings.Fields(strings.TrimSpace(line))
-		if len(fields) != 3 || !strings.HasPrefix(fields[0], "@svc_") || fields[1] != "host" {
+		if len(fields) == 0 {
 			continue
 		}
-		out = append(out, fields[2])
+		switch {
+		case len(fields) == 2 && fields[1] == "{" && strings.HasPrefix(fields[0], "@svc_"):
+			inMatcher = true
+		case fields[0] == "}":
+			inMatcher = false
+		case inMatcher && len(fields) >= 2 && fields[0] == "host":
+			out = append(out, fields[1])
+			inMatcher = false
+		case len(fields) == 3 && strings.HasPrefix(fields[0], "@svc_") && fields[1] == "host":
+			out = append(out, fields[2])
+		}
 	}
 	sort.Strings(out)
 	return out

@@ -52,6 +52,14 @@ type Paths struct {
 	// what the unit's ExecReload names — the two must agree, and
 	// internal/packaging's tests hold them to it.
 	Admin string
+
+	// Log is the access log for services published to the internet.
+	//
+	// Not a rendered File: the proxy creates and rotates it, and listing it in
+	// Rendered would make every apply try to write a log. It is a path olr
+	// names and Caddy owns, under the unit's StateDirectory so the sandbox and
+	// the backup story already cover it.
+	Log string
 }
 
 // DefaultPaths is the on-disk layout for a real install.
@@ -69,6 +77,10 @@ func RootedPaths(root string) Paths {
 		// only, and cleared by systemd when the proxy stops, so a socket can
 		// never outlive the process that answers on it.
 		Admin: filepath.Join(root, "/run/olr/ingress/admin.sock"),
+		// Beside Caddy's certificates, inside the unit's StateDirectory
+		// (olr-caddy.service), which is what makes it writable without widening
+		// the unit's sandbox.
+		Log: filepath.Join(root, "/var/lib/open-linux-router/ingress/logs/public.log"),
 	}
 }
 
@@ -238,23 +250,22 @@ func (c Caddy) caddyfile(cfg Config, domain string, clients ClientView) (string,
 		return b.String(), nil
 	}
 
-	site := qualify("*", domain)
-	fmt.Fprintf(&b, "\n%s {\n", site)
-	c.tls(&b, cfg, site)
+	// The private names, on their own suffix, reachable only from this
+	// network. Every service is here — publishing a service to the internet
+	// adds a second name for it, it does not move it.
+	if err := c.site(&b, cfg, domain, true, clients); err != nil {
+		return "", err
+	}
 
-	for _, s := range cfg.Services {
-		if err := c.service(&b, s, domain, clients); err != nil {
+	// The public names, when there are any. A config with a public domain but
+	// no exposed service renders no second site block at all: the wildcard
+	// certificate is not requested and no name is served, so setting the field
+	// and exposing nothing costs nothing and leaks nothing.
+	if public := normalizeDomain(cfg.PublicDomain); public != "" && cfg.HasExposed() {
+		if err := c.site(&b, cfg, public, false, clients); err != nil {
 			return "", err
 		}
 	}
-
-	// Anything under the wildcard that is not published closes the connection
-	// rather than answering. Without this Caddy's own fallback answers 200 with
-	// an empty body, which tells a scanner that the name exists and tells an
-	// operator testing a typo that something is listening. `abort` says
-	// neither.
-	b.WriteString("\n\thandle {\n\t\tabort\n\t}\n")
-	b.WriteString("}\n")
 
 	if extra := strings.TrimSpace(cfg.ExtraConf); extra != "" {
 		b.WriteString("\n# --- raw_caddyfile (design.md §3.2 rule 5) ---\n")
@@ -310,7 +321,71 @@ func (c Caddy) tls(b *strings.Builder, cfg Config, site string) {
 	b.WriteString("\t}\n")
 }
 
-func (c Caddy) service(b *strings.Builder, s Service, domain string, clients ClientView) error {
+// site renders one wildcard site block.
+//
+// The two blocks are the same shape with two differences: the private one
+// guards every name by source address, and the public one logs its access and
+// contains only the services that asked to be there. Keeping them one function
+// is what stops the guard from being on the public block by mistake — the
+// parameter is called `private` and the guard is what it means.
+func (c Caddy) site(b *strings.Builder, cfg Config, domain string, private bool, clients ClientView) error {
+	site := qualify("*", domain)
+	fmt.Fprintf(b, "\n%s {\n", site)
+	c.tls(b, cfg, site)
+
+	if !private {
+		c.accessLog(b)
+	}
+
+	for _, s := range cfg.Services {
+		if !private && !s.Expose.IsPublic() {
+			continue
+		}
+		if err := c.service(b, s, domain, private, clients); err != nil {
+			return err
+		}
+	}
+
+	// Anything under the wildcard that is not published closes the connection
+	// rather than answering. Without this Caddy's own fallback answers 200 with
+	// an empty body, which tells a scanner that the name exists and tells an
+	// operator testing a typo that something is listening. `abort` says
+	// neither. On the private block it is also what an outside request lands on
+	// when its source does not match the service's matcher.
+	b.WriteString("\n\thandle {\n\t\tabort\n\t}\n")
+	b.WriteString("}\n")
+	return nil
+}
+
+// accessLog records who reached an exposed service.
+//
+// Two things are deliberate. **The query string is dropped** and the path is
+// re-added as its own field: an S3 request carries its signature in the query,
+// and an access log that keeps it is a log that leaks temporary credentials to
+// whoever reads the file later. Caddy's default already redacts Authorization
+// and Cookie; the query is ours to handle.
+//
+// And it is a file, with rotation, rather than the journal, because this one is
+// bounded by volume rather than by events: a public service can produce
+// thousands of lines a day, and journald's retention is the operator's global
+// setting, not this feature's.
+func (c Caddy) accessLog(b *strings.Builder) {
+	if c.Paths.Log == "" {
+		return
+	}
+	b.WriteString("\n\t# Who reached an exposed service. The URI is removed and re-added as a\n")
+	b.WriteString("\t# path: an S3 signature lives in the query string.\n")
+	b.WriteString("\tlog {\n")
+	fmt.Fprintf(b, "\t\toutput file %s {\n", c.Paths.Log)
+	b.WriteString("\t\t\troll_size 10MiB\n")
+	b.WriteString("\t\t\troll_keep 5\n")
+	b.WriteString("\t\t}\n")
+	b.WriteString("\t\tformat filter {\n\t\t\tfields {\n\t\t\t\trequest>uri delete\n\t\t\t}\n\t\t}\n")
+	b.WriteString("\t}\n")
+	b.WriteString("\tlog_append request_path {http.request.uri.path}\n")
+}
+
+func (c Caddy) service(b *strings.Builder, s Service, domain string, private bool, clients ClientView) error {
 	fqdn := qualify(s.Name, domain)
 
 	resolved := ""
@@ -330,8 +405,31 @@ func (c Caddy) service(b *strings.Builder, s Service, domain string, clients Cli
 	// per name. Separate blocks would each ask for their own certificate and
 	// defeat the wildcard — the reason §1 can promise that adding a service
 	// involves no certificate step is that no new name is ever requested.
-	fmt.Fprintf(b, "\n\t@%s host %s\n", matcherName(s.Name), fqdn)
-	fmt.Fprintf(b, "\thandle @%s {\n", matcherName(s.Name))
+	//
+	// On the private block the matcher is a *block* and not a one-liner: the
+	// name alone is not what makes it private. Anyone on the internet can send
+	// this SNI to this port, and the certificate would match; the source test is
+	// what turns a name that is merely unadvertised into one that is not
+	// served.
+	name := matcherName(s.Name)
+	if !private {
+		name = publicMatcherName(s.Name)
+	}
+	switch {
+	case private:
+		fmt.Fprintf(b, "\n\t@%s {\n", name)
+		fmt.Fprintf(b, "\t\thost %s\n", fqdn)
+		b.WriteString("\t\tremote_ip private_ranges\n")
+		b.WriteString("\t}\n")
+	case s.Expose.OrDefault() == ExposureRestricted:
+		fmt.Fprintf(b, "\n\t@%s {\n", name)
+		fmt.Fprintf(b, "\t\thost %s\n", fqdn)
+		fmt.Fprintf(b, "\t\tremote_ip %s\n", strings.Join(s.AllowFrom, " "))
+		b.WriteString("\t}\n")
+	default:
+		fmt.Fprintf(b, "\n\t@%s host %s\n", name, fqdn)
+	}
+	fmt.Fprintf(b, "\thandle @%s {\n", name)
 
 	if s.Upstream.Scheme.OrDefault() == SchemeHTTPS {
 		fmt.Fprintf(b, "\t\treverse_proxy https://%s {\n", target)
@@ -374,3 +472,9 @@ func (Caddy) requestHeaders(b *strings.Builder, headers []RequestHeader) {
 // already validated to letters, digits and hyphens, so this only has to avoid
 // colliding with Caddy's own tokens.
 func matcherName(name string) string { return "svc_" + strings.ReplaceAll(name, "-", "_") }
+
+// publicMatcherName is the exposed name's label. Distinct from matcherName so
+// that a rendered file reads as two sets rather than one set used twice; the
+// two live in different site blocks and could legally collide, which is exactly
+// why a reader should not have to work out that they do not.
+func publicMatcherName(name string) string { return "pub_" + strings.ReplaceAll(name, "-", "_") }

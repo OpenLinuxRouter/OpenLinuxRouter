@@ -1307,6 +1307,17 @@ export interface IngressStatus {
   certificate: IngressCertState
   certificate_error?: string
   certificate_warnings?: string[]
+  /**
+   * The second certificate, for the public suffix. Its own field because it
+   * fails for its own reason: the private one keeps renewing while this one
+   * never appears, because the provider token is still scoped to one zone.
+   */
+  public_certificate?: IngressCertState
+  public_certificate_warnings?: string[]
+  /** The suffix exposed services answer on. Empty means nothing is exposed. */
+  public_domain?: string
+  /** How many published services answer outside this network. */
+  public?: number
   published: number
   drifted: boolean
   drift?: IngressPlan

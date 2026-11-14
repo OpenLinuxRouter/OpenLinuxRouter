@@ -138,6 +138,14 @@ export function CaddyPage() {
         </Alert>
       ))}
 
+      {status.data?.public_certificate_warnings?.map((warning) => (
+        <Alert key={warning}>
+          <AlertTriangle />
+          <AlertTitle>{t('Public certificate')}</AlertTitle>
+          <AlertDescription>{warning}</AlertDescription>
+        </Alert>
+      ))}
+
       {status.data?.drifted && (
         <Alert>
           <AlertTriangle />
@@ -232,6 +240,7 @@ export function CaddyPage() {
           }
         }}
         domain={domain}
+        publicDomain={current.public_domain}
         onSubmit={(service) => change(ingressChange.saveService(service.name, service))}
       />
       {editing && (
@@ -240,6 +249,7 @@ export function CaddyPage() {
           onOpenChange={(open) => !open && setEditing(null)}
           initial={editing}
           domain={domain}
+          publicDomain={current.public_domain}
           // The path carries the name this service has; the body carries what it
           // should become.
           onSubmit={(service) => change(ingressChange.saveService(editing.name, service))}
@@ -254,6 +264,7 @@ export function CaddyPage() {
         onOpenChange={setCert}
         initial={current.certificate}
         domain={domain}
+        publicDomain={current.public_domain}
         onSubmit={(fields) => change(ingressChange.settings(fields))}
       />
 
@@ -353,7 +364,7 @@ function ServiceList({
           <ListRow
             key={s.name}
             title={domain ? `${s.name}.${domain}${s.link_path ?? ''}` : s.name}
-            subtitle={describeService(s, devices.data?.clients.find((d) => d.mac === s.upstream.client)?.name)}
+            subtitle={describeService(s, devices.data?.clients.find((d) => d.mac === s.upstream.client)?.name, status?.public_domain)}
             wrap
             editLabel={`${t('Edit')} ${s.name}`}
             onSelect={() => onEdit(s)}
@@ -364,10 +375,13 @@ function ServiceList({
   )
 }
 
-function describeService(s: Service, deviceName?: string): string {
+function describeService(s: Service, deviceName?: string, publicDomain?: string): string {
   const where = deviceName || s.upstream.client || s.upstream.host || '?'
   const scheme = s.upstream.scheme === 'https' ? ' over https' : ''
-  return `→ ${where}:${s.upstream.port}${scheme}`
+  const exposure =
+    s.expose === 'public' ? 'public' : s.expose === 'restricted' ? 'restricted' : ''
+  const exposed = exposure && publicDomain ? ` · ${exposure} at ${s.name}.${publicDomain}` : ''
+  return `→ ${where}:${s.upstream.port}${scheme}${exposed}`
 }
 
 /**

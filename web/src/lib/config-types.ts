@@ -438,6 +438,17 @@ export interface IngressConfig {
    * One label, though: the wildcard covers `grafana.<domain>` and not `grafana.lab.<domain>`, so a deeper suffix would only move the problem.
    */
   domain?: string
+  /**
+   * The suffix services reachable from the internet answer on, e.g.
+   * `example.com`.
+   *
+   * Empty means nothing is exposed: every published name stays on this
+   * network, no second wildcard certificate is requested, and the proxy has no
+   * public site block at all. It is a second zone on purpose — one name cannot
+   * answer 172.16.1.1 inside and a public address outside without
+   * split-horizon DNS.
+   */
+  public_domain?: string
   certificate: Certificate
   services?: Service[]
   raw_caddyfile?: string
@@ -451,11 +462,23 @@ export interface Certificate {
   acme_email?: ContactAddress
   resolvers?: PropagationCheckResolvers
 }
+/** Who may reach a published service. */
+export type ServiceExposure = 'lan' | 'public' | 'restricted'
+
 export interface Service {
   name: string
   upstream: UpstreamIngress
   link_path?: string
   icon?: string
+  /**
+   * Absent means lan, which is what every service was before this field
+   * existed. The daemon stores the empty form for lan and reports "lan" back,
+   * so a form can treat the missing value as the default rather than as an
+   * unset field.
+   */
+  expose?: ServiceExposure
+  /** Source addresses or CIDRs allowed to reach a `restricted` service. */
+  allow_from?: string[]
 }
 export interface UpstreamIngress {
   client?: string

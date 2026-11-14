@@ -85,9 +85,16 @@ func (b firewallBoundary) Openings() ([]firewall.Opening, error) {
 	if err != nil {
 		return nil, err
 	}
-	if ic.Enabled {
-		// 80 for the redirect and for certificate challenges, 443 for
-		// everything, and 443/udp because Caddy serves HTTP/3 by default.
+	// 80 for the redirect, 443 for everything, 443/udp for HTTP/3 — but only
+	// when something is actually exposed.
+	//
+	// The private site still answers on 443 for this network, and inside
+	// traffic is accepted by the Inside rule above, so leaving the port shut at
+	// the boundary costs nothing. What it buys is the one property this feature
+	// is supposed to have: a box where nothing is exposed is indistinguishable
+	// from outside from a box where ingress is switched off — even if a port
+	// forward in front of it is still there.
+	if ic.Enabled && ic.HasExposed() {
 		out = append(out,
 			firewall.Opening{For: "ingress", Protocol: firewall.TCP, Port: 80},
 			firewall.Opening{For: "ingress", Protocol: firewall.TCP, Port: 443},

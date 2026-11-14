@@ -80,13 +80,14 @@ func Validate(c Config, dns DNSView, clients ClientView) Result {
 
 	domain := normalizeDomain(c.Domain)
 	validateDomain(&r, c, domain, dns)
+	validatePublicDomain(&r, c, domain, dns)
 
 	if c.Enabled && len(c.Services) == 0 {
 		r.warnf("services", "ingress is enabled but nothing is published, so the proxy will answer every name with a closed connection")
 	}
 
 	validateCertificate(&r, c)
-	validateServices(&r, c, domain, clients)
+	validateServices(&r, c, domain, normalizeDomain(c.PublicDomain), clients)
 	validateExtraConf(&r, c.ExtraConf)
 
 	return r
@@ -155,6 +156,73 @@ func besideSuffix(local string) string {
 	return ""
 }
 
+// validatePublicDomain checks the suffix exposed services answer on.
+//
+// It is a second wildcard certificate in a second zone, so it inherits every
+// rule the private domain has (registrable, no reserved suffix, not inside the
+// resolver's zone) plus two of its own. The first is that it may not be the
+// private domain: one name cannot answer on two networks without split-horizon
+// DNS, which is exactly what two suffixes exist to avoid. The second is the
+// nesting case, which is legal but has a trap worth naming at write time —
+// `example.com` and `home.example.com` can coexist because Caddy prefers the
+// more specific site, but a wildcard DNS record at the parent would swallow the
+// private names.
+func validatePublicDomain(r *Result, c Config, domain string, dns DNSView) {
+	if !c.Enabled {
+		return
+	}
+	public := normalizeDomain(c.PublicDomain)
+	if public == "" {
+		// Reported per service instead: the message belongs next to the toggle
+		// that needs it, not on a field nobody set.
+		return
+	}
+
+	if !strings.Contains(public, ".") {
+		r.errorf("public_domain", "%q is a single label; a certificate needs a registrable domain such as example.com", public)
+		return
+	}
+	labels := strings.Split(public, ".")
+	if tld := labels[len(labels)-1]; slices.Contains(unissuableSuffixes, tld) {
+		r.errorf("public_domain", "no certificate authority will issue for %q: .%s is reserved and cannot be proved to belong to anyone", public, tld)
+		return
+	}
+
+	if domain != "" {
+		switch {
+		case public == domain:
+			r.errorf("public_domain", "%q is also the domain internal names live under, so one name would have to answer on two networks at once. "+
+				"Use a different suffix — a sibling such as pub.example.com, or the parent if you own it", public)
+			return
+		case strings.HasSuffix(public, "."+domain):
+			r.errorf("public_domain", "%q is inside %s, the zone internal names live under. The public wildcard would cover private names and the two "+
+				"certificates would overlap; use a suffix beside it%s", public, domain, besideSuffix(domain))
+			return
+		}
+	}
+
+	local := ""
+	if dns != nil {
+		local = normalizeDomain(dns.LocalDomain())
+	}
+	if local != "" && (public == local || strings.HasSuffix(public, "."+local)) {
+		r.errorf("public_domain", "the resolver answers %s and everything under it, so a name published there would never be asked of your provider's DNS. "+
+			"Use a suffix beside it%s", qualify("*", local), besideSuffix(local))
+		return
+	}
+
+	// Legal, and the operator's own choice (iloahz.com containing
+	// home.iloahz.com is the shape it takes when the public names keep the same
+	// label). Caddy picks the more specific site, so routing is right; the one
+	// thing that breaks it is a wildcard DNS record at the parent, which would
+	// make every private name resolve to this box from outside.
+	if domain != "" && strings.HasSuffix(domain, "."+public) {
+		r.warnf("public_domain", "the public wildcard %s also matches %s, the zone internal names live under. Routing is fine — the more specific "+
+			"site wins — but do not add a *.%s DNS record: it would resolve every private name to this box from outside, and only the "+
+			"per-service source rule would be standing between them and the internet", qualify("*", public), domain, public)
+	}
+}
+
 func validateCertificate(r *Result, c Config) {
 	if !c.Enabled {
 		return
@@ -187,7 +255,7 @@ func validateCertificate(r *Result, c Config) {
 	}
 }
 
-func validateServices(r *Result, c Config, domain string, clients ClientView) {
+func validateServices(r *Result, c Config, domain, publicDomain string, clients ClientView) {
 	seen := map[string]int{}
 	for i, s := range c.Services {
 		path := fmt.Sprintf("services[%d]", i)
@@ -216,6 +284,61 @@ func validateServices(r *Result, c Config, domain string, clients ClientView) {
 			}
 		}
 		validateUpstream(r, path+".upstream", s.Upstream, clients)
+		validateExposure(r, path, s, domain, publicDomain)
+	}
+}
+
+// validateExposure checks who a service is published to.
+//
+// The default is this network, and the rules exist to make the other two states
+// impossible to reach by accident: an exposed service with no public domain, a
+// restricted service with no sources, or an allow-list on a service that ignores
+// it all render into a proxy that is doing something other than what the config
+// says.
+func validateExposure(r *Result, path string, s Service, domain, publicDomain string) {
+	if !s.Expose.Valid() {
+		r.errorf(path+".expose", "unknown exposure %q (want %v)", s.Expose, Exposures())
+		return
+	}
+
+	expose := s.Expose.OrDefault()
+	if expose == ExposureLAN {
+		if len(s.AllowFrom) > 0 {
+			r.errorf(path+".allow_from", "only applies to a restricted service; %q is reachable only on this network, so there are no sources to allow", s.Name)
+		}
+		return
+	}
+
+	if publicDomain == "" {
+		r.errorf(path+".expose", "%q is %s, but no public domain is set. Set one with `olr ingress set --public-domain`, then add the record for "+
+			"%s in your own DNS zone", s.Name, expose, qualify(s.Name, "<public-domain>"))
+		return
+	}
+	if domain != "" && qualify(s.Name, publicDomain) == domain {
+		r.errorf(path+".expose", "%s is also the suffix internal names live under. Rename the service or choose another public domain",
+			qualify(s.Name, publicDomain))
+	}
+
+	switch expose {
+	case ExposureRestricted:
+		if len(s.AllowFrom) == 0 {
+			r.errorf(path+".allow_from", "required: a restricted service needs at least one source. Use `public` to allow anyone, or add a CIDR such as 203.0.113.7/32")
+		}
+		for i, src := range s.AllowFrom {
+			p := fmt.Sprintf("%s.allow_from[%d]", path, i)
+			if _, err := netip.ParsePrefix(src); err == nil {
+				continue
+			}
+			if _, err := netip.ParseAddr(src); err == nil {
+				continue
+			}
+			r.errorf(p, "%q is not an IP address or CIDR; a source rule is matched against the client address, and a hostname would need a "+
+				"lookup on every request", src)
+		}
+	default:
+		if len(s.AllowFrom) > 0 {
+			r.errorf(path+".allow_from", "only applies to a restricted service; %q is reachable by anyone, so this list would be silently ignored", s.Name)
+		}
 	}
 }
 

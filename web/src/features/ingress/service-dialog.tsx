@@ -22,8 +22,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ServiceIconPicker } from '@/features/ingress/service-icon-picker'
+import { Textarea } from '@/components/ui/textarea'
 import { useClientList } from '@/features/clients/queries'
-import type { Service, UpstreamScheme } from '@/lib/config-types'
+import type { Service, ServiceExposure, UpstreamScheme } from '@/lib/config-types'
 
 const EMPTY: Service = { name: '', upstream: { port: 0 } }
 
@@ -57,6 +58,7 @@ export function ServiceDialog({
   initial,
   initialUpstream,
   domain,
+  publicDomain,
   onSubmit,
   onRemove,
 }: {
@@ -66,6 +68,8 @@ export function ServiceDialog({
   initialUpstream?: Service['upstream']
   /** The suffix names live under, for the preview. This module's own setting. */
   domain?: string
+  /** The suffix exposed services answer on, when the operator has set one. */
+  publicDomain?: string
   onSubmit: (service: Service) => Promise<boolean>
   /** Only supplied when editing. Removing is an edit to the thing you opened. */
   onRemove?: () => void
@@ -73,6 +77,8 @@ export function ServiceDialog({
   useLocale()
   const empty = initialUpstream ? { ...EMPTY, upstream: initialUpstream } : EMPTY
   const [draft, setDraft] = useState<Service>(initial ?? empty)
+  const [expose, setExpose] = useState<ServiceExposure>(initial?.expose ?? 'lan')
+  const [allowFrom, setAllowFrom] = useState((initial?.allow_from ?? []).join('\n'))
   const [target, setTarget] = useState<string>(initial?.upstream.client ?? initialUpstream?.client ?? MANUAL)
   const [saving, setSaving] = useState(false)
   const editing = initial !== undefined
@@ -108,9 +114,11 @@ export function ServiceDialog({
   }
 
   const name = draft.name.trim()
+  const allowedSources = allowFrom.split('\n').map((v) => v.trim()).filter(Boolean)
   const complete =
     name !== '' && draft.upstream.port > 0 && (target !== MANUAL || (draft.upstream.host ?? '') !== '') &&
     (!draft.link_path || /^\/(?!\/)[a-zA-Z0-9/_~.-]*$/.test(draft.link_path)) &&
+    (expose === 'lan' || (!!publicDomain && (expose !== 'restricted' || allowedSources.length > 0))) &&
     (draft.upstream.request_headers ?? []).every((h) =>
       /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(h.name) &&
       ![...(h.value ?? '')].some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127) && (!h.remove || !h.value),
@@ -123,6 +131,8 @@ export function ServiceDialog({
       onOpenChange={(next) => {
         if (!next) {
           setDraft(initial ?? empty)
+          setExpose(initial?.expose ?? 'lan')
+          setAllowFrom((initial?.allow_from ?? []).join('\n'))
           setTarget(initial?.upstream.client ?? initialUpstream?.client ?? MANUAL)
         }
         onOpenChange(next)
@@ -240,6 +250,53 @@ export function ServiceDialog({
             </p>
           </div>
 
+          <div className="space-y-1.5">
+            <Label htmlFor="svc-expose">{t('Who can reach it')}</Label>
+            <Select value={expose} onValueChange={(v) => setExpose(v as ServiceExposure)}>
+              <SelectTrigger id="svc-expose">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lan">{t('Only this network')}</SelectItem>
+                <SelectItem value="public">{t('Anyone on the internet')}</SelectItem>
+                <SelectItem value="restricted">{t('Only these addresses')}</SelectItem>
+              </SelectContent>
+            </Select>
+            {expose === 'lan' ? (
+              <p className="text-xs text-muted-foreground">
+                {t('Answers on this network only. This is the default, and it is what every published address was before this setting existed.')}
+              </p>
+            ) : !publicDomain ? (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                {t('Set a public domain in the settings first — without it there is no name for this to answer at, and no certificate.')}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {t('It will also answer at')}{' '}
+                <span className="font-mono">https://{name || '…'}.{publicDomain}</span>{' '}
+                {expose === 'restricted'
+                  ? t('from the addresses below.')
+                  : t('from anywhere on the internet. That needs a DNS record for that name, and a port forward on the router in front of this box — olr cannot make either for you.')}
+              </p>
+            )}
+          </div>
+
+          {expose === 'restricted' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="svc-allow">{t('Sources')}</Label>
+              <Textarea
+                id="svc-allow"
+                rows={3}
+                value={allowFrom}
+                placeholder={'203.0.113.7\n198.51.100.0/24'}
+                onChange={(e) => setAllowFrom(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t('One address or CIDR per line. Every other source is refused, though the port still looks open to a scanner — only the service is protected.')}
+              </p>
+            </div>
+          )}
+
           <ServiceIconPicker name={name} icon={draft.icon} onChange={(icon) => setDraft((d) => ({ ...d, icon }))} />
 
           {withoutFixed > 0 && target !== MANUAL && (
@@ -338,6 +395,8 @@ export function ServiceDialog({
                     name,
                     link_path: draft.link_path?.trim() || undefined,
                     icon: draft.icon || undefined,
+                    expose: expose === 'lan' ? undefined : expose,
+                    allow_from: expose === 'restricted' ? allowedSources : undefined,
                     upstream: {
                       ...draft.upstream,
                       client: target === MANUAL ? undefined : target,

@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -372,5 +373,141 @@ func TestValidateServiceIcon(t *testing.T) {
 		if Validate(c, goodDNS(), goodDevices()).OK() {
 			t.Errorf("accepted %q", icon)
 		}
+	}
+}
+
+// ---------------------------------------------------------------- exposure
+
+func TestValidatePublicServiceNeedsAPublicDomain(t *testing.T) {
+	c := good()
+	c.Services[0].Expose = ExposurePublic
+	r := Validate(c, goodDNS(), goodDevices())
+	findError(t, r, "services[0].expose", "no public domain")
+	found := false
+	for _, p := range r.Errors {
+		if strings.Contains(p.Message, "olr ingress set --public-domain") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("the refusal must carry the remedy, got %v", r.Errors)
+	}
+}
+
+func TestValidateRefusesAPublicDomainEqualToThePrivateOne(t *testing.T) {
+	c := good()
+	c.PublicDomain = c.Domain
+	findError(t, Validate(c, goodDNS(), goodDevices()), "public_domain", "two networks at once")
+}
+
+func TestValidateRefusesAPublicDomainInsideThePrivateOne(t *testing.T) {
+	c := good()
+	c.PublicDomain = "pub.svc.example.com"
+	findError(t, Validate(c, goodDNS(), goodDevices()), "public_domain", "inside svc.example.com")
+}
+
+func TestValidateRefusesAPublicDomainInTheResolverZone(t *testing.T) {
+	c := good()
+	c.PublicDomain = "example.com"
+	findError(t, Validate(c, StaticDNS{Domain: "example.com"}, goodDevices()), "public_domain", "would never be asked")
+}
+
+// The nesting case is legal and is what the operator's own zone looks like when
+// the public names keep the private label. The trap is a wildcard record at the
+// parent, which is a sentence worth printing at write time.
+func TestValidateWarnsWhenThePublicWildcardCoversThePrivateZone(t *testing.T) {
+	c := good()
+	c.Domain = "home.example.com"
+	c.PublicDomain = "example.com"
+	c.Services[0].Expose = ExposurePublic
+	r := Validate(c, goodDNS(), goodDevices())
+	if !r.OK() {
+		t.Fatalf("expected valid, got %v", r.Errors)
+	}
+	found := false
+	for _, p := range r.Warnings {
+		if p.Path == "public_domain" && strings.Contains(p.Message, "also matches home.example.com") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected a warning about the public wildcard covering the private zone, got %v", r.Warnings)
+	}
+}
+
+func TestValidateRestrictedNeedsSources(t *testing.T) {
+	c := good()
+	c.PublicDomain = "example.com"
+	c.Services[0].Expose = ExposureRestricted
+	findError(t, Validate(c, goodDNS(), goodDevices()), "services[0].allow_from", "at least one source")
+}
+
+func TestValidateAcceptsRestrictedWithAddressesAndCIDRs(t *testing.T) {
+	c := good()
+	c.PublicDomain = "example.com"
+	c.Services[0].Expose = ExposureRestricted
+	c.Services[0].AllowFrom = []string{"203.0.113.0/24", "198.51.100.7"}
+	if r := Validate(c, goodDNS(), goodDevices()); !r.OK() {
+		t.Fatalf("expected valid, got %v", r.Errors)
+	}
+}
+
+func TestValidateRefusesASourceThatIsNotAnAddress(t *testing.T) {
+	c := good()
+	c.PublicDomain = "example.com"
+	c.Services[0].Expose = ExposureRestricted
+	c.Services[0].AllowFrom = []string{"office.example.com"}
+	findError(t, Validate(c, goodDNS(), goodDevices()), "services[0].allow_from[0]", "not an IP address or CIDR")
+}
+
+func TestValidateRefusesAllowFromOnAnOpenService(t *testing.T) {
+	c := good()
+	c.PublicDomain = "example.com"
+	c.Services[0].Expose = ExposurePublic
+	c.Services[0].AllowFrom = []string{"203.0.113.7"}
+	findError(t, Validate(c, goodDNS(), goodDevices()), "services[0].allow_from", "silently ignored")
+}
+
+func TestValidateRefusesAllowFromOnAPrivateService(t *testing.T) {
+	c := good()
+	c.Services[0].AllowFrom = []string{"203.0.113.7"}
+	findError(t, Validate(c, goodDNS(), goodDevices()), "services[0].allow_from", "only on this network")
+}
+
+func TestValidateRefusesAnUnknownExposure(t *testing.T) {
+	c := good()
+	c.Services[0].Expose = "worldwide"
+	findError(t, Validate(c, goodDNS(), goodDevices()), "services[0].expose", "unknown exposure")
+}
+
+// The one name that would sit on top of the private zone: public_domain is the
+// parent of the private one, and the service is called 'home'.
+func TestValidateRefusesAPublicNameOnTopOfThePrivateZone(t *testing.T) {
+	c := good()
+	c.Domain = "home.example.com"
+	c.PublicDomain = "example.com"
+	c.Services[0].Name = "home"
+	c.Services[0].Expose = ExposurePublic
+	findError(t, Validate(c, goodDNS(), goodDevices()), "services[0].expose", "also the suffix internal names live under")
+}
+
+func TestNormalizeExposureAndSources(t *testing.T) {
+	c := good()
+	c.PublicDomain = " EXAMPLE.com. "
+	c.Services[0].Expose = " LAN "
+	c.Services[0].AllowFrom = []string{" 203.0.113.0/24 ", "198.51.100.7", "203.0.113.0/24", ""}
+	c.Normalize()
+
+	if c.PublicDomain != "example.com" {
+		t.Fatalf("public domain = %q", c.PublicDomain)
+	}
+	// "lan" is what a UI sends; the stored form is empty so a document written
+	// before the field existed and one written after are the same bytes.
+	if c.Services[0].Expose != "" {
+		t.Fatalf("expose = %q, want the stored form of lan", c.Services[0].Expose)
+	}
+	want := []string{"198.51.100.7", "203.0.113.0/24"}
+	if !slices.Equal(c.Services[0].AllowFrom, want) {
+		t.Fatalf("allow_from = %v, want %v", c.Services[0].AllowFrom, want)
 	}
 }

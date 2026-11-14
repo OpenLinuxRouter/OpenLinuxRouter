@@ -191,6 +191,7 @@ that go wrong.
 |---|---|
 | [docs/backup.md](docs/backup.md) | Back up and restore olr.json with connectivity recovery |
 | [docs/audit.md](docs/audit.md) | Every change made through the API, and how to read it |
+| [docs/public-access.md](docs/public-access.md) | Exposing one service to the internet, and what keeps the rest private |
 | [docs/install.md](docs/install.md) | Getting a box serving DHCP for a real network |
 | [docs/system.md](docs/system.md) | First install, and who may configure the box |
 | [docs/cli.md](docs/cli.md) | `olr` command conventions, enforced by tests |

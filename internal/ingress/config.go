@@ -57,6 +57,23 @@ type Config struct {
 	// `grafana.lab.<domain>`, so a deeper suffix would only move the problem.
 	Domain string `json:"domain,omitempty"`
 
+	// PublicDomain is the suffix a service is reachable at from the internet.
+	//
+	// Empty means nothing is exposed: every published name answers only on this
+	// network, and the rendered proxy has no public site block at all. Setting
+	// it is what makes the per-service Expose field mean anything — it names the
+	// zone the second wildcard certificate is for, and the zone the operator
+	// adds records in.
+	//
+	// It is deliberately a *different* suffix from Domain, and the reason is the
+	// one thing DNS cannot do here: a name that must answer 172.16.1.1 inside
+	// the house and a public address outside is two answers for one name, and
+	// this module owns neither the resolver nor the operator's public zone. Two
+	// suffixes give the two answers without split-horizon DNS, and keep the
+	// private names out of public DNS entirely — which is what makes the
+	// exposure decision fail closed at the name layer as well as at the proxy.
+	PublicDomain string `json:"public_domain,omitempty"`
+
 	// Certificate is how the wildcard is obtained. One certificate serves every
 	// published name, which is what makes adding a service a two-field
 	// operation (docs/ingress.md §1).
@@ -170,6 +187,21 @@ type Service struct {
 
 	// Icon overrides automatic favicon discovery; empty uses the site icon.
 	Icon string `json:"icon,omitempty"`
+
+	// Expose says who may reach this service. Empty means ExposureLAN, which
+	// is what every service was before this field existed and stays the default
+	// because a name that becomes public without being asked is the one outcome
+	// this module must never produce.
+	Expose Exposure `json:"expose,omitempty"`
+
+	// AllowFrom lists the sources a restricted service accepts, as CIDRs or
+	// single addresses.
+	//
+	// Only meaningful with ExposureRestricted, and the validator refuses it
+	// anywhere else rather than ignoring it: a list the operator wrote that
+	// silently does nothing is the failure this module spends its validation
+	// budget refusing.
+	AllowFrom []string `json:"allow_from,omitempty"`
 }
 
 // Upstream is the target of a published service.
@@ -246,12 +278,101 @@ func Schemes() []Scheme { return []Scheme{SchemeHTTP, SchemeHTTPS} }
 // means SchemeHTTP.
 func (s Scheme) Valid() bool { return s == "" || slices.Contains(Schemes(), s) }
 
+// Exposure is who may reach a published service.
+//
+// Three states, not two, because "public" and "public to these addresses" are
+// different promises and the middle one is what an operator actually wants when
+// they are worried about scanning: the firewall can drop every other source, so
+// the port looks closed to the world while the service works for the people it
+// is for.
+type Exposure string
+
+const (
+	// ExposureLAN is reachable only from this network's addresses — the LAN,
+	// the dial-in tunnel and the box itself. It is the zero value and the
+	// default.
+	ExposureLAN Exposure = "lan"
+
+	// ExposurePublic is reachable by anyone on the internet at
+	// `<name>.<public_domain>`.
+	ExposurePublic Exposure = "public"
+
+	// ExposureRestricted is published like ExposurePublic but only answers the
+	// sources in AllowFrom.
+	//
+	// At the proxy this is a host matcher plus `remote_ip`; the firewall still
+	// has to open the port for everyone, because nftables cannot see a Host
+	// header. That is why the allow-list is enforced twice and why this state
+	// is not called "private".
+	ExposureRestricted Exposure = "restricted"
+)
+
+// Exposures lists the vocabulary, one source for the schema and the validator.
+func Exposures() []Exposure { return []Exposure{ExposureLAN, ExposurePublic, ExposureRestricted} }
+
+// Valid reports whether e is a known exposure. The empty string is valid and
+// means ExposureLAN.
+func (e Exposure) Valid() bool { return e == "" || slices.Contains(Exposures(), e) }
+
+// OrDefault resolves the empty value.
+func (e Exposure) OrDefault() Exposure {
+	if e == "" {
+		return ExposureLAN
+	}
+	return e
+}
+
+// IsPublic reports whether the service answers outside this network at all.
+func (e Exposure) IsPublic() bool { return e.OrDefault() != ExposureLAN }
+
 // OrDefault resolves the empty value.
 func (s Scheme) OrDefault() Scheme {
 	if s == "" {
 		return SchemeHTTP
 	}
 	return s
+}
+
+// HasExposed reports whether any service is reachable from the internet.
+//
+// The firewall and the renderer both ask this rather than each deciding what
+// "exposed" means: one definition, so a box cannot open a port for a site block
+// that was never rendered.
+func (c Config) HasExposed() bool {
+	for _, s := range c.Services {
+		if s.Expose.IsPublic() {
+			return true
+		}
+	}
+	return false
+}
+
+// ExposedCount is how many services answer outside this network.
+func (c Config) ExposedCount() int {
+	n := 0
+	for _, s := range c.Services {
+		if s.Expose.IsPublic() {
+			n++
+		}
+	}
+	return n
+}
+
+// normalizeSources trims, drops empties, sorts and de-duplicates.
+//
+// Sorting is not cosmetic: allow-list order reaches the rendered Caddyfile, and
+// the file is compared byte for byte for drift (docs/ingress.md §7.2a), so a
+// list that reorders itself between two identical edits would mark every box
+// drifted and reload the proxy for nothing.
+func normalizeSources(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if s = strings.TrimSpace(s); s != "" {
+			out = append(out, s)
+		}
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
 }
 
 // Service returns a published service by name, given relative or in full.
@@ -315,11 +436,20 @@ func normalizeDomain(domain string) string {
 func (c *Config) Normalize() {
 	// Before the services, whose names are stored relative to it.
 	c.Domain = normalizeDomain(c.Domain)
+	c.PublicDomain = normalizeDomain(c.PublicDomain)
 
 	for i := range c.Services {
 		s := &c.Services[i]
 		s.Name = strings.TrimSpace(strings.ToLower(s.Name))
 		s.LinkPath = strings.TrimSpace(s.LinkPath)
+		s.Expose = Exposure(strings.ToLower(strings.TrimSpace(string(s.Expose))))
+		// "lan" is what a UI sends for the default; the stored form is empty so
+		// that a document written before this field existed and one written
+		// after are the same bytes.
+		if s.Expose == ExposureLAN {
+			s.Expose = ""
+		}
+		s.AllowFrom = normalizeSources(s.AllowFrom)
 		s.Upstream.Host = strings.TrimSpace(s.Upstream.Host)
 		s.Upstream.Client = strings.TrimSpace(s.Upstream.Client)
 		for j := range s.Upstream.RequestHeaders {
@@ -344,6 +474,7 @@ func (c Config) Clone() Config {
 	out.Services = slices.Clone(c.Services)
 	for i := range out.Services {
 		out.Services[i].Upstream.RequestHeaders = slices.Clone(c.Services[i].Upstream.RequestHeaders)
+		out.Services[i].AllowFrom = slices.Clone(c.Services[i].AllowFrom)
 	}
 	out.Certificate.Resolvers = slices.Clone(c.Certificate.Resolvers)
 	return out

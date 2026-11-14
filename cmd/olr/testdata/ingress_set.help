@@ -15,8 +15,10 @@ Flags:
       --domain string                         suffix published names live under, e.g. home.example.com
       --email string                          contact address for certificate-expiry warnings
   -h, --help                                  help for set
+      --no-public-domain                      remove the public suffix; exposed services must be made private first
       --no-raw-caddyfile                      remove the extra Caddyfile configuration
       --provider olr ingress show providers   DNS provider hosting your domain (see olr ingress show providers)
+      --public-domain string                  suffix exposed services answer on, e.g. example.com (a second zone and a second wildcard certificate)
       --raw-caddyfile string                  extra Caddyfile configuration, appended verbatim
       --resolver stringArray                  public resolver for the certificate propagation check, repeatable (default 1.1.1.1 and 8.8.8.8)
       --token string                          provider API credential. Prefer --token-file: a value here is recorded in your shell history

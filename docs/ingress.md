@@ -442,11 +442,18 @@ process holding them. An existing nginx or Apache is the single most likely
 install failure for this module, and "Caddy failed to start" is not an
 acceptable way to learn it.
 
-**Bind to LAN interfaces only.** `dns.md` §5 makes this point about the
+**Answer this network only, by source.** `dns.md` §5 makes this point about the
 resolver and it applies here with more force: a reverse proxy reachable from the
-WAN is a way to publish internal services to the internet by accident. Exposure
-to the internet is a port forward's decision, made explicitly, with a different
-conversation attached — see §9.
+WAN is a way to publish internal services to the internet by accident.
+
+This used to be written as "bind to LAN interfaces only", and the implementation
+never did that — Caddy listens on every address, and on a box with two sites the
+listeners would collide if it tried. What enforces it is a matcher: every
+internal service is a `host` **and** a `remote_ip private_ranges` in one named
+matcher, so a request from outside falls through to the block's `abort`, whatever
+name it asked for and however it resolved. Source, not socket. `public-access.md`
+has the whole arrangement, including the one case this cannot distinguish (a
+router in front that rewrites source addresses) and why it is checked by hand.
 
 **The `:8080` API listener is never turned off by this module.** Ever.
 
@@ -590,7 +597,7 @@ The boundary §2 said had to be drawn here.
 | | shipping a proxy build, so there is no download step | §5.6 — deferred, not rejected |
 | | per-service access control by group or client | the thing a router can do here that a standalone Caddy cannot — and the only entry on this list that justifies the module living in olr rather than in a README |
 | **Never** | serving static files, PHP, a general web server | escape hatch, permanently |
-| | **exposing a published service to the internet** | that is a port forward: `gateway`'s object and its risk conversation (docs/port-forwarding.md), and it must not become a side effect of publishing something internally |
+| | **exposing a service without being asked** | exposure is an explicit per-service decision (`public-access.md`), never a side effect of publishing something internally. A port forward is still the operator's own act, on a router olr may not even control |
 | | running, updating or backing up the services themselves | §2's boundary. We make an application reachable. We do not manage applications |
 
 ---
@@ -702,7 +709,9 @@ The boundary §2 said had to be drawn here.
    addresses) and would turn a silent miss into a warning on the page. Open
    because it is a network call on a status path, and because a record that
    legitimately points at a VPN address rather than this box would have to be
-   allowed without a complaint.
+   allowed without a complaint. The public feature (`public-access.md` §8) makes
+   it more consequential: an exposed name with a wrong record looks exactly like
+   a working one until somebody opens it.
 
 10. **The UI has not been used against a working certificate either.** The page,
    both dialogs and the confirmation gate render and behave on a real daemon,

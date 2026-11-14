@@ -608,6 +608,10 @@ type statusResponse struct {
 	// the config to find out what the URLs look like.
 	Domain string `json:"domain,omitempty"`
 
+	// PublicDomain is the suffix exposed services answer on. Empty means the
+	// feature is off for this box.
+	PublicDomain string `json:"public_domain,omitempty"`
+
 	// Service is what systemd knows. Absent, with ServiceError set, when the
 	// query itself failed — normal on a developer box with no D-Bus, and it must
 	// not take the rest of the answer down with it.
@@ -628,7 +632,20 @@ type statusResponse struct {
 	CertError    string    `json:"certificate_error,omitempty"`
 	CertWarnings []string  `json:"certificate_warnings,omitempty"`
 
-	Published  int       `json:"published"`
+	// PublicCertificate is the second certificate, for the public suffix.
+	//
+	// Separate from Certificate rather than folded in, because the two fail for
+	// different reasons and the second one is the failure nobody expects: the
+	// private certificate keeps renewing perfectly while the public one never
+	// appears, because the provider token is still scoped to the private zone.
+	// A single "certificate: valid" line would be true and misleading.
+	PublicCertificate  *CertState `json:"public_certificate,omitempty"`
+	PublicCertWarnings []string   `json:"public_certificate_warnings,omitempty"`
+
+	Published int `json:"published"`
+
+	// Public is how many published services answer outside this network.
+	Public     int       `json:"public"`
 	Drifted    bool      `json:"drifted"`
 	Drift      *planView `json:"drift,omitempty"`
 	DriftError string    `json:"drift_error,omitempty"`
@@ -646,7 +663,9 @@ func (h HTTP) getStatus(w http.ResponseWriter, r *http.Request) {
 	resp.Enabled = cfg.Enabled
 	resp.Problems = problems(Validate(cfg, h.Applier.DNS, h.Applier.Clients).Errors)
 	resp.Published = len(cfg.Services)
+	resp.Public = cfg.ExposedCount()
 	resp.Domain = cfg.Domain
+	resp.PublicDomain = cfg.PublicDomain
 
 	// Both halves: is there a proxy, and can it do the job. The second is the one
 	// that is usually wrong (ErrNoProviders), and a status that only answered the
@@ -673,6 +692,11 @@ func (h HTTP) getStatus(w http.ResponseWriter, r *http.Request) {
 	} else {
 		resp.Certificate = CertificateState(certs, resp.Domain, resp.AsOf)
 		resp.CertWarnings = certWarnings(cfg, resp.Certificate)
+		if cfg.PublicDomain != "" && cfg.HasExposed() {
+			state := CertificateState(certs, cfg.PublicDomain, resp.AsOf)
+			resp.PublicCertificate = &state
+			resp.PublicCertWarnings = certWarnings(cfg, state)
+		}
 	}
 
 	if plan, err := h.plan(r, cfg); err != nil {
@@ -737,7 +761,7 @@ func (h HTTP) getServices(w http.ResponseWriter, r *http.Request) {
 		AsOf:     stamp(),
 	}
 	for _, s := range cfg.Services {
-		resp.Services = append(resp.Services, viewService(s, domain, h.Applier.Clients))
+		resp.Services = append(resp.Services, viewService(s, domain, cfg.PublicDomain, h.Applier.Clients))
 	}
 	core.WriteJSON(w, http.StatusOK, resp)
 }

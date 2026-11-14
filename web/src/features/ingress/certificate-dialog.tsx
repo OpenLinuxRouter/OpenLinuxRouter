@@ -58,16 +58,20 @@ export function CertificateDialog({
   onOpenChange,
   initial,
   domain,
+  publicDomain,
   onSubmit,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   initial: Certificate
   domain?: string
+  /** The suffix exposed services answer on, when one is set. */
+  publicDomain?: string
   onSubmit: (fields: Partial<IngressConfig>) => void
 }) {
   useLocale()
   const [suffix, setSuffix] = useState(domain ?? '')
+  const [publicSuffix, setPublicSuffix] = useState(publicDomain ?? '')
   const [provider, setProvider] = useState(initial.provider ?? '')
   const [token, setToken] = useState('')
   const [email, setEmail] = useState(initial.acme_email ?? '')
@@ -79,6 +83,7 @@ export function CertificateDialog({
 
   function reset() {
     setSuffix(domain ?? '')
+    setPublicSuffix(publicDomain ?? '')
     setProvider(initial.provider ?? '')
     setToken('')
     setEmail(initial.acme_email ?? '')
@@ -114,6 +119,23 @@ export function CertificateDialog({
             </p>
             <p className="text-xs text-muted-foreground">
               {t('Not the same as the resolver\'s local domain, which names the clients in the house and never needs a certificate.')}
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="cert-public-domain">{t('Public domain (optional)')}</Label>
+            <Input
+              id="cert-public-domain"
+              autoComplete="off"
+              value={publicSuffix}
+              placeholder="example.com"
+              onChange={(e) => setPublicSuffix(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('Where exposed services answer from the internet: rustfs here becomes rustfs.{domain}. A second zone and a second wildcard certificate, so the names above stay on this network and out of public DNS. Empty means nothing is exposed.', { domain: publicSuffix || 'example.com' })}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t('The provider credential must be allowed to write this zone as well, or the second certificate never issues.')}
             </p>
           </div>
 
@@ -193,6 +215,12 @@ export function CertificateDialog({
               // Only when typed, for the same reason the credential is: an
               // untouched field must not rewrite a value it never read.
               if (suffix.trim() !== (domain ?? '')) fields.domain = suffix.trim()
+              // Empty is a real value here: it is how the operator turns the
+              // feature off. With a service still exposed the daemon refuses,
+              // naming the service, which is the message they need.
+              if (publicSuffix.trim() !== (publicDomain ?? '')) {
+                fields.public_domain = publicSuffix.trim()
+              }
               onSubmit(fields)
               onOpenChange(false)
             }}

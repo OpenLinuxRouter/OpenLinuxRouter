@@ -24,6 +24,7 @@ func writeConfigText(w io.Writer, c Config) error {
 	}
 	fmt.Fprintf(w, "Ingress is %s\n", state)
 	fmt.Fprintf(w, "  domain    %s\n", orDash(c.Domain))
+	fmt.Fprintf(w, "  public    %s\n", publicDomainState(c))
 
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "certificate:\n")
@@ -49,6 +50,18 @@ func writeConfigText(w io.Writer, c Config) error {
 	return nil
 }
 
+// publicDomainState says whether the box has a public suffix, and why it might
+// be set while nothing is exposed.
+func publicDomainState(c Config) string {
+	if c.PublicDomain == "" {
+		return "not set — every published name is reachable only on this network"
+	}
+	if !c.HasExposed() {
+		return c.PublicDomain + " (set, but no service is exposed)"
+	}
+	return c.PublicDomain
+}
+
 func tokenState(token string) string {
 	switch token {
 	case "":
@@ -63,14 +76,21 @@ func tokenState(token string) string {
 func servicesOf(c Config) []serviceView {
 	out := make([]serviceView, 0, len(c.Services))
 	for _, s := range c.Services {
-		out = append(out, serviceView{
+		v := serviceView{
 			Name:           s.Name,
+			Exposure:       s.Expose.OrDefault(),
+			AllowFrom:      s.AllowFrom,
 			Client:         s.Upstream.Client,
 			Host:           s.Upstream.Host,
 			Port:           s.Upstream.Port,
 			Scheme:         s.Upstream.Scheme.OrDefault(),
 			RequestHeaders: s.Upstream.RequestHeaders,
-		})
+		}
+		v.URL = "https://" + qualify(s.Name, c.Domain)
+		if v.Exposure.IsPublic() && c.PublicDomain != "" {
+			v.PublicURL = "https://" + qualify(s.Name, c.PublicDomain)
+		}
+		out = append(out, v)
 	}
 	return out
 }
@@ -82,12 +102,25 @@ func writeServicesText(w io.Writer, services []serviceView, domain string) error
 	}
 
 	t := table(w)
-	fmt.Fprintln(t, "NAME\tURL\tTARGET\tGOES TO")
+	fmt.Fprintln(t, "NAME\tURL\tPUBLIC\tTARGET\tGOES TO")
 	for _, s := range services {
-		fmt.Fprintf(t, "%s\t%s\t%s\t%s\n",
-			s.Name, orDash(s.URL), target(s), goesTo(s))
+		fmt.Fprintf(t, "%s\t%s\t%s\t%s\t%s\n",
+			s.Name, orDash(s.URL), publicCell(s), target(s), goesTo(s))
 	}
 	return t.Flush()
+}
+
+// publicCell is the second URL, or the reason there is not one. A dash would be
+// ambiguous between "not exposed" and "the public URL is missing because the
+// domain is unset"; both are worth telling apart in a list somebody scans.
+func publicCell(s serviceView) string {
+	if s.PublicURL == "" {
+		return "— this network only"
+	}
+	if s.Exposure == ExposureRestricted {
+		return s.PublicURL + " (restricted: " + strings.Join(s.AllowFrom, ", ") + ")"
+	}
+	return s.PublicURL
 }
 
 // target is what the operator typed; goesTo is where it currently resolves.
@@ -116,6 +149,11 @@ func writeServiceText(w io.Writer, s serviceView) error {
 	t := table(w)
 	fmt.Fprintf(t, "name\t%s\n", s.Name)
 	fmt.Fprintf(t, "url\t%s\n", orDash(s.URL))
+	fmt.Fprintf(t, "public url\t%s\n", orDash(s.PublicURL))
+	fmt.Fprintf(t, "exposure\t%s\n", s.Exposure.OrDefault())
+	if s.Exposure == ExposureRestricted {
+		fmt.Fprintf(t, "sources\t%s\n", strings.Join(s.AllowFrom, ", "))
+	}
 	if s.Client != "" {
 		fmt.Fprintf(t, "client\t%s\n", s.Client)
 	} else {
@@ -142,6 +180,9 @@ func writeStatusText(w io.Writer, s statusResponse) error {
 	fmt.Fprintf(w, "Ingress is %s", state)
 	if s.Domain != "" {
 		fmt.Fprintf(w, ", publishing under *.%s", s.Domain)
+	}
+	if s.PublicDomain != "" {
+		fmt.Fprintf(w, "; %s exposed at *.%s", core.Plural(s.Public, "service"), s.PublicDomain)
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "%s published\n", core.Plural(s.Published, "service"))
@@ -180,6 +221,9 @@ func writeStatusText(w io.Writer, s statusResponse) error {
 	for _, warning := range s.CertWarnings {
 		fmt.Fprintf(w, "\n! %s\n", warning)
 	}
+	for _, warning := range s.PublicCertWarnings {
+		fmt.Fprintf(w, "\n! public: %s\n", warning)
+	}
 
 	if s.Drifted && s.Drift != nil {
 		fmt.Fprintln(w)
@@ -208,6 +252,26 @@ func writeCertText(w io.Writer, s statusResponse) {
 		}
 		fmt.Fprintf(w, "certificate: valid for %s%s\n",
 			core.Plural(s.Certificate.ExpiresInDays, "day"), note)
+	}
+
+	// The public certificate only exists when something is exposed, and it is
+	// printed as its own line for the reason the field is its own field: it is
+	// a different zone and a different failure.
+	if s.PublicCertificate == nil {
+		return
+	}
+	switch {
+	case !s.PublicCertificate.Found:
+		fmt.Fprintf(w, "public cert: none yet — the provider token may not cover the public zone\n")
+	case s.PublicCertificate.ExpiresIn <= 0:
+		fmt.Fprintf(w, "public cert: EXPIRED\n")
+	default:
+		note := ""
+		if s.PublicCertificate.RenewalOverdue {
+			note = "  (renewal overdue)"
+		}
+		fmt.Fprintf(w, "public cert: valid for %s%s\n",
+			core.Plural(s.PublicCertificate.ExpiresInDays, "day"), note)
 	}
 }
 

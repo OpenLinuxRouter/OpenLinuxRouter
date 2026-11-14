@@ -51,8 +51,8 @@ func TestRenderPublishesOneWildcardSite(t *testing.T) {
 	if strings.Contains(got, "grafana.svc.example.com {") {
 		t.Errorf("a per-name site block would request its own certificate:\n%s", got)
 	}
-	if !strings.Contains(got, "@svc_grafana host grafana.svc.example.com") {
-		t.Errorf("expected a host matcher:\n%s", got)
+	if !strings.Contains(got, "@svc_grafana {\n\t\thost grafana.svc.example.com\n\t\tremote_ip private_ranges\n\t}") {
+		t.Errorf("expected a host matcher guarded by source:\n%s", got)
 	}
 	if !strings.Contains(got, "reverse_proxy 192.168.1.50:3000") {
 		t.Errorf("expected the client's address resolved into the target:\n%s", got)
@@ -275,5 +275,98 @@ func TestLinkPathDoesNotChangeProxyConfiguration(t *testing.T) {
 	}
 	if conf(t, before) != conf(t, after) {
 		t.Fatal("link path changed the Caddyfile")
+	}
+}
+
+// ---------------------------------------------------------------- exposure
+
+func TestRenderPublishesExposedServicesOnTheirOwnSuffix(t *testing.T) {
+	got := conf(t, renderGood(t, func(c *Config) {
+		c.PublicDomain = "example.com"
+		c.Services[0].Expose = ExposurePublic
+	}))
+
+	if !strings.Contains(got, "\n*.example.com {") {
+		t.Fatalf("expected a public site block:\n%s", got)
+	}
+	if !strings.Contains(got, "@pub_grafana host grafana.example.com") {
+		t.Fatalf("expected a public matcher:\n%s", got)
+	}
+	// The private name is still there, and still guarded: exposing a service
+	// adds a name, it does not move one.
+	if !strings.Contains(got, "\n\t@svc_grafana {\n\t\thost grafana.svc.example.com\n\t\tremote_ip private_ranges\n\t}") {
+		t.Fatalf("expected the private name to stay guarded:\n%s", got)
+	}
+
+	public := got[strings.Index(got, "*.example.com {"):]
+	if strings.Contains(public, "grafana.svc.example.com") {
+		t.Fatalf("the public block must not carry the private name:\n%s", public)
+	}
+}
+
+func TestRenderPublicSiteOnlyCarriesExposedServices(t *testing.T) {
+	got := conf(t, renderGood(t, func(c *Config) {
+		c.PublicDomain = "example.com"
+		c.Services = append(c.Services, Service{
+			Name: "nas", Upstream: Upstream{Client: "nuc", Port: 5000},
+		})
+		c.Services[0].Expose = ExposurePublic
+	}))
+
+	public := got[strings.Index(got, "*.example.com {"):]
+	if strings.Contains(public, "nas.example.com") {
+		t.Fatalf("a service that was not exposed is in the public block:\n%s", public)
+	}
+	if !strings.Contains(public, "grafana.example.com") {
+		t.Fatalf("the exposed service is missing from the public block:\n%s", public)
+	}
+}
+
+func TestRenderRestrictedServiceCarriesItsSources(t *testing.T) {
+	got := conf(t, renderGood(t, func(c *Config) {
+		c.PublicDomain = "example.com"
+		c.Services[0].Expose = ExposureRestricted
+		c.Services[0].AllowFrom = []string{"198.51.100.7", "203.0.113.0/24"}
+	}))
+
+	want := "\n\t@pub_grafana {\n\t\thost grafana.example.com\n\t\tremote_ip 198.51.100.7 203.0.113.0/24\n\t}"
+	if !strings.Contains(got, want) {
+		t.Fatalf("expected the source matcher:\n%s", got)
+	}
+}
+
+func TestRenderOmitsThePublicSiteWhenNothingIsExposed(t *testing.T) {
+	got := conf(t, renderGood(t, func(c *Config) {
+		c.PublicDomain = "example.com"
+	}))
+
+	if strings.Contains(got, "*.example.com {") {
+		t.Fatalf("a public site block with nothing in it would still request a certificate:\n%s", got)
+	}
+	if strings.Contains(got, "log_append") {
+		t.Fatalf("no exposed service means no access log:\n%s", got)
+	}
+}
+
+func TestRenderAccessLogDropsTheQueryString(t *testing.T) {
+	got := conf(t, renderGood(t, func(c *Config) {
+		c.PublicDomain = "example.com"
+		c.Services[0].Expose = ExposurePublic
+	}))
+
+	for _, want := range []string{
+		"output file ",
+		"roll_size 10MiB",
+		"request>uri delete",
+		"log_append request_path {http.request.uri.path}",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("access log is missing %q:\n%s", want, got)
+		}
+	}
+	// One logger, on the public block only. The private block is on someone's
+	// LAN and its traffic is not this feature's business.
+	if n := strings.Count(got, "log_append"); n != 1 {
+		t.Fatalf("expected exactly one access log, got %d:\n%s", n, got)
 	}
 }
