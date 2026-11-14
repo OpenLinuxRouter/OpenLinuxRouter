@@ -211,8 +211,8 @@ func validatePublicDomain(r *Result, c Config, domain string, dns DNSView) {
 		return
 	}
 
-	// Legal, and the operator's own choice (iloahz.com containing
-	// home.iloahz.com is the shape it takes when the public names keep the same
+	// Legal, and the operator's own choice (example.com containing
+	// home.example.com is the shape it takes when the public names keep the same
 	// label). Caddy picks the more specific site, so routing is right; the one
 	// thing that breaks it is a wildcard DNS record at the parent, which would
 	// make every private name resolve to this box from outside.
