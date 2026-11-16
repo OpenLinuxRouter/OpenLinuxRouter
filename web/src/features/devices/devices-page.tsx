@@ -24,7 +24,7 @@ import { DevicePortrait } from './device-parts'
 import { readWhen } from './device-format'
 import { addressLabel, isThisRouter, roleLabels } from './device'
 import { useDeviceEditor, useDeviceRead, useDevicesConfig, useLocalInterfaces, useReadDevices } from './queries'
-import type { Device } from './types'
+import type { Device, Snapshot } from './types'
 
 /**
  * The inventory of boxes olr reads but does not configure.
@@ -160,7 +160,7 @@ export function DevicesPage() {
 function DeviceRow({ device, localHosts }: { device: Device; localHosts: ReadonlySet<string> }) {
   useLocale()
   const read = useDeviceRead(device.id)
-  const health = deviceHealth(read)
+  const health = deviceHealth(read, obtainedNothing(read?.data))
   const roles = roleLabels(device)
   const model = read?.data?.identity.model
   const identity = [model, addressLabel(device.address), `${device.adapter} adapter`].filter(Boolean).join(' · ')
@@ -255,4 +255,10 @@ function NoDevices({ onAdd }: { onAdd: () => void }) {
       </div>
     </Card>
   )
+}
+
+/** Whether a finished read obtained no usable section at all. */
+function obtainedNothing(snapshot?: Snapshot): boolean {
+  if (!snapshot) return false
+  return !Object.values(snapshot.collections ?? {}).some(collection => collection.state === 'ok')
 }

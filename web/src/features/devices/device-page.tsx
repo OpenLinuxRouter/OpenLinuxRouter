@@ -7,7 +7,7 @@ import { PageHeading } from '@/components/layout/page-heading'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { StatusInline } from '@/components/ui/status'
-import { deviceHealth, state } from '@/lib/state'
+import { deviceHealth } from '@/lib/state'
 import { cn } from '@/lib/utils'
 
 import { DeviceDialog, type DeviceDraft } from './device-dialog'
@@ -63,12 +63,7 @@ export function DevicePage() {
   const readAnything = snapshot.data
     ? Object.values(snapshot.data.collections ?? {}).some(collection => collection.state === 'ok')
     : true
-  // The pill reports the read, not the socket. Reaching a box and getting
-  // nothing usable out of it is not "Connected" — it is an answer we do not
-  // have, which is what the ring means.
-  const health = snapshot.data && !readAnything
-    ? state('Unknown')
-    : deviceHealth({ status: snapshot.status, fetchStatus: snapshot.fetchStatus })
+  const health = deviceHealth({ status: snapshot.status, fetchStatus: snapshot.fetchStatus }, !readAnything)
 
   return (
     <div className="space-y-6">

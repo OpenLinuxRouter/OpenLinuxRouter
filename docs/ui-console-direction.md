@@ -320,9 +320,12 @@ helpful.
 [`ui-console-mockup.html`](ui-console-mockup.html) is one self-contained file
 (no build step, no network): four screens — Overview, Devices, a device page, and
 Topology — a light/dark switch, working tabs, and a port that can be selected to
-move the inspector. It reuses the real mark, the real device portraits from
-`web/src/assets/device-icons`, and the tokens in `web/src/index.css`. Phone and
-tablet layouts are in the same file.
+move the inspector. It is the sketch the implementation was built against, and it
+stays because a drawing can try a layout the app has not committed to yet.
+
+The stills in [`ui-console-shots/`](ui-console-shots/) are the running app, not
+the sketch: the rail, the object index, the switch's front panel with a port
+selected, and the map. Replace them when a slice changes what one of them shows.
 
 ## 8. What this would touch
 

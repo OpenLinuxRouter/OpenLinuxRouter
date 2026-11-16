@@ -175,10 +175,13 @@ export interface DeviceRead {
  * link is down. The words and tones already exist in `STATE`; this function
  * only decides which one the session has earned.
  */
-export function deviceHealth(read?: DeviceRead): Health {
+export function deviceHealth(read?: DeviceRead, obtainedNothing = false): Health {
   if (!read) return state('Not checked')
   if (read.status === 'error') return state('Not answering')
-  if (read.status === 'success') return state('Connected')
+  // Reaching a box and getting nothing usable out of it is not Connected: the
+  // conversation succeeded, the answer did not. The ring is the word for an
+  // answer we do not have.
+  if (read.status === 'success') return obtainedNothing ? state('Unknown') : state('Connected')
   // A first read is in flight. Saying "Not checked" while we are checking would
   // be the helpfulness of a progress bar that never moves.
   if (read.fetchStatus === 'fetching') return state('Reading…')
