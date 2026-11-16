@@ -279,6 +279,12 @@ address falls inside lan0's range" are different claims with different
 strengths. The page states the limit in the legend rather than spending it on a
 drawing it cannot support.
 
+**Measured, not assumed.** On 16 November 2026 the LAN was listened to for 75
+seconds: zero LLDP frames arrived on the segment while 193,000 frames passed in
+a 20-second sample, so the capture works and nothing on this network advertises.
+The switch is silent, and no access point speaks it either. LLDP is not a
+setting we forgot to read; there is nothing on the wire to read.
+
 When an adapter reports neighbours, the four line styles come back — solid for
 both ends reporting, dashed for the forwarding table, dotted for a wireless
 association, a ring for a box we can reach but cannot describe. They are not
@@ -429,7 +435,7 @@ which.
 
 | Item | Blocked on | What it would take |
 | --- | --- | --- |
-| **LLDP neighbours**, and with them the four evidence line styles of §6.4 | Device support. The Mercury adapter reads four firmware pages and none of them is LLDP; `docs/network-equipment.md` records that stock OpenWrt's ubus exposes no neighbour table either. | Confirm on a real SE109 Pro that the firmware has an LLDP page; decide whether access points may be required to run `lldpd`. Both are product decisions before they are code. |
+| **LLDP neighbours**, and with them the four evidence line styles of §6.4 | **Measured and negative** (§6.4): no device on the LAN transmits LLDP, and the adapter's four firmware pages contain none. | Turn it on where it can be turned on — the switch's own LLDP setting (a write, and unverified whether the firmware has one) and `lldpd` on every access point — then read it. Until then there is nothing to draw. |
 | **An events feed** | A definition. "An event" is undefined here: the audit log records mutations, not network happenings. | Agree on one, e.g. "a state change nobody asked for" — port link changes, a device flipping to `Not answering`, a service dropping. Then keep a bounded ring buffer of them. |
 | **`fdb.list`** (the whole forwarding table) | The adapter. Only a known-MAC lookup is implemented. | Parse the switch's full MAC table page; then the map could place every wired client instead of one at a time. |
 | **Per-port rates** | Arithmetic. Adapters report counters; a rate needs two samples and a clock. | A sampler beside the activity one, or a second read on the open page. Must say "over the last N s", never imply the switch reported a rate. |
