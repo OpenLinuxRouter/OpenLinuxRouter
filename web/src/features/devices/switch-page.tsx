@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { ListEmpty } from '@/components/ui/list'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
-import { formatUptime, macValid, portName, vlanValid } from './device'
+import { formatUptime, macValid, portName, sortPorts, vlanValid } from './device'
 import { clock } from './device-format'
 import {
   CapabilitiesDisclosure,
@@ -22,6 +22,7 @@ import {
   Unread,
   ViewHeader,
 } from './device-parts'
+import { PortPanel } from './port-panel'
 import { useFDBLookup } from './queries'
 import type { Device, Port, Snapshot, VLAN } from './types'
 
@@ -60,10 +61,32 @@ export function SwitchPage({ device, snapshot }: { device: Device; snapshot: Sna
         onChange={setTab}
         actions={<p className="text-xs text-muted-foreground">{t('Read {time}', { time: clock(snapshot.observed_at) })}</p>}
       />
-      {tab === 'ports' ? <PortsTable snapshot={snapshot} />
+      {tab === 'ports' ? <PortsTab snapshot={snapshot} />
         : tab === 'vlans' ? <VLANsTab snapshot={snapshot} />
           : tab === 'mac' ? <MACLookupTab id={device.id} snapshot={snapshot} />
             : <OverviewTab device={device} snapshot={snapshot} />}
+    </div>
+  )
+}
+
+/**
+ * The front panel is the desktop reading; the table below it is the same data
+ * and the only layout that fits a phone (console direction §6.3). The panel is
+ * hidden below `lg` so the two never compete for the same width.
+ */
+function PortsTab({ snapshot }: { snapshot: Snapshot }) {
+  useLocale()
+  const read = snapshot.collections.ports
+  const ports = sortPorts(snapshot.ports ?? [])
+  const readable = (!read || read.state === 'ok') && ports.length > 0
+  return (
+    <div className="space-y-4">
+      {readable && (
+        <div className="hidden lg:block">
+          <PortPanel snapshot={snapshot} />
+        </div>
+      )}
+      <PortsTable snapshot={snapshot} />
     </div>
   )
 }
