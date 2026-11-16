@@ -285,10 +285,11 @@ a 20-second sample, so the capture works and nothing on this network advertises.
 The switch is silent, and no access point speaks it either. LLDP is not a
 setting we forgot to read; there is nothing on the wire to read.
 
-When an adapter reports neighbours, the four line styles come back — solid for
-both ends reporting, dashed for the forwarding table, dotted for a wireless
-association, a ring for a box we can reach but cannot describe. They are not
-drawn today because drawing them today would be a guess in a line's clothing.
+The four line styles sketched earlier — solid for both ends reporting, dashed for
+a forwarding table, dotted for a wireless association, a ring for a box we can
+reach but cannot describe — are therefore **withdrawn, not postponed**. Drawing
+them would be a guess in a line's clothing, and there is nothing on this hardware
+to guess from.
 
 ### 6.5 Devices, including this one
 
@@ -355,10 +356,25 @@ per-section status already exist in `GET /api/devices/{id}/snapshot` and
 
 ## 9. Implementation plan
 
-Six slices, each independently shippable. Nothing here writes to hardware.
-**Shipped: 0 (the rail), 1 (the object index), 2 (the device frame), 3 (the port
-panel), 4 (the map as a page) and 5 except its events feed. Open: events, and the
-LLDP work that would let the map draw evidence, and 6.**
+Six slices, each independently shippable. Nothing here writes to hardware — the
+one backend addition (`/api/gateway/activity/series`) is a read.
+
+| # | Slice | State | Commit |
+| --- | --- | --- | --- |
+| 0 | Tokens and the rail | shipped | `9ac45e7` |
+| 1 | Devices as the object index | shipped | `e4c18bd` |
+| 2 | One device frame, three bodies | shipped | `8fdc963` |
+| 3 | The switch's front panel | shipped | `654ae36` |
+| 4 | The map as a page | shipped | `afbf54c` |
+| 5 | Overview: counts and the day's traffic | shipped, except its events feed | `c0c7d57`, `31f614a` |
+| 6 | Docs, stills and the cleanup pass | shipped in part: the stills are the app, the open list is written | `2db497f`, `88e8ac0` |
+
+Two things went in beside the slices, both from testing against the real switch:
+the "plugged into" lookup, which the Mercury adapter could already answer
+(`d15218d`), and one health rule shared by the list and the page (`2db497f`).
+
+What is left is in §10, and it is not UI work: LLDP was measured and closed, the
+events feed needs a definition, the rest need adapter or sampling work.
 
 **Slice 0 — Tokens and shell.** *(small; no behaviour change)*
 Add the two brand values to `index.css` and the one legal drawing to the rail
@@ -435,7 +451,7 @@ which.
 
 | Item | Blocked on | What it would take |
 | --- | --- | --- |
-| **LLDP neighbours**, and with them the four evidence line styles of §6.4 | **Measured and negative** (§6.4): no device on the LAN transmits LLDP, and the adapter's four firmware pages contain none. | Turn it on where it can be turned on — the switch's own LLDP setting (a write, and unverified whether the firmware has one) and `lldpd` on every access point — then read it. Until then there is nothing to draw. |
+| ~~**LLDP neighbours**, and the four evidence line styles of §6.4~~ | **Closed** (§6.4): measured on the live LAN — no device transmits it, and the adapter's firmware pages contain none. Reopening it means turning LLDP on at every box first, which is deployment, not design. | — |
 | **An events feed** | A definition. "An event" is undefined here: the audit log records mutations, not network happenings. | Agree on one, e.g. "a state change nobody asked for" — port link changes, a device flipping to `Not answering`, a service dropping. Then keep a bounded ring buffer of them. |
 | **`fdb.list`** (the whole forwarding table) | The adapter. Only a known-MAC lookup is implemented. | Parse the switch's full MAC table page; then the map could place every wired client instead of one at a time. |
 | **Per-port rates** | Arithmetic. Adapters report counters; a rate needs two samples and a clock. | A sampler beside the activity one, or a second read on the open page. Must say "over the last N s", never imply the switch reported a rate. |
