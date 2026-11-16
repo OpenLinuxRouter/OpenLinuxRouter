@@ -35,6 +35,9 @@ below. Specialized chart layouts retain their documented exceptions.
 
 ## Component inventory
 
+The last three rows are the console direction's additions: they are specified,
+not built. Everything above them exists.
+
 Do not make a separate React component for every text size. Extract components
 where structure, behavior or repeated semantics need a shared owner. Text roles
 can be shared variants/tokens within those components.
@@ -58,6 +61,9 @@ can be shared variants/tokens within those components.
 | Dialog / menu / tooltip | Modal editing, contextual actions, short supplemental help | Reuse current primitives; never make tooltip-only information necessary for touch users |
 | Feedback / empty state | Loading, error, no data, completion and retry | Reuse Skeleton, Alert, ListEmpty and Sonner; generalize empty-state layout only when needed |
 | Chart frame | Title/actions, plot space, legend, data availability | Share frame conventions; keep radar, map, activity matrix and Sankey domain-specific |
+| Device page frame | Portrait, identity, status, stat strip, read action, Details | Shared by every device type; the body below it stays per `switch`/`ont`/`openwrt` page. [Console direction §6.2](ui-console-direction.md) |
+| Port panel | A switch drawn as its front panel: tiles, selection, inspector | New; `features/devices/port-panel.tsx`. Tile contract in [console direction §6.3](ui-console-direction.md) |
+| Evidence edge | A topology link whose style states how it was observed | New; `features/topology/links.tsx` takes the class from the evidence, not from depth |
 
 ## Size variants
 

@@ -1050,6 +1050,15 @@ a second module doubles the hand-written surface.
 
 SPA embedded in the binary, a pure client of the API.
 
+**Organised around the operator, not the modules.** The console's first layer is
+the objects a person arrives looking for — devices, the topology between them,
+the clients on the network — and configuration sits below it, one level down from
+the object it changes. The package layout in §4 is a good shape for the daemon and
+a bad shape for a person: a module-first UI answers questions in the order the
+code is written, which is how one switch ends up in three different places.
+Every object gets one page; capability decides what that page can show. The
+direction, its rules and the work order are in `docs/ui-console-direction.md`.
+
 **Reachable only when asked.** `olrd` binds its control socket always and a TCP
 address never, unless `--listen` says otherwise — so a fresh install has a
 working `olr` and a UI nothing can reach. That follows from §7: `apt install`

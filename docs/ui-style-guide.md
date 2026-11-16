@@ -87,6 +87,19 @@ pairs.
 | Success text | #167447 | #70d8a5 |
 | Warning text | #935a10 | #f1c071 |
 | Destructive text | #b42335 | #ff9daa |
+| Brand blue (mark and hairline) | #13a7f5 | #13a7f5 |
+| Brand red (mark and hairline) | #fd605e | #fd605e |
+
+**The brand pair is not a theme colour.** `#13a7f5` and `#fd605e` are the two
+colours in the mark, and they are drawn in exactly three places: the mark, a
+34 × 2px gradient rule under the wordmark in the rail, and the same rule on the
+setup and sign-in card. One instance per surface, identical in both themes, never
+a token with a role. They are never a status tone, a data series, a chart, a
+filled button, body text, an icon tint, a focus ring or a selected state — colour
+in this product carries meaning, and the red is a hair away from the destructive
+tone. The interaction colour stays `--primary`; the brand never has to be
+readable as text, which is why it can stay at full saturation.
+[Console direction §5](ui-console-direction.md) is the full rule.
 
 Use `primary-fill` with `primary-foreground` for filled actions. Use `primary`
 for links and selected navigation. The selected section in desktop navigation is
@@ -107,8 +120,11 @@ use 16px and shadow-md. Card spacing and title size are independent variants.
 
 ## Layout and hierarchy
 
-Desktop and mobile navigation use Overview, Gateway, Wireless, Access and
-Advanced, in that order. Wireless shows a managed access point's radios,
+Desktop navigation becomes a rail in the order the
+[console direction](ui-console-direction.md) sets out — Network (Overview,
+Topology, Devices) then Configuration (Gateway, Wireless, Access, Advanced) —
+until then the top bar keeps Overview, Gateway, Wireless, Access and Advanced in
+that order. Wireless shows a managed access point's radios,
 findings and associated clients; it is read-only in this increment.
 Firewall, port forwarding, administrator access and the five diagnostic pages
 are reached through Advanced and highlight Advanced in navigation, including on
