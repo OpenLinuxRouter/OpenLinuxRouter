@@ -126,6 +126,11 @@ html {
     --sidebar-accent-foreground: var(--accent-foreground);
     --sidebar-border: var(--border);
     --sidebar-ring: var(--ring);
+    /* The mark's two colours. Identity, not a colour with a role: drawn once per
+       surface and never used for a state, a series or a fill
+       (docs/ui-console-direction.md §5). Identical in both themes, like the mark. */
+    --brand-a: #13a7f5;
+    --brand-b: #fd605e;
 }
 
 .dark {

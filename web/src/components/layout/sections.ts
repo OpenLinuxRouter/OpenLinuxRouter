@@ -58,6 +58,12 @@ export interface Section {
   label: string
   icon: LucideIcon
   end: boolean
+  /**
+   * Which rail group a top-level section belongs to (console direction §6.1):
+   * the objects an operator looks at, or the modules that configure them.
+   * Absent means Configuration, because that is where most of them are.
+   */
+  group?: 'network' | 'configuration'
   /** A destination within a section, not a top-level navigation item. */
   nested?: boolean
   /** Top-level navigation owner for a destination with a separate URL. */
@@ -71,6 +77,7 @@ export const SECTIONS: Section[] = [
     get label() { return t('Overview') },
     icon: Activity,
     end: true,
+    group: 'network',
     groups: [],
   },
   {
@@ -194,6 +201,7 @@ export const SECTIONS: Section[] = [
     get label() { return t('Devices') },
     icon: EthernetPort,
     end: false,
+    group: 'network',
     groups: [],
   },
   {

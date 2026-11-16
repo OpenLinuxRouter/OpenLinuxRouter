@@ -309,7 +309,7 @@ tablet layouts are in the same file.
 | `features/devices/device-page.tsx` | The shared frame: portrait, stat strip, read action |
 | `features/devices/switch-page.tsx` | Front panel above the existing `PortsTable` |
 | new `features/devices/port-panel.tsx` | Tiles, selection, inspector |
-| `routes/map.tsx` | Promoted to `/topology`, gains the evidence legend |
+| `routes/overview.tsx` → new `routes/topology.tsx` | The device tree leaves Overview for a page of its own; the queries they share move into one hook |
 | `features/topology/links.tsx` | Edge style from the evidence class |
 | `components/ui/status.tsx` | No new tones; `deviceHealth()` beside `linkHealth()` |
 
@@ -324,10 +324,10 @@ Six slices, each independently shippable. Nothing here writes to hardware.
 **Slice 0 — Tokens and shell.** *(small; no behaviour change)*
 Add the two brand values to `index.css` and the one legal drawing to the rail
 wordmark and the auth card. Move `AppShell` from a top bar to a rail at `lg`, keep
-the bottom bar, put `sections.ts` in the two groups, add Topology pointing at the
-existing `/map`.
-*Done when:* every existing page renders inside the rail, no URL redirects away,
-the mobile bar is unchanged, and `npm run test` (control-language) is green.
+the bottom bar, and put `sections.ts` in the two groups. The Network group ships
+Overview and Devices; Topology joins it in slice 4, when there is a page to open.
+*Done when:* every existing page renders inside the rail, no URL changes, the
+mobile bar is unchanged, and `npm run test` (control-language) is green.
 
 **Slice 1 — Devices is the object index.** *(medium)*
 Rows gain the portrait, roles as tags, the adapter, and the §6.6 status model.
@@ -355,8 +355,11 @@ scrolling; a port with `link: unknown` renders the ring; keyboard selection work
 and the inspector is announced.
 
 **Slice 4 — Topology with evidence.** *(medium)*
-Promote `/map`, add the legend, and have `links.tsx` pick line style from the
-evidence class rather than from depth. Keep the vertical grouping on phones.
+`/map` is the world-traffic map and stays where it is; the device tree has no URL
+of its own — it is a component inside Overview. Give it one: lift its query
+plumbing into a hook both pages use, render it full width on `/topology`, add the
+legend, and have `links.tsx` pick line style from the evidence class rather than
+from depth. Keep the vertical grouping on phones.
 *Done when:* a network with one LLDP link, one MAC-table inference, one wireless
 client and one manual link draws four distinguishable edges, and the legend names
 all four.
@@ -377,9 +380,10 @@ worth building once the list can tell you which device to open.
 
 ## 10. Open questions
 
-- **Does Topology earn a top-level slot?** It replaces `/map`. If a household has
-  one switch and one AP, the answer may be "keep it in Overview, full width, with
-  a link" — slice 4 can end either way.
+- **Does Topology earn a top-level slot?** It costs a route and a page, and it is
+  the only view that can draw a network with holes in it. If a household has one
+  switch and one AP, the answer may be "keep it in Overview, full width, with a
+  link" — slice 4 can end either way.
 - **A read that takes 30 seconds.** The service budget is 30 s per device. The
   page needs a skeleton per section, not a spinner over the whole header, so
   identity renders from the inventory while the hardware answers.
