@@ -189,18 +189,18 @@ Configuration pages are what exists today, unchanged in URL and behaviour.
 A left rail is a consequence of that split, not a fashion: seven destinations in
 two named groups do not fit a 64px top bar without becoming the "cramped
 six-section navigation" the visual guide already recorded as a finding. The rail
-also gives the console a place to say which router you are looking at — a fact a
-top bar cannot hold. The rail is shadcn's Sidebar: under the wordmark it prints
-the host the console is talking to, and it collapses to its icons (⌘B / Ctrl+B,
-remembered in a cookie) with each name in a tooltip.
+is shadcn's Sidebar, and it collapses to its icons (⌘B / Ctrl+B, remembered in a
+cookie) with each name in a tooltip.
 
-It does not print a standing `Connected`. The console is served by the daemon it
-names, so a page that rendered is itself the evidence that the daemon answered;
-a word that never changes is decoration, and the operator learns to stop reading
-it. What the page cannot show is the daemon going away under a page that is
-still open, so the rail prints `Not answering` — and only that — when the
-five-second metrics read the Status card already makes stops getting an HTTP
-answer. Any answer, even an error or a 401, is the daemon being there.
+Under the wordmark it prints nothing. It used to name the host the console was
+talking to, and to print `Not answering` whenever the five-second metrics read
+stopped getting an HTTP answer. Both are gone: the console is served by the
+daemon at that address, so the host repeats what the reader typed or the bar
+still shows, and a label that only ever qualifies itself is a permanent address
+line priced at a poll on every page. Liveness keeps the answer it always had — a
+read that does not complete says `Not answering` on the card that needed it, and
+a page that renders at all is the daemon answering. A rail that holds navigation
+holds no status.
 
 The rail's foot is what lets the page column end with content instead of a
 footer. It holds two things: the version, as a button that opens the console's

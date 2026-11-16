@@ -19,10 +19,6 @@ import {
   SidebarProvider,
   SidebarRail,
 } from '@/components/ui/sidebar'
-import { StatusInline } from '@/components/ui/status'
-import { useHostMetrics } from '@/features/system/queries'
-import { ApiError } from '@/lib/api'
-import { state } from '@/lib/state'
 import { cn } from '@/lib/utils'
 
 /**
@@ -70,7 +66,6 @@ export function AppShell() {
               with a role: never a state, never a series, never a fill (console
               direction §5). */}
           <span aria-hidden className="ml-2 block h-0.5 w-[34px] rounded-full bg-[linear-gradient(90deg,var(--brand-a),var(--brand-b))] group-data-[collapsible=icon]:hidden" />
-          <RouterLink />
         </SidebarHeader>
 
         <SidebarContent>
@@ -159,38 +154,6 @@ function RailGroup({ label, sections, active }: {
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
-  )
-}
-
-/**
- * Which router this console is talking to (console direction §6.1). The host is
- * the address in the bar — the daemon reports no name of its own.
- *
- * It says nothing while that is all there is to say. The console is served by
- * the daemon it names, so a page that rendered is itself the proof that the
- * daemon answered; a permanent `Connected` would label a fact the reader is
- * already holding, and a label that never changes cannot be read as a state.
- * What is worth a line is what the page cannot show: the five-second metrics
- * read the Status card makes stops getting an HTTP answer, which means the
- * daemon went away under a page that is still open. Any answer, even an error or
- * a 401, is the daemon being there — only a request that never got one is `Not
- * answering`.
- */
-function RouterLink() {
-  const metrics = useHostMetrics()
-  const away = state('Not answering')
-  const answering = !metrics.isError || metrics.error instanceof ApiError
-  const host = window.location.host
-  return (
-    <div className="mt-1 flex min-w-0 flex-col gap-0.5 px-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0"
-      title={answering ? host : `${host} · ${away.label}`}>
-      <span className="truncate font-mono text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">{host}</span>
-      {!answering && (
-        <StatusInline tone={away.tone} emphasis="dense" className="text-xs group-data-[collapsible=icon]:[&>span:last-child]:sr-only">
-          {away.label}
-        </StatusInline>
-      )}
-    </div>
   )
 }
 
