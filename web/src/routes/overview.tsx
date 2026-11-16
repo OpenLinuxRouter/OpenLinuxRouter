@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useDhcpStatus } from '@/features/dhcp/queries'
+import { useDhcpLeases, useDhcpStatus } from '@/features/dhcp/queries'
 import { useDnsStatus } from '@/features/dns/queries'
 import { RELAY_UNIT, serviceOf } from '@/features/dns/units'
 import { useHostMetrics, usePublicAddresses, type HostMetrics, type PublicAddresses } from '@/features/system/queries'
@@ -23,6 +23,8 @@ import { SiteIcon } from '@/features/gateway/latency-site-icon'
 import { useGatewayLatency, useMeasureLatencySite, useGatewayStatus, useGatewayTraffic } from '@/features/gateway/queries'
 import { FirstRun } from '@/features/setup/first-run'
 import { useRemoteStatus } from '@/features/remote/queries'
+import { useClientList } from '@/features/clients/queries'
+import { useDevicesConfig } from '@/features/devices/queries'
 import { NetworkMapPanel } from '@/features/topology/map-panel'
 import { useTrafficView, type TrafficView } from '@/features/topology/traffic'
 import type { DhcpStatus, DnsStatus, GatewayLatency, GatewayStatus } from '@/lib/api-types'
@@ -124,6 +126,8 @@ export function OverviewPage() {
         </Alert>
       ))}
 
+      <Glance />
+
       <section aria-label={t('Your network')} className="pt-2">
         <NetworkMapPanel density="auto" />
       </section>
@@ -132,6 +136,51 @@ export function OverviewPage() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * What the network holds, in four numbers, immediately above the picture of it.
+ *
+ * Not a fifth row of cards: these are counts, they change on someone else's
+ * schedule, and the page already carries a verdict above them. Each one links to
+ * the page that owns the number, so "3 networks" is one click from the pools that
+ * have room in them. A pending or failed read says so rather than showing a zero
+ * it has not earned.
+ */
+function Glance() {
+  useLocale()
+  const clients = useClientList()
+  const leases = useDhcpLeases()
+  const equipment = useDevicesConfig()
+  const remote = useRemoteStatus()
+
+  const online = clients.data ? clients.data.clients.filter(client => client.online).length : undefined
+  const networks = leases.data?.usage?.length
+  const inUse = leases.data?.usage?.reduce((sum, pool) => sum + pool.active, 0)
+  const managed = equipment.data?.devices?.length
+  const peers = remote.data?.peers?.length
+
+  const items = [
+    { to: '/topology', label: t('Clients'), value: online, note: t('online'), pending: clients.isPending || clients.isError },
+    { to: '/gateway/dhcp', label: t('Networks'), value: networks, note: inUse === undefined ? '' : t('{count} addresses in use', { count: inUse }), pending: leases.isPending || leases.isError },
+    { to: '/devices', label: t('Managed devices'), value: managed, note: t('configured'), pending: equipment.isPending || equipment.isError },
+    { to: '/access/wireguard', label: t('Tunnel peers'), value: peers, note: t('listed'), pending: remote.isPending || remote.isError },
+  ]
+
+  return (
+    <dl className="flex flex-wrap overflow-hidden rounded-xl border border-border bg-card">
+      {items.map(item => (
+        <Link key={item.label} to={item.to}
+          className="min-w-0 flex-1 basis-40 border-l border-border px-4 py-2.5 transition-colors first:border-l-0 hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring max-sm:border-l-0">
+          <dt className="text-[0.6875rem] leading-4 font-medium text-muted-foreground">{item.label}</dt>
+          <dd className={cn('mt-0.5 truncate text-[0.9375rem] leading-6 font-medium tracking-[-0.005em]', item.pending && 'text-muted-foreground')}>
+            {item.value === undefined ? '—' : item.value}
+            {item.value !== undefined && item.note && <small className="ml-1 text-xs font-normal text-muted-foreground">{item.note}</small>}
+          </dd>
+        </Link>
+      ))}
+    </dl>
+  )
+}
 
 interface Fault {
   key: string

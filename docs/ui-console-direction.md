@@ -348,7 +348,7 @@ per-section status already exist in `GET /api/devices/{id}/snapshot` and
 
 Six slices, each independently shippable. Nothing here writes to hardware.
 **Shipped: 0 (the rail), 1 (the object index), 2 (the device frame), 3 (the port
-panel) and 4 (the map as a page). Open: 5 and 6.**
+panel) and 4 (the map as a page). Slice 5 is in part. Open: the rest of 5 and 6.**
 
 **Slice 0 — Tokens and shell.** *(small; no behaviour change)*
 Add the two brand values to `index.css` and the one legal drawing to the rail
@@ -391,11 +391,22 @@ The evidence line styles wait for an adapter that reports neighbours (§6.4).
 *Done when:* the page renders the same picture as Overview, the legend names what
 a line is and what it is not, and neither page can drift from the other.
 
-**Slice 5 — Overview rebuilt.** *(medium)*
-Attention strip, four facts, 24h throughput, networks, events. Keep the existing
-setup checklist above it for a router that is not configured yet.
-*Done when:* a configured router shows no checklist and a fresh one shows only the
-checklist.
+**Slice 5 — Overview rebuilt.** *(medium; in part)*
+Shipped: the four counts above the map (clients online, networks, managed
+devices, tunnel peers), each linking to the page that owns the number. The
+existing verdict row and fault list stay — they answer "is anything wrong"
+better than a strip of facts could.
+
+Two pieces are still open, and neither is a UI job:
+
+- **A 24-hour throughput chart.** The daemon keeps half-hour traffic samples
+  (`/api/gateway/activity`) but only per client or per address; there is no total
+  series. Summing clients in the browser would present a lower bound as the
+  router's throughput. The honest fix is a total-series endpoint beside the
+  existing view.
+- **An events feed.** Nothing exposes one. "An event" is undefined here — the
+  audit log records mutations, not network happenings — so this needs a decision
+  about what an event is before it can have a list.
 
 **Slice 6 — Write it down.** *(small)*
 Update the visual guide and content guide for the rail, the brand rule and the
