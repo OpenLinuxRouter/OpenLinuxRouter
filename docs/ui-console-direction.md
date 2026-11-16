@@ -221,8 +221,15 @@ Ports   VLANs   MAC lookup   Details
   hardware, because a read is an on-demand HTTP conversation on a serialized
   lane, not a background poll. The timestamp of the last read belongs in the
   frame, not in a footer disclaimer.
-- The stat strip is four facts, not a card grid. A device page is not a
-  dashboard.
+- **The strip is four facts, per device family.** A switch is asked about ports
+  and PoE, an ONT about its optical budget, an AP about radios and clients; the
+  frame owns the row and each family says what belongs in it. It is not a card
+  grid, because a device page is not a dashboard.
+- **The pill reports the read, not the socket.** Reaching a box and getting
+  nothing usable out of it is not `Connected`: it is `Unknown`, with one line
+  above the tabs saying nothing could be read and the capability matrix below
+  saying why. A page that stayed coherent — identity, one sentence, one matrix —
+  is the difference between a broken device and a broken adapter.
 
 ### 6.3 The port tile
 
@@ -328,8 +335,8 @@ per-section status already exist in `GET /api/devices/{id}/snapshot` and
 ## 9. Implementation plan
 
 Six slices, each independently shippable. Nothing here writes to hardware.
-**Shipped: 0 (the rail), 1 (the object index) and 3 (the port panel). Open: 2,
-4, 5 and 6.**
+**Shipped: 0 (the rail), 1 (the object index), 2 (the device frame) and 3 (the
+port panel). Open: 4, 5 and 6.**
 
 **Slice 0 — Tokens and shell.** *(small; no behaviour change)*
 Add the two brand values to `index.css` and the one legal drawing to the rail

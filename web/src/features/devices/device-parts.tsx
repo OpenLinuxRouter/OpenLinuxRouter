@@ -1,5 +1,6 @@
 import { t, useLocale } from '@/lib/i18n'
 import { TriangleAlert } from 'lucide-react'
+import { createElement } from 'react'
 import { Link } from 'react-router'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -14,7 +15,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { state } from '@/lib/state'
 import { cn } from '@/lib/utils'
 
-import { counters } from './device-format'
+import { deviceGlyph, deviceIcon } from '@/features/clients/icons'
+
+import { type DeviceFact, counters } from './device-format'
 import {
   adapterLabel,
   capabilityWord,
@@ -25,6 +28,7 @@ import {
   portKindLabel,
   portLabel,
   portState,
+  portraitCategory,
   sortPorts,
 } from './device'
 import type { Collection, Device, Port, Snapshot } from './types'
@@ -42,6 +46,26 @@ import type { Collection, Device, Port, Snapshot } from './types'
 export interface ViewTab {
   id: string
   label: string
+}
+
+/**
+ * The inventory's picture of one box, shared by the list and the device page so
+ * the same switch does not wear two different faces one click apart.
+ */
+export function DevicePortrait({ device, large = false }: { device: Device; large?: boolean }) {
+  const category = portraitCategory(device)
+  const src = deviceIcon(category)
+  return (
+    <span className={cn(
+      'grid shrink-0 place-items-center border border-border bg-muted',
+      large ? 'size-16 rounded-xl' : 'size-11 rounded-lg',
+    )}>
+      {src
+        ? <img src={src} alt="" aria-hidden loading="lazy" decoding="async"
+            className={large ? 'size-14 object-contain' : 'size-9 object-contain'} />
+        : createElement(deviceGlyph(category), { className: large ? 'size-7 text-muted-foreground' : 'size-5 text-muted-foreground' })}
+    </span>
+  )
 }
 
 /**
@@ -91,6 +115,34 @@ export function Fact({ label, value }: { label: string; value?: React.ReactNode 
   )
 }
 
+/**
+ * Four facts about one box, in one row. A device page is not a dashboard: the
+ * strip answers "is it healthy and what is it doing" and nothing else, and a
+ * view that cannot fill a cell omits it rather than inventing one.
+ */
+export function DeviceStrip({ facts }: { facts: DeviceFact[] }) {
+  const present = facts.filter(fact => fact.value !== undefined && fact.value !== null && fact.value !== '')
+  if (present.length === 0) return null
+  return (
+    <dl className="flex flex-wrap overflow-hidden rounded-xl border border-border bg-card">
+      {present.map(fact => (
+        <div key={fact.label} className="min-w-0 flex-1 basis-40 border-l border-border px-4 py-2.5 first:border-l-0 max-sm:border-l-0">
+          <dt className="text-[0.6875rem] leading-4 font-medium text-muted-foreground">{fact.label}</dt>
+          <dd className="mt-0.5 truncate text-[0.9375rem] leading-6 font-medium tracking-[-0.005em]">
+            {fact.value}
+            {fact.note && <small className="ml-1 text-xs font-normal text-muted-foreground">{fact.note}</small>}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+/**
+ * What the strip says, per device family. The frame owns the row; each family
+ * still owns which facts belong in it, because a switch is asked about ports and
+ * an ONT about its optical budget.
+ */
 export interface FactRow {
   label: string
   value?: React.ReactNode

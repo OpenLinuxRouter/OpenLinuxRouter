@@ -1,6 +1,6 @@
 import { t, useLocale } from '@/lib/i18n'
 import { EthernetPort, Plus, RefreshCw, TriangleAlert } from 'lucide-react'
-import { createElement, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
@@ -16,12 +16,13 @@ import { RowChevron } from '@/components/ui/row-action'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusInline } from '@/components/ui/status'
 
-import { deviceGlyph, deviceIcon } from '@/features/clients/icons'
 import { deviceHealth } from '@/lib/state'
-import { cn, formatAgo } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 
 import { DeviceDialog, type DeviceDraft, type DeviceType } from './device-dialog'
-import { addressLabel, isThisRouter, portraitCategory, roleLabels } from './device'
+import { DevicePortrait } from './device-parts'
+import { readWhen } from './device-format'
+import { addressLabel, isThisRouter, roleLabels } from './device'
 import { useDeviceEditor, useDeviceRead, useDevicesConfig, useLocalInterfaces, useReadDevices } from './queries'
 import type { Device } from './types'
 
@@ -146,11 +147,6 @@ export function DevicesPage() {
 }
 
 /** How long ago this session read the device. "Now" is a word, not a duration. */
-function readWhen(readAt: number): string {
-  const when = formatAgo(new Date(readAt).toISOString())
-  return when === 'now' ? t('just now') : when
-}
-
 /**
  * One inventory entry, with the picture its roles imply and the state this
  * session has read for it.
@@ -225,19 +221,6 @@ function DeviceRow({ device, localHosts }: { device: Device; localHosts: Readonl
         </span>
       </Link>
     </li>
-  )
-}
-
-/** The inventory's portrait: the picture its roles imply, in the row's quiet tile. */
-function DevicePortrait({ device }: { device: Device }) {
-  const category = portraitCategory(device)
-  const src = deviceIcon(category)
-  return (
-    <span className="grid size-11 shrink-0 place-items-center rounded-lg border border-border bg-muted">
-      {src
-        ? <img src={src} alt="" aria-hidden loading="lazy" decoding="async" className="size-9 object-contain" />
-        : createElement(deviceGlyph(category), { className: 'size-5 text-muted-foreground' })}
-    </span>
   )
 }
 

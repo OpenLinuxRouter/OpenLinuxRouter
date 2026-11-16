@@ -1,15 +1,19 @@
 import { t, useLocale } from '@/lib/i18n'
-import { Pencil, RefreshCw } from 'lucide-react'
+import { Pencil, RefreshCw, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 
 import { PageHeading } from '@/components/layout/page-heading'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { StatusInline } from '@/components/ui/status'
+import { deviceHealth, state } from '@/lib/state'
 import { cn } from '@/lib/utils'
 
 import { DeviceDialog, type DeviceDraft } from './device-dialog'
 import { adapterLabel, roleLabels } from './device'
-import { Loading, Missing, PageError } from './device-parts'
+import { DevicePortrait, DeviceStrip, Loading, Missing, PageError } from './device-parts'
+import { deviceFacts, readWhen } from './device-format'
 import { ONTPage } from './ont-page'
 import { OpenWrtPage } from './openwrt-page'
 import { useDeviceEditor, useDevicesConfig, useNetworkSnapshot } from './queries'
@@ -55,26 +59,63 @@ export function DevicePage() {
     navigate('/devices', { replace: true })
   }
   const model = snapshot.data?.identity.model
+  const readAt = snapshot.dataUpdatedAt
+  const readAnything = snapshot.data
+    ? Object.values(snapshot.data.collections ?? {}).some(collection => collection.state === 'ok')
+    : true
+  // The pill reports the read, not the socket. Reaching a box and getting
+  // nothing usable out of it is not "Connected" — it is an answer we do not
+  // have, which is what the ring means.
+  const health = snapshot.data && !readAnything
+    ? state('Unknown')
+    : deviceHealth({ status: snapshot.status, fetchStatus: snapshot.fetchStatus })
 
   return (
     <div className="space-y-6">
-      <PageHeading
-        breadcrumbs={[{ to: '/devices', label: t('Devices') }]}
-        title={device.name || model || device.id}
-        description={[t(adapterLabel(device.adapter)), ...roleLabels(device).map(role => t(role)), device.address].join(' · ')}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => snapshot.refetch()} disabled={snapshot.isFetching}>
-              <RefreshCw className={cn('size-4', snapshot.isFetching && 'animate-spin')} />
-              {t('Refresh')}
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => setDialog(true)}>
-              <Pencil className="size-4" />
-              {t('Edit')}
-            </Button>
-          </div>
-        }
-      />
+      <div className="flex items-start gap-4">
+        <DevicePortrait device={device} large />
+        <div className="min-w-0 flex-1 space-y-3">
+          <PageHeading
+            breadcrumbs={[{ to: '/devices', label: t('Devices') }]}
+            title={device.name || model || device.id}
+            description={
+              <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>{[t(adapterLabel(device.adapter)), ...roleLabels(device).map(role => t(role)), device.address].join(' · ')}</span>
+                <StatusInline tone={health.tone}>{health.label}</StatusInline>
+                {snapshot.isSuccess && readAt > 0 && (
+                  <span className="text-xs">{t('read {when}', { when: readWhen(readAt) })}</span>
+                )}
+              </span>
+            }
+            action={
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="secondary" size="sm" onClick={() => snapshot.refetch()} disabled={snapshot.isFetching}>
+                  <RefreshCw className={cn('size-4', snapshot.isFetching && 'animate-spin')} />
+                  {t('Refresh')}
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => setDialog(true)}>
+                  <Pencil className="size-4" />
+                  {t('Edit')}
+                </Button>
+              </div>
+            }
+          />
+        </div>
+      </div>
+
+      {snapshot.data && <DeviceStrip facts={deviceFacts(device, snapshot.data)} />}
+
+      {/* A box the adapter could not read still has a page: the inventory says
+          what it is, and the capability matrix says why the rest is silent. */}
+      {snapshot.data && !readAnything && (
+        <Alert>
+          <TriangleAlert className="size-4" />
+          <AlertTitle>{t('Nothing could be read from this device')}</AlertTitle>
+          <AlertDescription>
+            {t('The inventory knows its name, adapter and address. What the adapter should be able to report is listed below.')}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {snapshot.isPending ? <Loading />
         : snapshot.isError ? <PageError error={snapshot.error} title={t('Could not read this device')} />
