@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router'
 
 import { Button } from '@/components/ui/button'
 import { ClientInspection } from '@/features/clients/inspection'
+import { PluggedInto } from '@/features/devices/plugged-into'
 import { ActivityTotal, ClientActivity } from '@/features/clients/activity'
 import { ClientInlineEditor } from '@/features/clients/client-inline-editor'
 import { useClientList } from '@/features/clients/queries'
@@ -41,6 +42,8 @@ export function ClientPage() {
             )}
         </ClientPolicy>
       } />
+
+      <PluggedInto key={`plug-${device.mac}`} mac={device.mac} />
 
       <ClientInspection key={device.mac} mac={device.mac} addresses={device.ips ?? []} />
     </div>
