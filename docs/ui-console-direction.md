@@ -268,7 +268,7 @@ are plugged into each other, because nothing we can read establishes that:
 | Evidence | Do we have it? |
 | --- | --- |
 | LLDP neighbours, both ends reporting a port | No — no adapter populates `neighbors` |
-| The forwarding table placing a MAC on a port | No — `fdb.list` is not implemented by any adapter |
+| The forwarding table placing a MAC on a port | One MAC at a time. The firmware serves `mac_address_search.cgi` and a search form; it has no table page to export (§10) |
 | Wireless association | No — the association list is per access point, not drawn here |
 | The interface a device was heard answering on (`network_origin: observed`) | **Yes** |
 | The address range a device falls into (`network_origin: detected`) | **Yes** |
@@ -452,9 +452,20 @@ which.
 | Item | Blocked on | What it would take |
 | --- | --- | --- |
 | ~~**LLDP neighbours**, and the four evidence line styles of §6.4~~ | **Closed** (§6.4): measured on the live LAN — no device transmits it, and the adapter's firmware pages contain none. Reopening it means turning LLDP on at every box first, which is deployment, not design. | — |
-| **An events feed** | A definition. "An event" is undefined here: the audit log records mutations, not network happenings. | Agree on one, e.g. "a state change nobody asked for" — port link changes, a device flipping to `Not answering`, a service dropping. Then keep a bounded ring buffer of them. |
-| **`fdb.list`** (the whole forwarding table) | The adapter. Only a known-MAC lookup is implemented. | Parse the switch's full MAC table page; then the map could place every wired client instead of one at a time. |
+| **An events feed** *(deferred — see below)* | A definition. "An event" is undefined here: the audit log records mutations, not network happenings. | Agree on one, e.g. "a state change nobody asked for" — port link changes, a device flipping to `Not answering`, a service dropping. Then keep a bounded ring buffer of them. |
+| ~~**`fdb.list`** (the whole forwarding table)~~ | **Closed**: the switch's UI has no table page. Probing the live firmware found six pages — Main, MAC search, port statistics, 802.1Q, PVID, port mirror — and the only forwarding-table surface is a form that requires one MAC. A bulk read would need SNMP or a firmware change, not a parser. | — |
 | **Per-port rates** | Arithmetic. Adapters report counters; a rate needs two samples and a clock. | A sampler beside the activity one, or a second read on the open page. Must say "over the last N s", never imply the switch reported a rate. |
 | **A read that takes 30 s** | Nothing — it is work. | Per-section skeletons on the device page so identity renders from the inventory while the hardware answers. |
 | **Server-side read cache** | A trade. §6.6's session-scoped status is honest but forgetful. | Caching the last read per device in `olrd` would let a reload show real states, and would start a history we do not currently keep. |
 | **Artwork for Mercury** | An asset. `web/src/assets/device-icons` has no Mercury product shot. | One illustration in the existing style; until then the role-based generic switch picture is used and the model name carries the identity. |
+
+### Deferred on purpose
+
+**The events feed is a TODO, not a plan item.** It was scoped here, agreed to be
+worth having, and deliberately left for later: it needs a definition before it
+needs code, and none of the console work above is waiting on it. Recorded so the
+idea is not lost and not mistaken for something that is half-built.
+
+The other two closed items — LLDP and `fdb.list` — were closed by measurement on
+the live hardware, not by judgement. Neither is a "not yet"; both are "not from
+this switch as it ships".
