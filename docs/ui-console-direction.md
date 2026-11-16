@@ -231,11 +231,17 @@ A tile may carry: its number, link state, speed, medium (`copper`, `fiber`,
 
 - **No colour for VLAN.** A port has one PVID and may carry many tagged VLANs; a
   single hue would have to lie about one of them. VLANs get a column and a tab.
-- **Down is not empty.** A port with nothing in it and a port whose link is down
-  are different words (`No cable` versus `Down`), because on a switch they are
-  different facts.
-- **Unknown stays a ring.** SE109 Pro reports link state per port but not PoE
-  state, so a PoE mark can be `unknown` while the link is `ok`.
+- **Down is one word, because the snapshot has one bit.** An adapter reports
+  whether the link is up, not whether there is a cable in the socket. A switch
+  port therefore says `Down`; `No cable` belongs to a local interface, where the
+  kernel knows the carrier and the operator can act on the difference.
+- **PoE speaks only when the read did.** A tile draws a PoE mark when the snapshot
+  carried one for that port. When the read carried PoE for no port at all — the
+  common case, since the Mercury adapter does not implement it — the panel says so
+  once beneath the tiles. Nine identical "unknown" bolts would turn one sentence
+  about the adapter into nine glyphs about the ports.
+- **Unknown still stays a ring.** Where the read reported PoE for some ports and
+  not others, the ones it skipped show the ring rather than a silent zero.
 - **Selecting is not navigating.** The inspector opens beside the panel; the
   panel keeps its layout, so the operator's eye does not move.
 - **The table stays.** Nine tiles at 44px do not fit a phone, and a 24-port switch
@@ -278,8 +284,10 @@ whether any of them is answering**. The list must say that rather than imply it:
 
 - Every device starts at `Not checked` (unknown, ring) and moves to a real state
   only after this session reads it, either by opening it or by "Read all".
-- The last-read time is session-scoped and labelled as such ("read 2 m ago in
-  this session"). The daemon keeps no snapshot history, so a reload starts over.
+- The list says **once**, under the rows, that read times belong to this session;
+  each row then carries only how long ago. The scope is a property of the column,
+  not of every cell — four repetitions of "in this session" bury the one thing
+  that changes. The daemon keeps no snapshot history, so a reload starts over.
 - If we later cache reads in `olrd`, the wording changes to a dated timestamp and
   this paragraph changes with it.
 
@@ -320,6 +328,8 @@ per-section status already exist in `GET /api/devices/{id}/snapshot` and
 ## 9. Implementation plan
 
 Six slices, each independently shippable. Nothing here writes to hardware.
+**Shipped: 0 (the rail), 1 (the object index) and 3 (the port panel). Open: 2,
+4, 5 and 6.**
 
 **Slice 0 — Tokens and shell.** *(small; no behaviour change)*
 Add the two brand values to `index.css` and the one legal drawing to the rail

@@ -155,6 +155,36 @@ export function linkHealth(row: {
   return state('Connected')
 }
 
+/**
+ * The half of a read's result this decision needs, so the rule is stated once
+ * and the page can pass React Query's cache state straight in.
+ */
+export interface DeviceRead {
+  status: 'pending' | 'error' | 'success'
+  fetchStatus: 'fetching' | 'paused' | 'idle'
+}
+
+/**
+ * A device in the inventory, whose state is what this session has read.
+ *
+ * The inventory is configuration: on a fresh load we know every box's name,
+ * roles, address and adapter and nothing about whether any of them is
+ * answering. So no answer yet is `Not checked`, not `Connected` — and a failed
+ * read is `Not answering`, not `Unreachable`, because a refused credential or a
+ * timeout is a fact about our conversation with the box, not proof that the
+ * link is down. The words and tones already exist in `STATE`; this function
+ * only decides which one the session has earned.
+ */
+export function deviceHealth(read?: DeviceRead): Health {
+  if (!read) return state('Not checked')
+  if (read.status === 'error') return state('Not answering')
+  if (read.status === 'success') return state('Connected')
+  // A first read is in flight. Saying "Not checked" while we are checking would
+  // be the helpfulness of a progress bar that never moves.
+  if (read.fetchStatus === 'fetching') return state('Reading…')
+  return state('Not checked')
+}
+
 /** A dialed-in peer: four answers, and "never connected" is the one to act on. */
 export function peerHealth(peer: { unknown?: boolean; online?: boolean; lastHandshake?: string }): Health {
   if (peer.unknown) return state('Unknown')

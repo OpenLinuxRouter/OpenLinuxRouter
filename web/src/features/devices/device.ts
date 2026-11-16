@@ -31,6 +31,72 @@ export function roleLabels(device: Device): string[] {
 }
 
 /**
+ * The management address as a list reads it: the scheme and a trailing slash
+ * are how it is stored, not part of the box's address.
+ */
+export function addressLabel(address: string): string {
+  const trimmed = address.trim()
+  const bare = trimmed.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').replace(/\/+$/, '')
+  return bare || trimmed
+}
+
+/**
+ * An address reduced to the host two addresses can be compared on: no scheme,
+ * path, port, prefix mask or IPv6 brackets. Used only to answer "is this the
+ * local box", never for display.
+ */
+export function hostKey(address: string): string {
+  const trimmed = address.trim()
+  if (!trimmed) return ''
+  const withoutScheme = trimmed.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '')
+  const authority = withoutScheme.split('/')[0].split('@').pop() ?? ''
+  const bracketed = authority.match(/^\[([^\]]+)\]/)
+  if (bracketed) return bracketed[1].toLowerCase()
+  // A bare IPv6 address has more than one colon; splitting it on ":" would
+  // reduce it to its first group. One colon is a port.
+  if ((authority.match(/:/g)?.length ?? 0) > 1) return authority.toLowerCase()
+  return (authority.split(':')[0] ?? '').toLowerCase()
+}
+
+/**
+ * Whether this entry is the box serving the console: it routes, and its
+ * management address is one of this machine's own. Both halves matter — a
+ * router role is something an operator can put on any upstream box.
+ */
+export function isThisRouter(device: Device, localHosts: Iterable<string>): boolean {
+  if (!device.roles?.includes('router')) return false
+  const host = hostKey(device.address)
+  if (!host) return false
+  for (const local of localHosts) {
+    if (hostKey(local) === host) return true
+  }
+  return false
+}
+
+/** The pictures an inventory entry can wear; all four exist in the catalogue. */
+export type PortraitCategory = 'switch' | 'accesspoint' | 'modem' | 'router'
+
+/**
+ * The picture an inventory entry wears.
+ *
+ * Roles decide it, because a box can be several things at once and a picture
+ * can only show one: a switch that also routes is still a switch, an access
+ * point that routes is still an access point, and an ONT that routes is still
+ * the box the fiber terminates in. The adapter answers for an entry whose
+ * roles nobody filled in — it is the one thing the inventory always knows.
+ */
+export function portraitCategory(device: Device): PortraitCategory {
+  const roles = device.roles ?? []
+  if (roles.includes('switch')) return 'switch'
+  if (roles.includes('ap')) return 'accesspoint'
+  if (roles.includes('ont')) return 'modem'
+  if (roles.includes('router')) return 'router'
+  if (device.adapter === 'mercury') return 'switch'
+  if (device.adapter === 'huawei') return 'modem'
+  return 'router'
+}
+
+/**
  * Ports in the order the hardware labels them. Mercury reports decimal IDs and
  * netifd reports interface names; neither is alphabetical, and a switch's port
  * 10 must not sort between 1 and 2.
@@ -62,7 +128,10 @@ export function portName(ports: Port[] | undefined, id: string): string {
 export function portState(port: Port): StateWord {
   if (port.enabled === false) return 'Disabled'
   if (port.link_up === true) return 'Connected'
-  if (port.link_up === false) return 'No cable'
+  // One link bit is all the snapshot carries, so a switch port cannot tell an
+  // empty socket from a cable whose far end is dead — and must not claim it can.
+  // `No cable` belongs to a local interface, where the kernel knows the carrier.
+  if (port.link_up === false) return 'Down'
   return 'Unknown'
 }
 

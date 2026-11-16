@@ -1,20 +1,29 @@
 import { t, useLocale } from '@/lib/i18n'
-import { EthernetPort, Plus, TriangleAlert } from 'lucide-react'
-import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { EthernetPort, Plus, RefreshCw, TriangleAlert } from 'lucide-react'
+import { createElement, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router'
+import { toast } from 'sonner'
 
 import { PageHeading } from '@/components/layout/page-heading'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Disclosure } from '@/components/ui/disclosure'
 import { Heading } from '@/components/ui/heading'
-import { List, ListRow } from '@/components/ui/list'
+import { List } from '@/components/ui/list'
+import { RowChevron } from '@/components/ui/row-action'
 import { Skeleton } from '@/components/ui/skeleton'
+import { StatusInline } from '@/components/ui/status'
+
+import { deviceGlyph, deviceIcon } from '@/features/clients/icons'
+import { deviceHealth } from '@/lib/state'
+import { cn, formatAgo } from '@/lib/utils'
 
 import { DeviceDialog, type DeviceDraft, type DeviceType } from './device-dialog'
-import { adapterLabel, roleLabels } from './device'
-import { useDeviceEditor, useDevicesConfig } from './queries'
+import { addressLabel, isThisRouter, portraitCategory, roleLabels } from './device'
+import { useDeviceEditor, useDeviceRead, useDevicesConfig, useLocalInterfaces, useReadDevices } from './queries'
+import type { Device } from './types'
 
 /**
  * The inventory of boxes olr reads but does not configure.
@@ -25,14 +34,18 @@ import { useDeviceEditor, useDevicesConfig } from './queries'
  * here, distinguished by roles; the adapter is the type, and it decides which
  * page the box gets: `switch-page`, `openwrt-page` or `ont-page`.
  *
- * The list is configuration only. Reading a device means contacting it, so
- * nothing on this page does that: a device is read when somebody opens it.
+ * The list is configuration only. Nothing here is polled: a device is read when
+ * somebody opens it or presses Read all, and the status beside it says what
+ * this session has actually learned. That is why a fresh load says Not checked
+ * rather than drawing a green column that means "in a file somewhere".
  */
 export function DevicesPage() {
   useLocale()
   const navigate = useNavigate()
   const config = useDevicesConfig()
   const editor = useDeviceEditor()
+  const interfaces = useLocalInterfaces()
+  const reads = useReadDevices()
   const [dialog, setDialog] = useState<'add' | null>(null)
   const devices = config.data?.devices ?? []
   const types: DeviceType[] = [
@@ -42,10 +55,27 @@ export function DevicesPage() {
     { label: t('OpenWrt router'), adapter: 'openwrt', roles: ['router'] },
   ]
 
+  // The console is served by the box whose inventory entry is "this router".
+  // The host it was loaded from is one local address; the interface list is
+  // the rest, so a console opened by name still recognises the box by address.
+  const localHosts = useMemo(() => {
+    const hosts = new Set<string>()
+    if (typeof window !== 'undefined' && window.location.hostname) hosts.add(window.location.hostname)
+    for (const row of interfaces.data?.interfaces ?? []) {
+      if (row.address) hosts.add(row.address)
+      for (const prefix of row.prefixes ?? []) hosts.add(prefix)
+    }
+    return hosts
+  }, [interfaces.data])
+
   const submit = async (draft: DeviceDraft) => {
     if (!(await editor.save(draft))) return
     setDialog(null)
     navigate(`/devices/${encodeURIComponent(draft.id)}`)
+  }
+  const readAll = async () => {
+    const failed = await reads.run(devices)
+    if (failed > 0) toast.warning(t('{failed} of {total} devices did not answer', { failed, total: devices.length }))
   }
   const dialogElement = dialog === null ? null : (
     <DeviceDialog
@@ -62,8 +92,20 @@ export function DevicesPage() {
     <div className="space-y-6">
       <PageHeading
         title={t('Devices')}
-        description={t('Switches, access points and other boxes olr reads over their management interface. The list is configuration; a device is contacted only when you open it.')}
-        action={<Button onClick={() => setDialog('add')}><Plus className="size-4" />{t('Add')}</Button>}
+        description={t('Switches, access points and other boxes olr reads over their management interface. The list is configuration; a device is contacted only when you read it.')}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            {devices.length > 0 && (
+              <Button variant="secondary" onClick={() => { void readAll() }} disabled={reads.progress !== null}>
+                <RefreshCw className={cn('size-4', reads.progress !== null && 'animate-spin')} />
+                {reads.progress
+                  ? t('Reading {done} of {total}', { done: reads.progress.done, total: reads.progress.total })
+                  : t('Read all')}
+              </Button>
+            )}
+            <Button onClick={() => setDialog('add')}><Plus className="size-4" />{t('Add')}</Button>
+          </div>
+        }
       />
 
       {config.isError ? (
@@ -77,20 +119,14 @@ export function DevicesPage() {
       ) : devices.length === 0 ? (
         <NoDevices onAdd={() => setDialog('add')} />
       ) : (
-        <List>
-          {devices.map(device => {
-            const roles = roleLabels(device).map(role => t(role))
-            return (
-              <ListRow
-                key={device.id}
-                to={`/devices/${encodeURIComponent(device.id)}`}
-                title={device.name || device.id}
-                subtitle={[t(adapterLabel(device.adapter)), device.address].join(' · ')}
-                trailing={roles.length > 0 ? roles.join(' · ') : undefined}
-              />
-            )
-          })}
-        </List>
+        <>
+          <List>
+            {devices.map(device => <DeviceRow key={device.id} device={device} localHosts={localHosts} />)}
+          </List>
+          <p className="max-w-prose text-xs leading-5 text-muted-foreground">
+            {t('“Not answering” is not offline: the last read did not complete, and the link or the credential may be fine. Read times are from this session — a reload starts over at Not checked, because olrd keeps no snapshot history.')}
+          </p>
+        </>
       )}
 
       {devices.length > 0 && (
@@ -106,6 +142,102 @@ export function DevicesPage() {
 
       {dialogElement}
     </div>
+  )
+}
+
+/** How long ago this session read the device. "Now" is a word, not a duration. */
+function readWhen(readAt: number): string {
+  const when = formatAgo(new Date(readAt).toISOString())
+  return when === 'now' ? t('just now') : when
+}
+
+/**
+ * One inventory entry, with the picture its roles imply and the state this
+ * session has read for it.
+ *
+ * The row is a grid rather than a stack of text because roles, status and read
+ * time have to line up down the list, and an operator scanning for the one box
+ * that needs them should not have to read every line to find the odd one out.
+ * Phones fold those three under the name; the portrait and the chevron stay
+ * where they are.
+ */
+function DeviceRow({ device, localHosts }: { device: Device; localHosts: ReadonlySet<string> }) {
+  useLocale()
+  const read = useDeviceRead(device.id)
+  const health = deviceHealth(read)
+  const roles = roleLabels(device)
+  const model = read?.data?.identity.model
+  const identity = [model, addressLabel(device.address), `${device.adapter} adapter`].filter(Boolean).join(' · ')
+  // A failed read still happened at a time; that attempt is what the row is
+  // reporting, so the later of the two answers is the honest one.
+  const readAt = Math.max(read?.dataUpdatedAt ?? 0, read?.errorUpdatedAt ?? 0)
+  const mine = isThisRouter(device, localHosts)
+
+  return (
+    <li className="bg-card">
+      <Link
+        to={`/devices/${encodeURIComponent(device.id)}`}
+        className={cn(
+          'grid min-h-16 items-center gap-x-3 gap-y-1.5 px-4 py-3 text-left transition-colors duration-150',
+          'hover:bg-accent/60 active:bg-accent focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring sm:px-5',
+          'grid-cols-[2.75rem_minmax(0,1fr)_1rem] lg:grid-cols-[2.75rem_minmax(0,1fr)_7.5rem_9rem_12rem_1rem] lg:gap-x-4',
+        )}
+      >
+        <span className="col-start-1 row-span-2 row-start-1 self-start lg:row-span-1 lg:self-center">
+          <DevicePortrait device={device} />
+        </span>
+
+        <span className="col-start-2 row-start-1 min-w-0">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="min-w-0 truncate text-sm font-medium text-foreground">{device.name || device.id}</span>
+            {mine && (
+              <Badge variant="outline" className="h-5 min-h-5 shrink-0 rounded px-1.5 py-0 text-[0.6875rem] font-medium text-muted-foreground">
+                {t('This router')}
+              </Badge>
+            )}
+          </span>
+          <span className="mt-0.5 block text-[0.8125rem] leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{identity}</span>
+        </span>
+
+        <RowChevron className="col-start-3 row-span-2 row-start-1 self-center lg:col-start-6 lg:row-span-1" />
+
+        <span className="col-start-2 row-start-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 lg:contents">
+          {roles.length > 0 && (
+            <span className="flex flex-wrap gap-1 lg:col-start-3 lg:row-start-1">
+              {roles.map(role => (
+                <Badge key={role} variant="outline" className="h-5 min-h-5 rounded px-1.5 py-0 text-[0.6875rem] font-medium tracking-wide text-muted-foreground uppercase">
+                  {t(role)}
+                </Badge>
+              ))}
+            </span>
+          )}
+          <span className="lg:col-start-4 lg:row-start-1">
+            <StatusInline tone={health.tone}>{health.label}</StatusInline>
+          </span>
+          <span className="text-xs leading-4 text-muted-foreground lg:col-start-5 lg:row-start-1 lg:text-right">
+            {readAt > 0
+              ? t('read {when}', { when: readWhen(readAt) })
+              : <>
+                  <span aria-hidden>—</span>
+                  <span className="sr-only">{t('not read in this session')}</span>
+                </>}
+          </span>
+        </span>
+      </Link>
+    </li>
+  )
+}
+
+/** The inventory's portrait: the picture its roles imply, in the row's quiet tile. */
+function DevicePortrait({ device }: { device: Device }) {
+  const category = portraitCategory(device)
+  const src = deviceIcon(category)
+  return (
+    <span className="grid size-11 shrink-0 place-items-center rounded-lg border border-border bg-muted">
+      {src
+        ? <img src={src} alt="" aria-hidden loading="lazy" decoding="async" className="size-9 object-contain" />
+        : createElement(deviceGlyph(category), { className: 'size-5 text-muted-foreground' })}
+    </span>
   )
 }
 

@@ -24,10 +24,12 @@ test('ports are listed the way the hardware labels them', () => {
   assert.deepEqual(sortPorts(ports).map((port) => port.id), ['1', '2', '10', 'eth0', 'lan', 'wan'])
 })
 
-test('a port that is off, unplugged and unreported are three different answers', () => {
+test('a port that is off, down and unreported are three different answers', () => {
   assert.equal(portState({ id: '1', enabled: false, link_up: false }), 'Disabled')
   assert.equal(portState({ id: '1', enabled: true, link_up: true }), 'Connected')
-  assert.equal(portState({ id: '1', enabled: true, link_up: false }), 'No cable')
+  // The snapshot carries one link bit, so a switch port says Down. `No cable`
+  // would claim we know the socket is empty, which an adapter cannot tell us.
+  assert.equal(portState({ id: '1', enabled: true, link_up: false }), 'Down')
   assert.equal(portState({ id: '1' }), 'Unknown')
 })
 
