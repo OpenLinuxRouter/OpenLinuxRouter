@@ -102,9 +102,14 @@ readable as text, which is why it can stay at full saturation.
 [Console direction §5](ui-console-direction.md) is the full rule.
 
 Use `primary-fill` with `primary-foreground` for filled actions. Use `primary`
-for links and selected navigation. The selected section in desktop navigation is
-a 40px `primary/10` tinted pill rather than a rule under the label; the tint is
-a shape, so the selection survives without reading the hue. Use
+for links and selected navigation. The desktop rail is shadcn's Sidebar
+(`components/ui/sidebar.tsx`), used as shipped apart from three local choices:
+the selected section is a 32px `primary/10` tinted pill (`primary/15` dark) with
+primary text and icon rather than shadcn's neutral accent — the tint is a shape,
+so the selection survives without reading the hue; group labels use
+`muted-foreground` rather than an opacity; and the rail only exists from 1024px,
+below which the bottom bar navigates and the sidebar's sheet is never opened.
+Items are 14px with 16px icons. The rail collapses to icons with tooltips. Use
 `success-foreground` and `warning-foreground` for readable status text. Color
 accompanies a label or icon; it never replaces one. A normally blocked DNS
 request is neutral activity, not an incident. Reserve destructive emphasis for
@@ -314,10 +319,16 @@ the left and status values aligned right. Keep module details as plain rows.
 
 ## Typography and imagery
 
-Use Geist Variable with system sans-serif fallback. Page titles are 24px/32px,
-weight 600. Panel titles are generally 16px, weight 600. Body and controls are
-14px; descriptions and technical metadata are 13–14px with relaxed line height.
-Use 12px only for compact auxiliary metadata. Mobile text inputs are 16px to
+Use Geist Variable with system sans-serif fallback, and Geist Mono Variable for
+every `font-mono` value; neither is left to the platform's default. Page titles
+are 24px/32px, weight 600. Panel titles are generally 16px, weight 600. Body and
+controls are 14px; descriptions and technical metadata are 13px (`text-meta`)
+with relaxed line height. Use 12px only for compact auxiliary metadata, and
+nothing smaller: the one exception is the phone tab bar's 11px labels, seven of
+which must fit across 375px. Sizes come from the scale, never `text-[Npx]`;
+`test-control-language.mjs` rejects any other arbitrary size outside artwork
+(initials in an icon tile, a dial's figure, radar and chart axis labels).
+A chart with more than one series names each one in a legend. Mobile text inputs are 16px to
 avoid browser zoom. Use tabular numerals for live rates and counters, and
 monospace for addresses, commands and configuration.
 

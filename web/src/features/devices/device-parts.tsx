@@ -127,8 +127,8 @@ export function DeviceStrip({ facts }: { facts: DeviceFact[] }) {
     <dl className="flex flex-wrap overflow-hidden rounded-xl border border-border bg-card">
       {present.map(fact => (
         <div key={fact.label} className="min-w-0 flex-1 basis-40 border-l border-border px-4 py-2.5 first:border-l-0 max-sm:border-l-0">
-          <dt className="text-[0.6875rem] leading-4 font-medium text-muted-foreground">{fact.label}</dt>
-          <dd className="mt-0.5 truncate text-[0.9375rem] leading-6 font-medium tracking-[-0.005em]">
+          <dt className="text-xs leading-4 font-medium text-muted-foreground">{fact.label}</dt>
+          <dd className="mt-0.5 truncate text-xl font-semibold tabular-nums">
             {fact.value}
             {fact.note && <small className="ml-1 text-xs font-normal text-muted-foreground">{fact.note}</small>}
           </dd>
@@ -251,7 +251,7 @@ export function CapabilitiesDisclosure({ snapshot }: { snapshot: Snapshot }) {
           return (
             <div key={key} className="px-3 py-2">
               <div className="flex items-center justify-between gap-3">
-                <span className="min-w-0 truncate font-mono text-[0.8125rem]">{key}</span>
+                <span className="min-w-0 truncate font-mono text-meta">{key}</span>
                 <StatusInline tone={health.tone}>{health.label}</StatusInline>
               </div>
               {capability.reason && <p className="mt-1 text-xs leading-4 text-muted-foreground">{capability.reason}</p>}
@@ -328,8 +328,8 @@ function PortRow({ port, columns }: { port: Port; columns: PortColumns }) {
     <TableRow>
       <TableCell>
         <div className="font-medium">{portLabel(port)}</div>
-        {port.mac && <div className="font-mono text-[0.6875rem] text-muted-foreground">{port.mac}</div>}
-        {port.poe && <div className="text-[0.6875rem] text-muted-foreground">{poeText(port)}</div>}
+        {port.mac && <div className="font-mono text-xs text-muted-foreground">{port.mac}</div>}
+        {port.poe && <div className="text-xs text-muted-foreground">{poeText(port)}</div>}
       </TableCell>
       <TableCell className="hidden text-muted-foreground sm:table-cell">{t(portKindLabel(port.kind))}</TableCell>
       <TableCell><StatusInline tone={health.tone}>{health.label}</StatusInline></TableCell>

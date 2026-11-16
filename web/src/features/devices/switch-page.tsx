@@ -235,7 +235,7 @@ function MACLookupTab({ id, snapshot }: { id: string; snapshot: Snapshot }) {
               <TableBody>
                 {lookup.data.entries.map(entry => (
                   <TableRow key={`${entry.mac}-${entry.vlan ?? ''}-${entry.port_id}`}>
-                    <TableCell className="font-mono text-[0.8125rem]">{entry.mac}</TableCell>
+                    <TableCell className="font-mono text-meta">{entry.mac}</TableCell>
                     <TableCell className="tabular-nums">{entry.vlan ?? '—'}</TableCell>
                     <TableCell>{portName(snapshot.ports, entry.port_id)}</TableCell>
                     <TableCell className="text-muted-foreground">{entry.type || '—'}</TableCell>

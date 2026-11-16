@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -30,6 +31,14 @@ html {
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', system-ui, sans-serif;
+    /* Addresses, MACs and commands. Named rather than left to ui-monospace, which
+       is SF Mono on one machine and Consolas on the next. */
+    --font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+    /* The one step between Tailwind's 12px and 14px: supporting descriptions,
+       technical values and state words (docs/ui-semantic-components.md). A
+       named role instead of text-[0.8125rem] at every call site. */
+    --text-meta: 0.8125rem;
+    --text-meta--line-height: 1.25rem;
     --color-primary-fill: var(--primary-fill);
     --color-receive: var(--receive);
     --color-transmit: var(--transmit);

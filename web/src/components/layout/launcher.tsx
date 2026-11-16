@@ -124,7 +124,7 @@ export function LauncherTile({
             one service among three — wraps to a second line rather than being
             cut off at the ellipsis, which would leave two tiles reading
             "Cloudflare…". Short names still sit on one line. */}
-        <span className="w-full text-center text-[13px] leading-tight font-medium text-balance sm:text-sm">{name}</span>
+        <span className="w-full text-center text-meta leading-tight font-medium text-balance sm:text-sm">{name}</span>
       </TooltipTrigger>
       <TooltipContent className="block space-y-2 text-sm leading-relaxed">
         <p>{description}</p>

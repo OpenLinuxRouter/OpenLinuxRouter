@@ -349,7 +349,7 @@ function ScoreRing({ score, busy }: { score: number | null; busy: boolean }) {
         : score == null
           ? <span className="text-3xl leading-none font-semibold text-muted-foreground">—</span>
           : <span className="text-4xl leading-none font-semibold tracking-tight text-foreground tabular-nums">{points(score)}</span>}
-      <span className="mt-1.5 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
+      <span className="mt-1.5 text-xs font-medium tracking-wider text-muted-foreground uppercase">
         {busy ? t('Testing…') : score == null ? t('No score') : '/ 100'}
       </span>
     </div>
@@ -784,7 +784,7 @@ function SampleList({ id, samples, url, family, view }: {
 }) {
   useLocale()
   return <div id={id} className="mt-1 mb-1.5 ml-5 max-w-3xl rounded-lg bg-muted/30 px-3 py-2">
-    {url && <p className="flex flex-wrap items-baseline gap-x-1.5 text-[0.6875rem] leading-5 text-muted-foreground">
+    {url && <p className="flex flex-wrap items-baseline gap-x-1.5 text-xs leading-5 text-muted-foreground">
       {/* The score reads one family per service, so the attempts say which. */}
       {family && <span className="font-medium text-foreground">{family === 'ipv4' ? 'IPv4' : 'IPv6'}</span>}
       <span className="min-w-0 break-all font-mono">{url}</span>

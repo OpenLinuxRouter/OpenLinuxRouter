@@ -45,6 +45,7 @@ can be shared variants/tokens within those components.
 | Semantic component | Responsibility | Existing owner / next step |
 | --- | --- | --- |
 | Page frame | Width, gutters, navigation, page spacing | Reuse AppShell and SubPage |
+| Navigation rail | Desktop sections in two groups, router and connection state, collapse | shadcn Sidebar in `components/ui/sidebar.tsx`, composed in AppShell |
 | Page heading | h1, optional context, nested breadcrumb, action | Reuse PageHeading; converge local entity headings visually |
 | Section heading | Heading plus optional action/context | Heading; choose `as` independently of `size` |
 | Panel | Static information group with header/content/footer | Reuse Card family; unify radius and heading variants |
@@ -123,8 +124,12 @@ pending and read-only are different states; disabled controls do not react to ho
 
 ## Typography roles
 
-Use Geist Variable with the current system sans fallback throughout. Reserve
-monospace for machine-readable identifiers and literal output. All roles inherit
+Use Geist Variable with the current system sans fallback throughout, and Geist
+Mono Variable (`--font-mono`) for monospace. Reserve monospace for
+machine-readable identifiers and literal output. The 13px step is the
+`text-meta` token (13/20px) defined in `index.css` and registered with
+tailwind-merge in `lib/utils.ts`; every other size is Tailwind's (`text-xs` 12,
+`text-sm` 14, `text-base` 16, `text-xl` 20, `text-2xl` 24, `text-3xl` 30). All roles inherit
 theme foreground unless stated otherwise; do not make ordinary values primary blue.
 
 | Role | Size / line height | Weight | Color / other rules |
@@ -140,7 +145,7 @@ theme foreground unless stated otherwise; do not make ordinary values primary bl
 | Compact metadata | 12 / 16px | 400 | Muted foreground; not the default for important answers |
 | Technical value | 13 / 20px | 400 | Monospace, foreground, wrap long identifiers |
 | Inline metric | 14 / 20px | 600 | Tabular numerals |
-| Summary metric | 20 / 28px | 600 | Tabular numerals |
+| Summary metric | 20 / 28px | 600 | Tabular numerals; also Overview's count strip and a device's stat strip |
 | Diagnostic result metric | 30 / 36px | 600 | Tabular numerals, tracking -0.015em |
 
 Visual size does not choose HTML heading level. CardTitle renders Heading and

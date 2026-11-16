@@ -17,5 +17,5 @@ export function PropertyRow({ label, children, size = 'md', className, ...props 
 }
 
 export function TechnicalValue({ className, ...props }: ComponentProps<'span'>) {
-  return <span data-slot="technical-value" className={cn('font-mono text-[0.8125rem] leading-5 text-foreground [overflow-wrap:anywhere]', className)} {...props} />
+  return <span data-slot="technical-value" className={cn('font-mono text-meta leading-5 text-foreground [overflow-wrap:anywhere]', className)} {...props} />
 }

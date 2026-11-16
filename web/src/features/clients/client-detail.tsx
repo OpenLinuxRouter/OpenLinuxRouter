@@ -310,7 +310,7 @@ function FixedAddress({ device, onEdit }: { device: ClientRow; onEdit: () => voi
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 text-sm font-medium">
             <Tag className="size-3.5 shrink-0 text-muted-foreground" aria-hidden /> {t('Fixed address')} </div>
-          <div className="mt-0.5 truncate text-[0.8rem] text-muted-foreground">
+          <div className="mt-0.5 truncate text-meta text-muted-foreground">
             {device.fixed_ip ? (
               <span className="font-mono">{device.fixed_ip}</span>
             ) : (
@@ -368,7 +368,7 @@ function Attached({ device }: { device: ClientRow }) {
             <Cable className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />{' '}
             {t('Attached to')}{' '}
           </div>
-          <div className="mt-0.5 text-[0.8rem] text-muted-foreground">
+          <div className="mt-0.5 text-meta text-muted-foreground">
             {state === 'idle' && t('Ask the switches which port this device is plugged into.')}
             {state === 'asking' && t('Asking the switches…')}
             {state === 'done' && error !== '' && error}
@@ -385,7 +385,7 @@ function Attached({ device }: { device: ClientRow }) {
               ))}
           </div>
           {state === 'done' && error === '' && answers.length > 0 && (
-            <div className="mt-1 text-[0.8rem] text-muted-foreground">
+            <div className="mt-1 text-meta text-muted-foreground">
               {t('As the switch learnt it, so it is the last time the device spoke.')}
             </div>
           )}
@@ -400,7 +400,7 @@ function Attached({ device }: { device: ClientRow }) {
         </Button>
       </div>
       {state === 'done' && problems.length > 0 && (
-        <p className="mt-2 text-[0.8rem] text-muted-foreground">
+        <p className="mt-2 text-meta text-muted-foreground">
           {problems.map((p) => p.message).join('; ')}
         </p>
       )}
@@ -443,13 +443,13 @@ function Observed({ device }: { device: ClientRow }) {
 
   if (rows.length === 0) {
     return (
-      <p className="text-[0.8rem] text-muted-foreground"> {t('Nothing has been observed about this client yet.')} </p>
+      <p className="text-meta text-muted-foreground"> {t('Nothing has been observed about this client yet.')} </p>
     )
   }
 
   return (
     <Disclosure summary={t('What the network says')}>
-      <dl className="grid gap-1.5 pt-1 text-[0.8rem]">
+      <dl className="grid gap-1.5 pt-1 text-meta">
         {rows.map(([label, value], i) => (
           <div key={i} className="flex gap-3">
             <dt className="w-28 shrink-0 text-muted-foreground">{label}</dt>

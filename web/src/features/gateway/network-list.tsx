@@ -92,7 +92,7 @@ function NetworkList({
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{network}</div>
               <div className="truncate text-xs text-muted-foreground">{t('On')}{iface}</div>
-              <div className="truncate text-[0.8rem] text-muted-foreground">
+              <div className="truncate text-meta text-muted-foreground">
                 {describeAssignment(current ? row : undefined, effective, Boolean(assignment?.exit))}
               </div>
             </div>

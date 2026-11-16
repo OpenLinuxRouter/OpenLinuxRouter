@@ -187,12 +187,12 @@ function DeviceRow({ device, localHosts }: { device: Device; localHosts: Readonl
           <span className="flex min-w-0 items-center gap-2">
             <span className="min-w-0 truncate text-sm font-medium text-foreground">{device.name || device.id}</span>
             {mine && (
-              <Badge variant="outline" className="h-5 min-h-5 shrink-0 rounded px-1.5 py-0 text-[0.6875rem] font-medium text-muted-foreground">
+              <Badge variant="outline" className="h-5 min-h-5 shrink-0 rounded px-1.5 py-0 text-xs font-medium text-muted-foreground">
                 {t('This router')}
               </Badge>
             )}
           </span>
-          <span className="mt-0.5 block text-[0.8125rem] leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{identity}</span>
+          <span className="mt-0.5 block text-meta leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{identity}</span>
         </span>
 
         <RowChevron className="col-start-3 row-span-2 row-start-1 self-center lg:col-start-6 lg:row-span-1" />
@@ -201,7 +201,7 @@ function DeviceRow({ device, localHosts }: { device: Device; localHosts: Readonl
           {roles.length > 0 && (
             <span className="flex flex-wrap gap-1 lg:col-start-3 lg:row-start-1">
               {roles.map(role => (
-                <Badge key={role} variant="outline" className="h-5 min-h-5 rounded px-1.5 py-0 text-[0.6875rem] font-medium tracking-wide text-muted-foreground uppercase">
+                <Badge key={role} variant="outline" className="h-5 min-h-5 rounded px-1.5 py-0 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                   {t(role)}
                 </Badge>
               ))}

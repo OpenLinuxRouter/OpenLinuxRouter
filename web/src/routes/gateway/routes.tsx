@@ -84,7 +84,7 @@ function RouteTableCard({ table }: { table: RouteTable }) {
     <div className="space-y-2">
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
         <h3 className="text-sm font-semibold">{table.name}</h3>
-        <span className="text-[0.8125rem] text-muted-foreground">
+        <span className="text-meta text-muted-foreground">
           {table.owner === 'main'
             ? t('This router’s own table')
             : table.owner === 'exit'

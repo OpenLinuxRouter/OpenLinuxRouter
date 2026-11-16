@@ -26,7 +26,7 @@ const buttonVariants = cva(
           "h-9 min-h-11 gap-2 px-3.5 sm:min-h-0 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
         // 32px desktop: the small control that used to be 36px with smaller text.
-        sm: "h-8 min-h-11 gap-1.5 px-3 text-[0.8125rem] sm:min-h-0 in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3.5",
+        sm: "h-8 min-h-11 gap-1.5 px-3 text-meta sm:min-h-0 in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-11 gap-2 px-4 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         icon: "size-9 min-w-11 sm:min-w-0",
         "icon-xs":

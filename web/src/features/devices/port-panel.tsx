@@ -68,7 +68,7 @@ export function PortPanel({ snapshot }: { snapshot: Snapshot }) {
                     runs rather than one number line. */}
                 {index > 0 && <span aria-hidden className="block h-px bg-border" />}
                 <div>
-                  <p className="mb-2 text-[0.6875rem] leading-4 font-medium text-muted-foreground">{label}</p>
+                  <p className="mb-2 text-xs leading-4 font-medium text-muted-foreground">{label}</p>
                   <div role="group" aria-label={label} className="flex flex-wrap gap-x-1.5 gap-y-2">
                     {run.ports.map(port => (
                       <PortTile
@@ -85,7 +85,7 @@ export function PortPanel({ snapshot }: { snapshot: Snapshot }) {
             )
           })}
           {!ports.some(port => port.poe) && (
-            <p className="flex items-center gap-1.5 text-[0.6875rem] leading-4 text-muted-foreground">
+            <p className="flex items-center gap-1.5 text-xs leading-4 text-muted-foreground">
               <StatusDot tone="unknown" />
               {t('This read did not report PoE')}
             </p>
@@ -138,12 +138,12 @@ function PortTile({ port, selected, controls, onSelect }: {
         'group-hover:border-primary group-focus-visible:border-primary',
         selected && 'border-primary bg-card text-primary ring-2 ring-ring/25',
       )}>
-        <span className="max-w-full truncate px-1 text-[0.90625rem] leading-none font-semibold tracking-[-0.01em] tabular-nums">
+        <span className="max-w-full truncate px-1 text-sm leading-none font-semibold tabular-nums">
           {tileNumber(port)}
         </span>
         <StatusDot tone={health.tone} className="absolute top-1.5 right-1.5" />
       </span>
-      <span className="flex h-3 items-center gap-0.5 text-[0.65625rem] leading-none text-muted-foreground tabular-nums">
+      <span className="flex h-4 items-center gap-0.5 text-xs leading-none text-muted-foreground tabular-nums">
         <span>{speed ?? '—'}</span>
         <PoeMark port={port} />
       </span>
@@ -234,11 +234,11 @@ function PortInspector({ id, port, snapshot }: { id: string; port: Port; snapsho
         </div>
 
         <div className="px-4 pb-3">
-          <p className="text-[1.375rem] leading-tight font-semibold tracking-[-0.02em] tabular-nums">
+          <p className="text-xl font-semibold tabular-nums">
             {speed ?? '—'}
             {duplex && <small className="ml-1 text-xs font-medium text-muted-foreground">{duplex}</small>}
           </p>
-          {detail && <p className="mt-0.5 text-[0.8125rem] text-muted-foreground">{detail}</p>}
+          {detail && <p className="mt-0.5 text-meta text-muted-foreground">{detail}</p>}
         </div>
 
         <dl className="px-4 pb-1">
@@ -300,7 +300,7 @@ function PortInspector({ id, port, snapshot }: { id: string; port: Port; snapsho
         </dl>
       </div>
 
-      <p className="px-4 pb-4 text-[0.6875rem] leading-4 text-muted-foreground">
+      <p className="px-4 pb-4 text-xs leading-4 text-muted-foreground">
         {t('Counters are the device’s own totals, not a rate.')}
       </p>
     </Card>
@@ -309,7 +309,7 @@ function PortInspector({ id, port, snapshot }: { id: string; port: Port; snapsho
 
 function InspectorRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-t border-border/70 py-2 text-[0.8125rem] leading-5 first:border-t-0">
+    <div className="flex items-start justify-between gap-3 border-t border-border/70 py-2 text-meta leading-5 first:border-t-0">
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-right font-medium [overflow-wrap:anywhere]">{children}</dd>
     </div>
@@ -317,7 +317,7 @@ function InspectorRow({ label, children }: { label: string; children: ReactNode 
 }
 
 function Detail({ children }: { children: ReactNode }) {
-  return <small className="block text-[0.6875rem] leading-4 font-normal text-muted-foreground">{children}</small>
+  return <small className="block text-xs leading-4 font-normal text-muted-foreground">{children}</small>
 }
 
 /**

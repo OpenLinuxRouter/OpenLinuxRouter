@@ -204,13 +204,13 @@ export function DialInNode({ peer, iface, onOpen }: { peer: DialInPeer; iface: s
         <WayBadge />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[13px] leading-[18px] font-medium">{peer.label}</span>
+        <span className="truncate text-meta leading-[18px] font-medium">{peer.label}</span>
         {peer.address ? (
-          <span className="truncate font-mono text-[11px] leading-4 text-muted-foreground">{peer.address}</span>
+          <span className="truncate font-mono text-xs leading-4 text-muted-foreground">{peer.address}</span>
         ) : (
           // The tunnel has not said: a peer that never connected has no address
           // observed, which is not the same as one without a configuration.
-          <span className="truncate text-[11px] leading-4 text-muted-foreground italic">{t('no address')}</span>
+          <span className="truncate text-xs leading-4 text-muted-foreground italic">{t('no address')}</span>
         )}
       </span>
       {peer.state === 'connected' ? (
@@ -223,7 +223,7 @@ export function DialInNode({ peer, iface, onOpen }: { peer: DialInPeer; iface: s
           <span className="sr-only">{t('Connected')}</span>
         </span>
       ) : (
-        <span className="w-16 shrink-0 text-right text-[11px] leading-4 text-muted-foreground">{state}</span>
+        <span className="w-16 shrink-0 text-right text-xs leading-4 text-muted-foreground">{state}</span>
       )}
     </Shell>
   )
@@ -320,7 +320,7 @@ export function GroupNode({
         <span className="flex size-7 shrink-0 items-center justify-center rounded-md border bg-card text-muted-foreground">
           <Layers className="size-3.5" aria-hidden />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{group.title}</span>
+        <span className="min-w-0 flex-1 truncate text-meta font-medium">{group.title}</span>
       </button>
     )
   }
@@ -375,7 +375,7 @@ export function GroupNode({
         <div
           className={cn(
             'pointer-events-none relative min-w-0 flex-1 truncate',
-            focused || nested ? 'text-[13px] font-medium' : 'text-[15px] font-semibold tracking-tight',
+            focused || nested ? 'text-meta font-medium' : 'text-base font-semibold tracking-tight',
           )}
         >
           {group.title}
@@ -609,7 +609,7 @@ export function ClientNode({
         />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate text-[13px] leading-[18px] font-medium">{name}</span>
+            <span className="truncate text-meta leading-[18px] font-medium">{name}</span>
           </span>
           <Address device={device} />
           {traffic.counting && device.seen && (
@@ -623,7 +623,7 @@ export function ClientNode({
                   style={{ width: share > 0 ? `${Math.max(2, share * 100)}%` : 0 }}
                 />
               </span>
-              <span className="shrink-0 text-[10.5px] leading-3 text-muted-foreground tabular-nums">
+              <span className="shrink-0 text-xs leading-3 text-muted-foreground tabular-nums">
                 <ClientTraffic device={device} flow={flow} rated={traffic.rated} counting />
               </span>
             </span>
@@ -680,7 +680,7 @@ function ServiceLinks({ services, domain, domainKnown = true, className, width, 
         )
       })}
       {services.length > 8 && (
-        <span className="flex h-7 shrink-0 items-center text-[11px] text-muted-foreground" title={services.slice(8).map((s) => s.name).join(', ')}>
+        <span className="flex h-7 shrink-0 items-center text-xs text-muted-foreground" title={services.slice(8).map((s) => s.name).join(', ')}>
           +{services.length - 8}
         </span>
       )}
@@ -788,8 +788,8 @@ function Shell({
 function Address({ device }: { device: ClientRow }) {
   useLocale()
   const address = device.fixed_ip ?? device.ips?.[0]
-  if (!device.seen) return <span className="truncate text-[11px] leading-4 text-muted-foreground italic">{t('never seen')}</span>
-  if (!address) return <span className="text-[11px] leading-4 text-muted-foreground">{t('no address')}</span>
+  if (!device.seen) return <span className="truncate text-xs leading-4 text-muted-foreground italic">{t('never seen')}</span>
+  if (!address) return <span className="text-xs leading-4 text-muted-foreground">{t('no address')}</span>
   return (
     <span
       className="flex min-w-0 items-center gap-1 text-muted-foreground"
@@ -798,7 +798,7 @@ function Address({ device }: { device: ClientRow }) {
       title={device.fixed_ip ? `${address} (fixed)` : address}
     >
       {device.fixed_ip && <Tag className="size-3 shrink-0" aria-label={t('fixed')} />}
-      <span className="truncate font-mono text-[11px] leading-4">{address}</span>
+      <span className="truncate font-mono text-xs leading-4">{address}</span>
     </span>
   )
 }
@@ -936,7 +936,7 @@ export function MoreNode({
         focusRing,
       )}
     >
-      <span className="flex items-center gap-1 text-[13px] font-medium">
+      <span className="flex items-center gap-1 text-meta font-medium">
         {label}
         <Icon className="size-3.5 text-muted-foreground" aria-hidden />
       </span>

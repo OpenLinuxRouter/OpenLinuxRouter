@@ -31,6 +31,24 @@ const colourOwners = new Set([
   'routes/overview.tsx',
 ])
 
+/**
+ * Sizes outside the type scale, allowed only where the text is part of a
+ * picture: initials inside an icon tile, a dial's figure, a radar's axis
+ * labels, a chart's channel axis.
+ */
+const artworkSizes = {
+  'features/clients/client-icon.tsx': ['0.6rem', '0.7rem'],
+  'features/gateway/latency-site-icon.tsx': ['10px'],
+  'features/topology/nodes.tsx': ['10px'],
+  'routes/credits.tsx': ['0.6875rem'],
+  'components/layout/launcher.tsx': ['28px'],
+  'features/tools/speed-dial.tsx': ['40px', '12px'],
+  'features/network-quality/network-quality.tsx': ['15px'],
+  'features/wireless/wireless-page.tsx': ['10px'],
+  // The phone tab bar: seven labels across 375px.
+  'components/layout/app-shell.tsx': ['11px'],
+}
+
 const files = []
 function walk(dir) {
   for (const entry of readdirSync(dir)) {
@@ -89,6 +107,15 @@ for (const file of files) {
     // 2. One dot scale: 6px and 8px, nothing in between.
     if (/\bsize-2\.5\b/.test(line) && /rounded-full/.test(line)) {
       problems.push(`${at} draws a 10px status dot; use StatusDot (6px inline, 8px verdict)`)
+    }
+
+    // 7. Text sizes come from the type scale (docs/ui-semantic-components.md):
+    //    text-xs, text-meta, text-sm and up. Artwork and chart axes are the
+    //    documented exception, listed by file and size.
+    for (const match of line.matchAll(/\btext-\[(\d[\d.]*(?:px|rem))\]/g)) {
+      if (!(artworkSizes[name] ?? []).includes(match[1])) {
+        problems.push(`${at} sets text-[${match[1]}]; use a type-scale size (text-xs, text-meta, text-sm, …)`)
+      }
     }
   })
 

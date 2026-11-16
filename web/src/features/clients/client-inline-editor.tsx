@@ -124,7 +124,7 @@ export function ClientInlineEditor({ device, traffic, activity, services, total 
           <Fact label="MAC" value={device.mac} mono />
           <ClientSettingRow label="IP">
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <Tooltip><TooltipTrigger onClick={() => begin('reservation')} disabled={!dhcp.data || dhcpApplier.busy} aria-label={t('Edit IP address')} className="min-h-11 sm:min-h-9 min-w-0 rounded-sm text-right font-mono text-[0.8125rem] leading-5 hover:text-primary focus-visible:outline-2 focus-visible:outline-ring"><span className="break-all">{device.ips?.length ? device.ips.join(', ') : device.fixed_ip || 'None observed'}</span></TooltipTrigger><TooltipContent>{device.expires ? `DHCP lease ends ${new Date(device.expires).toLocaleString()}` : 'No expiring DHCP lease'}</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger onClick={() => begin('reservation')} disabled={!dhcp.data || dhcpApplier.busy} aria-label={t('Edit IP address')} className="min-h-11 sm:min-h-9 min-w-0 rounded-sm text-right font-mono text-meta leading-5 hover:text-primary focus-visible:outline-2 focus-visible:outline-ring"><span className="break-all">{device.ips?.length ? device.ips.join(', ') : device.fixed_ip || 'None observed'}</span></TooltipTrigger><TooltipContent>{device.expires ? `DHCP lease ends ${new Date(device.expires).toLocaleString()}` : 'No expiring DHCP lease'}</TooltipContent></Tooltip>
               {reservation && <Badge variant="secondary">{t('Fixed')}</Badge>}
             </div>
           </ClientSettingRow>

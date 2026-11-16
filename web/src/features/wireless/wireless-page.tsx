@@ -393,7 +393,7 @@ function FindingsCard({ findings }: { findings: ReturnType<typeof findingsFor> }
           <ul className="divide-y divide-border">
             {findings.map(finding => (
               <li key={finding.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
-                <StatusPill tone={finding.tone === 'warning' ? 'warn' : 'unknown'} className="mt-0.5 h-5 shrink-0 px-1.5 text-[10px]">
+                <StatusPill tone={finding.tone === 'warning' ? 'warn' : 'unknown'} className="mt-0.5 h-5 shrink-0 px-1.5 text-xs">
                   {finding.tone === 'warning' ? t('Warning') : t('Notice')}
                 </StatusPill>
                 <div className="min-w-0">
@@ -610,14 +610,14 @@ function NeighbourTable({ rows }: { rows: (Neighbour & { band?: string })[] }) {
             <TableRow key={`${row.band ?? ''}-${row.bssid ?? row.ssid ?? ''}-${row.channel ?? 0}`}>
               <TableCell>
                 <div className="max-w-48 truncate text-sm font-medium">{row.ssid || t('Hidden network')}</div>
-                <div className="font-mono text-[11px] text-muted-foreground">{row.bssid ?? '—'}</div>
+                <div className="font-mono text-xs text-muted-foreground">{row.bssid ?? '—'}</div>
               </TableCell>
               <TableCell className="hidden sm:table-cell">
                 <Badge variant="secondary" className="font-normal">{bandLabel(row.band)}</Badge>
               </TableCell>
               <TableCell>
                 <div className="text-sm tabular-nums">{row.channel ?? '—'}</div>
-                <div className="text-[11px] text-muted-foreground">{row.width_mhz != null ? t('{width} MHz', { width: row.width_mhz }) : '—'}</div>
+                <div className="text-xs text-muted-foreground">{row.width_mhz != null ? t('{width} MHz', { width: row.width_mhz }) : '—'}</div>
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">
@@ -746,10 +746,10 @@ function ClientTable({ snapshot, clients, devices, expanded, onSelect, onToggle 
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="max-w-40 truncate text-sm font-medium">{clientName(client, device)}</span>
-                        {level === 'weak' && <Badge variant="destructive" className="h-4 px-1 text-[10px]">{t('Weak')}</Badge>}
+                        {level === 'weak' && <Badge variant="destructive" className="h-4 px-1 text-xs">{t('Weak')}</Badge>}
                       </div>
                       {clientName(client, device) !== client.mac.toUpperCase() && (
-                        <div className="font-mono text-[11px] text-muted-foreground">{client.mac.toUpperCase()}</div>
+                        <div className="font-mono text-xs text-muted-foreground">{client.mac.toUpperCase()}</div>
                       )}
                     </div>
                   </div>
@@ -762,7 +762,7 @@ function ClientTable({ snapshot, clients, devices, expanded, onSelect, onToggle 
                     <SignalBars signal={client.signal_dbm} />
                     <div>
                       <div className="text-sm tabular-nums">{signalText(client.signal_dbm)}</div>
-                      <div className="text-[11px] text-muted-foreground">{snrText(client)}</div>
+                      <div className="text-xs text-muted-foreground">{snrText(client)}</div>
                     </div>
                   </div>
                 </TableCell>
@@ -771,11 +771,11 @@ function ClientTable({ snapshot, clients, devices, expanded, onSelect, onToggle 
                     <span className="text-receive">↓ {rate(client.tx_rate_mbps)}</span>
                     <span className="text-transmit">↑ {rate(client.rx_rate_mbps)}</span>
                   </div>
-                  <div className="text-[11px] text-muted-foreground">{linkLabel(client)}</div>
+                  <div className="text-xs text-muted-foreground">{linkLabel(client)}</div>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   <div className="text-sm tabular-nums">{formatDuration(client.connected_seconds)}</div>
-                  <div className="text-[11px] text-muted-foreground">{t('Idle {value}', { value: formatIdle(client.inactive_ms) })}</div>
+                  <div className="text-xs text-muted-foreground">{t('Idle {value}', { value: formatIdle(client.inactive_ms) })}</div>
                 </TableCell>
               </TableRow>
               {onToggle && open && (
@@ -841,7 +841,7 @@ function ClientDetail({ client, network, band }: {
 }
 
 function DetailTitle({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{children}</h3>
+  return <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{children}</h3>
 }
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {

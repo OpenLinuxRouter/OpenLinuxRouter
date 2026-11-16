@@ -208,16 +208,16 @@ function WANRow({ connection }: { connection: WANConnection }) {
     <TableRow>
       <TableCell>
         <div className="font-medium">{connection.service || connection.name || '—'}</div>
-        <div className="font-mono text-[0.6875rem] text-muted-foreground">{connection.name ?? connection.path}</div>
+        <div className="font-mono text-xs text-muted-foreground">{connection.name ?? connection.path}</div>
       </TableCell>
       <TableCell>
         <StatusInline tone={status.tone}>{status.label}</StatusInline>
-        {connection.interface && <div className="text-[0.6875rem] text-muted-foreground">{connection.interface}</div>}
+        {connection.interface && <div className="text-xs text-muted-foreground">{connection.interface}</div>}
       </TableCell>
       <TableCell className="hidden text-right tabular-nums sm:table-cell">{vlan ?? '—'}</TableCell>
       <TableCell className="text-right">
         <div className="tabular-nums">{connection.address ?? '—'}</div>
-        {connection.ipv6_prefix && <div className="font-mono text-[0.6875rem] text-muted-foreground">{connection.ipv6_prefix}</div>}
+        {connection.ipv6_prefix && <div className="font-mono text-xs text-muted-foreground">{connection.ipv6_prefix}</div>}
       </TableCell>
       <TableCell className="hidden text-right tabular-nums md:table-cell">{connection.uptime_seconds != null ? formatUptime(connection.uptime_seconds) : '—'}</TableCell>
       <TableCell className="hidden text-right tabular-nums md:table-cell">{counters(connection.rx_bytes, connection.rx_packets)}</TableCell>

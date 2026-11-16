@@ -90,7 +90,7 @@ export function StatusInline({
   children: React.ReactNode
 }) {
   return (
-    <span className={cn('inline-flex min-w-0 items-center gap-1.5 text-[0.8125rem] leading-5', className)}>
+    <span className={cn('inline-flex min-w-0 items-center gap-1.5 text-meta leading-5', className)}>
       <StatusDot tone={tone} />
       <span className={cn('min-w-0 truncate', emphasis === 'answer' ? 'font-medium text-foreground' : 'text-muted-foreground')}>
         {children}

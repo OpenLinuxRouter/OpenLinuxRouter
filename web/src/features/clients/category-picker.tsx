@@ -207,7 +207,7 @@ function Tile({
       {children}
       <span
         className={cn(
-          'w-full truncate text-center text-[0.7rem] leading-tight',
+          'w-full truncate text-center text-xs leading-tight',
           selected ? 'font-medium' : 'text-muted-foreground',
         )}
       >

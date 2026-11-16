@@ -90,7 +90,7 @@ export function ForwardsPage() {
           // Said once under the list rather than on every row: a small number
           // here is usually explained by a recent edit, and an operator reading
           // "never" wants to know that before they go and debug their ISP.
-          <p className="text-[0.8rem] text-muted-foreground">{t('Counts start again whenever a forward is added, changed or removed, and when the router restarts.')}</p>
+          <p className="text-meta text-muted-foreground">{t('Counts start again whenever a forward is added, changed or removed, and when the router restarts.')}</p>
         )}
       </div>
 

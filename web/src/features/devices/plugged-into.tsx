@@ -98,7 +98,7 @@ export function PluggedInto({ mac }: { mac: string }) {
               ))}
             </ul>}
 
-        <p className="mt-2 text-[0.6875rem] leading-4 text-muted-foreground">
+        <p className="mt-2 text-xs leading-4 text-muted-foreground">
           {t('A forwarding table is one end’s word: the switch saw the address arrive on that port. A device behind another switch is learned on the uplink, and an aged-out address is absent rather than disconnected.')}
         </p>
       </div>

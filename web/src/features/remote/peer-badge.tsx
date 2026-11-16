@@ -21,7 +21,7 @@ import type { RemotePeer } from '@/lib/api-types'
 export function PeerStatus({ peer }: { peer: RemotePeer }) {
   useLocale()
   if (!peer.unknown && !peer.online && peer.last_handshake) {
-    return <span className="text-[0.8125rem] text-muted-foreground tabular-nums">{elapsed(peer.last_handshake)}</span>
+    return <span className="text-meta text-muted-foreground tabular-nums">{elapsed(peer.last_handshake)}</span>
   }
   const health = peerHealth({ unknown: peer.unknown, online: peer.online, lastHandshake: peer.last_handshake })
   return <StatusInline tone={health.tone}>{health.label}</StatusInline>

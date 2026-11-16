@@ -97,7 +97,7 @@ wired to what". A page of its own can carry edge evidence, speeds and the
 unknowns — and it is the only screen that can show a network with holes in it
 without pretending the holes are not there.
 
-**5. Density with one accent.** A 13px base, hairline dividers, one interaction
+**5. Density with one accent.** A 14px base with a 13px step for supporting text, hairline dividers, one interaction
 colour and a separate semantic set for state. Density is not the enemy of calm;
 inconsistent meaning is. The console should feel like a console at 9am on a
 Monday, which means it has to say a lot without raising its voice.
@@ -190,7 +190,11 @@ A left rail is a consequence of that split, not a fashion: seven destinations in
 two named groups do not fit a 64px top bar without becoming the "cramped
 six-section navigation" the visual guide already recorded as a finding. The rail
 also gives the console a place to say which router you are looking at and whether
-the connection to it is live — two facts a top bar cannot hold.
+the connection to it is live — two facts a top bar cannot hold. The rail is
+shadcn's Sidebar: under the wordmark it prints the host the console is talking
+to and `Connected` / `Not answering` from the metrics read the Status card
+already polls, and it collapses to its icons (⌘B / Ctrl+B, remembered in a
+cookie) with each name in a tooltip.
 
 Phones keep the bottom tab bar, reduced to the operations group plus an overflow
 for configuration.

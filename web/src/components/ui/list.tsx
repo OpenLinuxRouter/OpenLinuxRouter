@@ -39,7 +39,7 @@ function ListRow({ title, subtitle, leading, trailing, trailingTone = 'muted', e
             have a value beside it is not a reason for its label to change colour
             and weight halfway down a list. Emphasis lives on the value. */}
         <div className={cn('text-sm text-foreground', wrap ? 'break-words' : 'truncate')}>{title}</div>
-        {subtitle && <div className={cn('mt-0.5 text-[0.8125rem] leading-relaxed text-muted-foreground', wrap ? 'break-words' : 'truncate')}>{subtitle}</div>}
+        {subtitle && <div className={cn('mt-0.5 text-meta leading-relaxed text-muted-foreground', wrap ? 'break-words' : 'truncate')}>{subtitle}</div>}
       </div>
       {trailing != null && <div className={cn('mt-1 min-w-0 text-sm leading-5 [overflow-wrap:anywhere] sm:mt-0 sm:max-w-[45%] sm:text-right', trailingTone === 'value' ? 'font-medium text-foreground' : 'text-muted-foreground')}>{trailing}</div>}
     </div>

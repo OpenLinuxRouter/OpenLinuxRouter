@@ -52,7 +52,7 @@ export function EditableField({
       {multiline ? (
         <Textarea
           id={id}
-          className="min-h-36 font-mono text-[0.8125rem] leading-relaxed"
+          className="min-h-36 font-mono text-meta leading-relaxed"
           spellCheck={false}
           placeholder={placeholder}
           value={draft}
@@ -70,7 +70,7 @@ export function EditableField({
           onChange={(e) => setDraft(e.target.value)}
         />
       )}
-      {hint && <p className="max-w-prose text-[0.8125rem] leading-relaxed text-muted-foreground">{hint}</p>}
+      {hint && <p className="max-w-prose text-meta leading-relaxed text-muted-foreground">{hint}</p>}
       {dirty && (
         <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
           <Button variant="quiet" size="sm" onClick={() => setDraft(stored)}> {t('Revert')} </Button>

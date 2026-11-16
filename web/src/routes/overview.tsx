@@ -164,7 +164,7 @@ function Glance() {
 
   const items = [
     { to: '/topology', label: t('Clients'), value: online, note: t('online'), pending: clients.isPending || clients.isError },
-    { to: '/gateway/dhcp', label: t('Networks'), value: networks, note: inUse === undefined ? '' : t('{count} addresses in use', { count: inUse }), pending: leases.isPending || leases.isError },
+    { to: '/gateway/dhcp', label: t('Networks'), value: networks, note: inUse === undefined ? '' : t('serving {count} addresses', { count: inUse }), pending: leases.isPending || leases.isError },
     { to: '/devices', label: t('Managed devices'), value: managed, note: t('configured'), pending: equipment.isPending || equipment.isError },
     { to: '/access/wireguard', label: t('Tunnel peers'), value: peers, note: t('listed'), pending: remote.isPending || remote.isError },
   ]
@@ -174,8 +174,8 @@ function Glance() {
       {items.map(item => (
         <Link key={item.label} to={item.to}
           className="min-w-0 flex-1 basis-40 border-l border-border px-4 py-2.5 transition-colors first:border-l-0 hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring max-sm:border-l-0">
-          <dt className="text-[0.6875rem] leading-4 font-medium text-muted-foreground">{item.label}</dt>
-          <dd className={cn('mt-0.5 truncate text-[0.9375rem] leading-6 font-medium tracking-[-0.005em]', item.pending && 'text-muted-foreground')}>
+          <dt className="text-xs leading-4 font-medium text-muted-foreground">{item.label}</dt>
+          <dd className={cn('mt-0.5 truncate text-xl font-semibold tabular-nums', item.pending && 'text-muted-foreground')}>
             {item.value === undefined ? '—' : item.value}
             {item.value !== undefined && item.note && <small className="ml-1 text-xs font-normal text-muted-foreground">{item.note}</small>}
           </dd>
@@ -428,7 +428,7 @@ function PublicAddressRow({ addresses }: { addresses?: PublicAddresses }) {
     <button type="button" aria-haspopup="dialog" onClick={() => setOpen(true)}
       className="flex min-h-11 sm:min-h-9 w-full min-w-0 flex-wrap items-center gap-2 rounded-lg py-1.5 text-left transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring">
       <span className="flex w-4 shrink-0 items-center justify-center"><CountryIcon code={address?.country_code} /></span>
-      <span className="min-w-0 flex-1 truncate text-[0.8125rem] font-semibold" title={summary || undefined}>{summary || (address?.ip ? 'Location unavailable' : '—')}</span>
+      <span className="min-w-0 flex-1 truncate text-meta font-semibold" title={summary || undefined}>{summary || (address?.ip ? 'Location unavailable' : '—')}</span>
     </button>
     <Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>{t('Public network')}</DialogTitle><DialogDescription>{summary || 'Location unavailable'}</DialogDescription></DialogHeader><div className="space-y-1 py-2 text-sm text-muted-foreground">
       <dl className="grid grid-cols-[max-content_minmax(0,1fr)] items-start gap-x-2 gap-y-2 [&_dd]:text-right">

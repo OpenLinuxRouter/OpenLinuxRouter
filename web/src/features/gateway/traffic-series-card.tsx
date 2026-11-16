@@ -47,11 +47,18 @@ export function TrafficSeriesCard({ hours = 24 }: { hours?: number }) {
 
       <div className="px-4 pt-2 pb-3.5">
         <div className="mb-1 flex items-baseline gap-2">
-          <span className="text-[1.375rem] leading-8 font-semibold tracking-[-0.02em] tabular-nums">
+          <span className="text-xl font-semibold tabular-nums">
             {series.isPending ? <Skeleton className="inline-block h-6 w-24 align-middle" />
               : buckets.length === 0 ? '—' : formatBytes(total)}
           </span>
           <span className="text-xs text-muted-foreground">{t('down + up')}</span>
+          {/* The two lines are told apart by name, not by hue alone. */}
+          {buckets.length > 0 && (
+            <span className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5"><span aria-hidden className="h-0.5 w-3 rounded-full bg-receive" />{t('Download')}</span>
+              <span className="inline-flex items-center gap-1.5"><span aria-hidden className="h-0.5 w-3 rounded-full bg-transmit" />{t('Upload')}</span>
+            </span>
+          )}
         </div>
 
         {buckets.length > 0
@@ -60,7 +67,7 @@ export function TrafficSeriesCard({ hours = 24 }: { hours?: number }) {
               {series.isError ? t('The traffic history could not be read.') : t('No traffic was counted in this window.')}
             </div>}
 
-        <p className="mt-2 text-[0.6875rem] leading-4 text-muted-foreground">
+        <p className="mt-2 text-xs leading-4 text-muted-foreground">
           {t('Counted for clients this router can name. Traffic it cannot attribute is not in this chart, so the link carried at least this much.')}
         </p>
       </div>
@@ -98,7 +105,7 @@ function Plot({ buckets }: { buckets: { at: string; bytes: { up: number; down: n
         <polyline points={down.join(' ')} fill="none" strokeWidth={1.6} className="stroke-receive" strokeLinejoin="round" />
         <polyline points={up.join(' ')} fill="none" strokeWidth={1.4} className="stroke-transmit" strokeLinejoin="round" opacity={0.85} />
       </svg>
-      <div className="flex justify-between text-[0.6875rem] tabular-nums text-muted-foreground">
+      <div className="flex justify-between text-xs tabular-nums text-muted-foreground">
         {marks.map(index => <span key={index}>{clock(buckets[index].at)}</span>)}
       </div>
     </>

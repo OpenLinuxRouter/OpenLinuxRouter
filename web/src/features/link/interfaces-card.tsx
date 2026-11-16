@@ -291,11 +291,11 @@ function InterfaceItem({
           {role && <Badge variant="secondary">{role}</Badge>}
           <StatusInline tone={state.tone}>{state.label}</StatusInline>
         </div>
-        <div className="font-mono text-[0.8125rem] leading-5 text-foreground [overflow-wrap:anywhere]">
+        <div className="font-mono text-meta leading-5 text-foreground [overflow-wrap:anywhere]">
           {row.prefixes?.length ? row.prefixes.join(' · ') : state.detail}
         </div>
         {removable.length > 0 && (
-          <div className="flex flex-wrap gap-x-3 text-[0.8rem]">
+          <div className="flex flex-wrap gap-x-3 text-meta">
             {removable.map((address) => (
               <button
                 key={address}
