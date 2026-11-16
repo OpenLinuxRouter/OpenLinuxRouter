@@ -32,6 +32,7 @@ import { ForwardsPage } from '@/routes/advanced/forwards'
 import { IptvPage } from '@/routes/advanced/iptv'
 import { RemotePage } from '@/routes/access/remote'
 import { OverviewPage } from '@/routes/overview'
+import { TopologyPage } from '@/routes/topology'
 import { LatencyPage } from '@/routes/latency'
 import { QualityPage } from '@/routes/quality'
 import { MapPage } from '@/routes/map'
@@ -103,6 +104,7 @@ export function App() {
             </Route>
           </Route>
           <Route path="wireless" element={<WirelessPage />} />
+          <Route path="topology" element={<TopologyPage />} />
           <Route path="devices" element={<DevicesPage />} />
           <Route path="devices/:id" element={<DevicePage />} />
           <Route path="firewall" element={<SubPage section="/advanced" slug="firewall"><FirewallPage /></SubPage>} />

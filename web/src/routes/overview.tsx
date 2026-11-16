@@ -5,32 +5,27 @@ import { StatusInline } from '@/components/ui/status'
 import { state } from '@/lib/state'
 import { WorldTraffic } from '@/features/world-traffic/world-traffic'
 import { NetworkQuality } from '@/features/network-quality/network-quality'
-import { AlertTriangle, CircleAlert, CircleCheck, CircleHelp, ChevronRight, Info, LoaderCircle, Map } from 'lucide-react'
-import { useMemo, useState, type MouseEvent } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { AlertTriangle, CircleAlert, CircleCheck, CircleHelp, ChevronRight, LoaderCircle, Map } from 'lucide-react'
+import { useState, type MouseEvent } from 'react'
+import { Link } from 'react-router'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useGroupActions } from '@/features/clients/group-actions'
-import { useClientList, useClientsConfig } from '@/features/clients/queries'
-import { useDhcpConfig, useDhcpStatus } from '@/features/dhcp/queries'
+import { useDhcpStatus } from '@/features/dhcp/queries'
 import { useDnsStatus } from '@/features/dns/queries'
 import { RELAY_UNIT, serviceOf } from '@/features/dns/units'
-import { useIngressConfig, useIngressStatus } from '@/features/ingress/queries'
-import { servicesByClient } from '@/features/topology/services'
 import { useHostMetrics, usePublicAddresses, type HostMetrics, type PublicAddresses } from '@/features/system/queries'
 import 'flag-icons/css/flag-icons.min.css'
 import { SiteIcon } from '@/features/gateway/latency-site-icon'
 import { useGatewayLatency, useMeasureLatencySite, useGatewayStatus, useGatewayTraffic } from '@/features/gateway/queries'
 import { FirstRun } from '@/features/setup/first-run'
 import { useRemoteStatus } from '@/features/remote/queries'
-import { buildDialIn } from '@/features/topology/dial-in'
-import { NetworkMap } from '@/features/topology/network-map'
+import { NetworkMapPanel } from '@/features/topology/map-panel'
 import { useTrafficView, type TrafficView } from '@/features/topology/traffic'
-import type { DhcpStatus, DnsStatus, GatewayLatency, GatewayStatus, GatewayTraffic } from '@/lib/api-types'
+import type { DhcpStatus, DnsStatus, GatewayLatency, GatewayStatus } from '@/lib/api-types'
 import { cn, formatBytes, formatRate } from '@/lib/utils'
 
 /**
@@ -70,18 +65,12 @@ import { cn, formatBytes, formatRate } from '@/lib/utils'
  */
 export function OverviewPage() {
   useLocale()
-  const devices = useClientList()
   const dhcp = useDhcpStatus()
-  const dhcpConfig = useDhcpConfig()
   const dns = useDnsStatus()
   const gateway = useGatewayStatus()
   // Only the live rates need a fast sample; the other observed data stays at 5s.
   const traffic = useGatewayTraffic(1000)
   const latency = useGatewayLatency()
-  const identity = useClientsConfig()
-  const ingress = useIngressConfig()
-  const ingressStatus = useIngressStatus()
-  const services = useMemo(() => servicesByClient(ingress.data, devices.data?.clients ?? []), [ingress.data, devices.data])
   const flows = useTrafficView(traffic.data, traffic.isError)
   const host = useHostMetrics()
   const publicAddresses = usePublicAddresses()
@@ -89,9 +78,6 @@ export function OverviewPage() {
   // device and does not belong in `devices` (docs/remote-access.md §3.3), so the
   // map takes it from the module that owns it.
   const remote = useRemoteStatus()
-  const dialIn = useMemo(() => buildDialIn(remote.data), [remote.data])
-  const navigate = useNavigate()
-  const groupActions = useGroupActions()
 
   const faults = collectFaults(dhcp.data, dns.data, gateway.data)
   // Only a verdict once every module that can raise a fault has answered:
@@ -138,32 +124,9 @@ export function OverviewPage() {
         </Alert>
       ))}
 
-      <section aria-label={t('Your network')} className="space-y-4 pt-2">
-        <NetworkMap
-          devices={devices.data?.clients ?? []}
-          services={services}
-          serviceDomain={ingressStatus.data?.domain}
-          serviceDomainKnown={!ingressStatus.isPending}
-          groups={identity.data?.groups}
-          traffic={flows}
-          assignments={gateway.data?.assignments}
-          exits={gateway.data?.exits}
-          dialIn={dialIn}
-          pools={dhcpConfig.data?.pools}
-          pending={devices.isPending}
-          density="auto"
-          onSelect={(device) => navigate(`/clients/${device.mac}`)}
-          onOpenDialIn={(peer) => navigate(`/clients/wireguard/${encodeURIComponent(peer.name)}`)}
-          onCreateGroup={groupActions.create}
-          onRenameGroup={groupActions.rename}
-          onDeleteGroup={groupActions.remove}
-          onMoveGroup={groupActions.moveGroup}
-        />
-
-        <TrafficNote traffic={traffic.data} failed={traffic.isError} flows={flows} />
+      <section aria-label={t('Your network')} className="pt-2">
+        <NetworkMapPanel density="auto" />
       </section>
-
-      {groupActions.dialogs}
     </div>
   )
 }
@@ -574,26 +537,3 @@ function Stats({ flows, host, publicAddresses, modules, faults, known, idle, fai
  * every visit saying the numbers were fine was read once and then only
  * scrolled past.
  */
-function TrafficNote({
-  traffic,
-  failed,
-  flows,
-}: {
-  traffic?: GatewayTraffic
-  failed: boolean
-  flows: TrafficView
-}) {
-  useLocale()
-  if ((!traffic && !failed) || flows.counting) return null
-  return (
-    <p className="flex items-start gap-2 text-xs text-muted-foreground">
-      <Info className="mt-px size-3.5 shrink-0" aria-hidden />
-      <span>
-        {failed
-          ? 'Traffic counts could not be read, so the lines do not show how busy each group is.'
-          : 'Traffic is not being counted, so the lines do not show how busy each group is.'}{' '}
-        <Link to="/gateway/interfaces#gateway-stats" className="font-medium text-foreground underline-offset-4 hover:underline"> {t('Traffic settings')} </Link>
-      </span>
-    </p>
-  )
-}

@@ -255,22 +255,34 @@ A tile may carry: its number, link state, speed, medium (`copper`, `fiber`,
   does not fit any phone. The tile panel is the desktop reading; the table below
   it is the same data and the honest fallback.
 
-### 6.4 Topology evidence
+### 6.4 The map is logical, and says so
 
-Every edge says how we know it:
+The overview ends with a picture: the router at the top, the operator's groups
+below it, the devices inside them. `/topology` is that picture with the room to
+be the whole page, plus the legend that says what a line means.
 
-| Line | Evidence |
+**A line is membership, not cabling.** It joins a group to the router; its
+thickness is the group's traffic. Nothing on the drawing claims that two boxes
+are plugged into each other, because nothing we can read establishes that:
+
+| Evidence | Do we have it? |
 | --- | --- |
-| Solid | Reported by both ends (LLDP neighbours) |
-| Dashed | Inferred from a forwarding table or an address pair |
-| Dotted | Wireless association |
-| Ring node | Reachable, but no adapter can describe it |
+| LLDP neighbours, both ends reporting a port | No — no adapter populates `neighbors` |
+| The forwarding table placing a MAC on a port | No — `fdb.list` is not implemented by any adapter |
+| Wireless association | No — the association list is per access point, not drawn here |
+| The interface a device was heard answering on (`network_origin: observed`) | **Yes** |
+| The address range a device falls into (`network_origin: detected`) | **Yes** |
 
-Manual links drawn by an operator are a separate style and are never merged with
-evidence. This follows [the equipment contract](network-equipment.md) — "it does
-not fabricate inferred direct cables". It is the one place where the console
-deliberately draws less than it could: a confident picture is easy to fake and
-worth nothing when the cable is the thing that is broken.
+The last two rows are the evidence we actually hold, and they are about
+*placement*, not wiring: "this device answered on lan0" and "this device's
+address falls inside lan0's range" are different claims with different
+strengths. The page states the limit in the legend rather than spending it on a
+drawing it cannot support.
+
+When an adapter reports neighbours, the four line styles come back — solid for
+both ends reporting, dashed for the forwarding table, dotted for a wireless
+association, a ring for a box we can reach but cannot describe. They are not
+drawn today because drawing them today would be a guess in a line's clothing.
 
 ### 6.5 Devices, including this one
 
@@ -335,8 +347,8 @@ per-section status already exist in `GET /api/devices/{id}/snapshot` and
 ## 9. Implementation plan
 
 Six slices, each independently shippable. Nothing here writes to hardware.
-**Shipped: 0 (the rail), 1 (the object index), 2 (the device frame) and 3 (the
-port panel). Open: 4, 5 and 6.**
+**Shipped: 0 (the rail), 1 (the object index), 2 (the device frame), 3 (the port
+panel) and 4 (the map as a page). Open: 5 and 6.**
 
 **Slice 0 — Tokens and shell.** *(small; no behaviour change)*
 Add the two brand values to `index.css` and the one legal drawing to the rail
@@ -371,15 +383,13 @@ that the adapter did not report.
 scrolling; a port with `link: unknown` renders the ring; keyboard selection works
 and the inspector is announced.
 
-**Slice 4 — Topology with evidence.** *(medium)*
-`/map` is the world-traffic map and stays where it is; the device tree has no URL
-of its own — it is a component inside Overview. Give it one: lift its query
-plumbing into a hook both pages use, render it full width on `/topology`, add the
-legend, and have `links.tsx` pick line style from the evidence class rather than
-from depth. Keep the vertical grouping on phones.
-*Done when:* a network with one LLDP link, one MAC-table inference, one wireless
-client and one manual link draws four distinguishable edges, and the legend names
-all four.
+**Slice 4 — The map gets a page.** *(medium)*
+`/map` is the world-traffic map and stays where it is; the device tree had no URL
+of its own. Lift its wiring into `NetworkMapPanel` so both pages use one copy,
+add `/topology` with the legend, and keep the vertical grouping on phones.
+The evidence line styles wait for an adapter that reports neighbours (§6.4).
+*Done when:* the page renders the same picture as Overview, the legend names what
+a line is and what it is not, and neither page can drift from the other.
 
 **Slice 5 — Overview rebuilt.** *(medium)*
 Attention strip, four facts, 24h throughput, networks, events. Keep the existing

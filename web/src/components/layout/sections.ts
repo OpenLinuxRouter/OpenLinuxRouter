@@ -1,5 +1,5 @@
 import { t } from '@/lib/i18n'
-import { Activity, ArrowLeftRight, EthernetPort, Shield, SlidersHorizontal, Waypoints, Wifi, Wrench } from 'lucide-react'
+import { Activity, ArrowLeftRight, EthernetPort, Share2, Shield, SlidersHorizontal, Waypoints, Wifi, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 /**
@@ -191,6 +191,16 @@ export const SECTIONS: Section[] = [
     get label() { return t('Wireless') },
     icon: Wifi,
     end: false,
+    groups: [],
+  },
+  {
+    // The picture the Overview ends with, given a page of its own: the one screen
+    // that answers "what is on my network" without a counter beside it.
+    to: '/topology',
+    get label() { return t('Topology') },
+    icon: Share2,
+    end: true,
+    group: 'network',
     groups: [],
   },
   {

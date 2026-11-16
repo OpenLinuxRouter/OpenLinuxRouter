@@ -115,8 +115,10 @@ export function AppShell() {
         </footer>
 
         <nav aria-label={t('Sections')} className="fixed inset-x-0 bottom-0 z-20 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
-          <ul className="grid grid-cols-6">
-            {top.map(({ to, label, icon: Icon, end }) => (
+          <ul className="grid grid-cols-7">
+            {/* Objects first, then configuration, so the bar and the rail tell the
+                same story even though the table interleaves them by module. */}
+            {[...network, ...configuration].map(({ to, label, icon: Icon, end }) => (
               <li key={to} className="min-w-0">
                 <NavLink to={to} end={end} className={({ isActive }) => cn(
                   'flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 text-[0.625rem] font-medium transition-colors focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-ring',
