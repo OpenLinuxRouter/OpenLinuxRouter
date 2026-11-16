@@ -680,6 +680,11 @@ address needs no translation to be replied to — `docs/port-forwarding.md` §7
 makes the same point from the inbound side. What v6 needs instead is a filtering
 policy, which §0 records olr is not building for now.
 
+That argument is about the *default path*, and it does not settle the multi-exit
+corner: a second prefix behind a tunnel, where a destination might reasonably be
+asked to choose it. That corner, and the reason it stays closed, is worked out
+in `docs/ipv6-multi-exit.md`.
+
 ---
 
 ## 4. Domain rules are the proxy's, not ours
