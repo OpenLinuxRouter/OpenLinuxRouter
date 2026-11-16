@@ -529,12 +529,15 @@ adding a generic next-step sentence. Use one short sentence when an explanation
 is necessary. Keep essential text readable; reducing font size is not a remedy
 for excessive content.
 
-Keep the footer to the product copyright, Credits, version and the icon-only GitHub,
-theme and language controls. On desktop these sit in the rail's foot — the controls in
-one row, the legal line under them at the bottom edge — and on a phone in one centred
+Keep the footer to the product copyright, Credits, version and the GitHub, theme and
+language controls. On desktop the rail's foot shows the version as a button that opens
+the console menu — theme, language, GitHub, Credits, the API token when one is set, and
+the copyright — because those are things an operator sets once; the rest of the rail is
+for where you are now. A phone has no rail, so below `lg` the same items are one centred
 row above the tab bar. The phone's row stays on one line, so phones keep the year alone
-in the copyright instead of the product name the header already carries; the rail's
-legal line keeps the year alone too, for the wordmark above it. Describe the
+in the copyright instead of the product name the header already carries; the menu's
+footer line keeps the year alone too, for the wordmark above it. The menu's two control
+groups are labelled by the setting they change, and the option in use is checked. Describe the
 current and next theme, and the language in use and the one a click switches to, in
 their accessible labels and tooltips, and name GitHub in the accessible label and
 tooltip of its mark.

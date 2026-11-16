@@ -1,29 +1,43 @@
-import { PanelLeft } from 'lucide-react'
+import { MoreHorizontal, PanelLeft } from 'lucide-react'
+import { useTheme } from 'next-themes'
+import { useState } from 'react'
 import { Link } from 'react-router'
 
 import { GithubMark } from '@/components/layout/github-mark'
 import { LanguageToggle } from '@/components/layout/language-toggle'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
-import { TokenButton } from '@/components/layout/token-button'
+import { TokenDialog, TokenMenuItem } from '@/components/layout/token-button'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   SidebarFooter,
   useSidebar,
 } from '@/components/ui/sidebar'
-import { t } from '@/lib/i18n'
+import { setLocale, t, useLocale, type Locale } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 /**
- * The facts every surface repeats: what build this is, and the three controls
- * that belong to the console rather than to a page.
+ * The console's own items: what build this is, and the settings that belong to
+ * the console rather than to a page.
  *
- * On a phone the footer is one row above the tab bar. From lg the rail has no
- * room for a row that wide, so the same items stand in its foot: the controls on
- * one line, the legal line under them, and both go when the rail collapses to
- * 48px of icons — a rail that narrow cannot set a version string, and the names
- * come back with the labels (⌘B). The copyright drops the product name in the
- * rail for the same reason it drops it on a phone: the wordmark is already
- * above it.
+ * A phone has no rail, so below `lg` these are one centred row above the tab
+ * bar. From `lg` the page column ends with content and the rail's foot carries
+ * them instead, because a rail has one strip at the bottom and it is better
+ * spent on a menu than on six rarely used controls standing in a row. That foot
+ * is the version — a button that opens the console menu — and the collapse
+ * toggle; the menu holds the theme, the language, the links, the credential
+ * when one is set, and the copyright. The version stays on the trigger rather
+ * than in the menu because it is what a bug report asks for.
  */
 
 /** GitHub's mark, alone: the anchor carries no word, so the labels name it. */
@@ -39,36 +53,10 @@ function GitHubLink({ className }: { className?: string }) {
   )
 }
 
-/** The year, and the product's name where the surface has room to repeat it. */
-function Copyright({ product = false }: { product?: boolean }) {
-  return (
-    <span>
-      © {new Date().getFullYear()}
-      {/* Below 640px the header already carries the product name, and the row
-          cannot fit it; the rail never shows it, because the wordmark is above. */}
-      {product && <span className="hidden sm:inline"> Open Linux Router</span>}
-    </span>
-  )
-}
-
-function CreditsLink({ className }: { className?: string }) {
-  return (
-    <Link to="/credits" className={cn('rounded-sm transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring', className)}>
-      {t('Credits')}
-    </Link>
-  )
-}
-
-/** The version stays on every surface: it is the one thing only the footer
- *  reports, and the one thing a bug report always asks for. */
-function Version() {
-  return <span>{__APP_VERSION__}</span>
-}
-
 /**
- * The phone's footer. From lg the rail's foot carries these items, so this one
- * is the only copy below that width; the bottom padding clears the fixed tab bar
- * it stands behind.
+ * The phone's footer. From lg the rail's foot carries the console's own items,
+ * so this one is the only copy below that width; the bottom padding clears the
+ * fixed tab bar it stands behind.
  */
 export function FooterLine() {
   return (
@@ -81,9 +69,9 @@ export function FooterLine() {
           pointer. border-0 keeps the buttons' 1px border from lifting their
           content off the line the plain items share. */}
       <div className="mx-auto flex max-w-[80rem] items-center justify-center gap-x-3 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] text-center text-xs text-muted-foreground min-[360px]:gap-x-4">
-        <Copyright product />
-        <CreditsLink className="inline-flex min-h-11 items-center" />
-        <Version />
+        <span>© {new Date().getFullYear()}<span className="hidden sm:inline"> Open Linux Router</span></span>
+        <Link to="/credits" className="inline-flex min-h-11 items-center transition-colors duration-150 hover:text-foreground">{t('Credits')}</Link>
+        <span>{__APP_VERSION__}</span>
         <GitHubLink className="-mx-2 h-11 px-2" />
         <ThemeToggle className="-mx-2 border-0" />
         <LanguageToggle className="-mx-2 border-0" />
@@ -93,26 +81,74 @@ export function FooterLine() {
 }
 
 /**
- * The rail's foot. The controls sit on one 32px line — the rail's own control
- * size — and the legal line under them, so the last thing the eye meets is what
- * this build is rather than a toolbar.
+ * The rail's foot. One quiet line that names the build and opens the console's
+ * menu, and the collapse toggle beside it.
  */
 export function RailFooter() {
+  // The credential dialog is a sibling of the menu, not a row inside it: the
+  // menu unmounts on select, and a dialog mounted in its popup would go with it.
+  const [tokenOpen, setTokenOpen] = useState(false)
   return (
-    <SidebarFooter className="gap-1 border-t px-3 py-2.5 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1 group-data-[collapsible=icon]:px-2">
-      <div className="flex w-full items-center gap-0.5 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1">
-        <GitHubLink className="size-8" />
-        <ThemeToggle className="size-8 border-0" />
-        <LanguageToggle className="h-8 px-2 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:px-0" />
-        <TokenButton className="size-8" />
+    <SidebarFooter className="gap-0 border-t px-2 py-2 group-data-[collapsible=icon]:px-2">
+      <div className="flex w-full items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center">
+        <ConsoleMenu onToken={() => setTokenOpen(true)} />
         <RailToggle />
       </div>
-      <div className="flex w-full flex-wrap items-center gap-x-2.5 gap-y-1 px-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-        <Copyright />
-        <CreditsLink />
-        <Version />
-      </div>
+      <TokenDialog open={tokenOpen} onOpenChange={setTokenOpen} />
     </SidebarFooter>
+  )
+}
+
+/**
+ * The console's own menu: display, language, links, the credential when one is
+ * set, and the copyright. It opens upwards from the rail's foot, so it never
+ * covers the navigation it sits under.
+ */
+function ConsoleMenu({ onToken }: { onToken: () => void }) {
+  const locale = useLocale()
+  const { theme, setTheme } = useTheme()
+  const current = theme === 'light' || theme === 'dark' ? theme : 'system'
+  const label = t('Console menu')
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={<Button type="button" variant="quiet" size="sm" aria-label={label} title={label}
+          className="flex-1 justify-start gap-1.5 px-1.5 text-xs font-normal text-muted-foreground group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" />}>
+        <MoreHorizontal className="size-3.5" aria-hidden />
+        <span className="group-data-[collapsible=icon]:hidden">{__APP_VERSION__}</span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start" sideOffset={6} className="w-60">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{t('Theme')}</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={current} onValueChange={setTheme}>
+            <DropdownMenuRadioItem value="system">{t('Auto')}</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="light">{t('Light')}</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="dark">{t('Dark')}</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{t('Language')}</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={locale} onValueChange={(next) => setLocale(next as Locale)}>
+            <DropdownMenuRadioItem value="en"><span lang="en">English</span></DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="zh-CN"><span lang="zh-CN">中文</span></DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem render={<a href="https://github.com/open-linux-router/open-linux-router" target="_blank" rel="noreferrer" />}>
+          <GithubMark className="size-4" aria-hidden />GitHub
+        </DropdownMenuItem>
+        {/* The page carries the list; the menu is the one place it is reachable
+            from every route, including the ones the rail does not own. */}
+        <DropdownMenuItem render={<Link to="/credits" />}>{t('Credits')}</DropdownMenuItem>
+        <TokenMenuItem onOpen={onToken} />
+        <DropdownMenuSeparator />
+        <div className="px-1.5 py-1 text-xs text-muted-foreground">
+          <div>© {new Date().getFullYear()} Open Linux Router</div>
+          <div>{__APP_VERSION__}</div>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -122,7 +158,7 @@ function RailToggle() {
   const label = open ? t('Collapse sidebar') : t('Expand sidebar')
   return (
     <Button variant="quiet" size="icon-sm" onClick={toggleSidebar} aria-label={label} title={label}
-      className="ml-auto text-muted-foreground group-data-[collapsible=icon]:mx-auto">
+      className="text-muted-foreground group-data-[collapsible=icon]:mx-auto">
       <PanelLeft aria-hidden />
     </Button>
   )

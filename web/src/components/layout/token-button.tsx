@@ -11,8 +11,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getToken, setToken } from '@/lib/api'
@@ -25,24 +25,62 @@ import { getToken, setToken } from '@/lib/api'
  * olr" into the unbuilt system module — so this is deliberately a credential
  * box and not a login form. It should be replaced wholesale, not grown into
  * one.
+ *
+ * The phone's header has nowhere to put a menu, so it gets the icon button; the
+ * rail's console menu gets the item. Both open the same dialog.
  */
-export function TokenButton({ className }: { className?: string }) {
+
+/**
+ * Hidden unless a token is actually in use. olrd serves the API without one
+ * unless it was started with --auth, which is the common case, and a key icon
+ * in the header of a UI that never asked for a credential reads as "you have
+ * missed a setup step" — the same confusion that made the raw 401 JSON so
+ * bad. The first token is set by AuthGate, which appears on a real 401; these
+ * controls exist to change or clear one that is already there.
+ */
+function inUse() {
+  return getToken() !== null
+}
+
+export function TokenButton() {
+  useLocale()
+  const [open, setOpen] = useState(false)
+  if (!inUse()) return null
+  return (
+    <>
+      <Button variant="quiet" size="icon" aria-haspopup="dialog" aria-label={t('Set API token')} onClick={() => setOpen(true)}>
+        <KeyRound className="size-4" aria-hidden />
+      </Button>
+      <TokenDialog open={open} onOpenChange={setOpen} />
+    </>
+  )
+}
+
+/**
+ * The same dialog, as a row in the rail's console menu.
+ *
+ * The dialog is the caller's sibling, not this row's child: the menu closes when
+ * a row is selected, and anything mounted inside its popup would go with it.
+ */
+export function TokenMenuItem({ onOpen }: { onOpen: () => void }) {
+  useLocale()
+  if (!inUse()) return null
+  return (
+    <DropdownMenuItem onClick={onOpen}>
+      <KeyRound aria-hidden />
+      {t('API token')}
+    </DropdownMenuItem>
+  )
+}
+
+export function TokenDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
   useLocale()
   const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
   const [value, setValue] = useState('')
-
-  // Hidden unless a token is actually in use. olrd serves the API without one
-  // unless it was started with --auth, which is the common case, and a key icon
-  // in the header of a UI that never asked for a credential reads as "you have
-  // missed a setup step" — the same confusion that made the raw 401 JSON so
-  // bad. The first token is set by AuthGate, which appears on a real 401; this
-  // button exists to change or clear one that is already there.
-  if (getToken() === null) return null
 
   function save() {
     setToken(value.trim() || null)
-    setOpen(false)
+    onOpenChange(false)
     // Every query failed for the same reason; refetch them all rather than
     // making the operator reload the page.
     queryClient.invalidateQueries()
@@ -52,17 +90,10 @@ export function TokenButton({ className }: { className?: string }) {
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        setOpen(next)
+        onOpenChange(next)
         if (next) setValue(getToken() ?? '')
       }}
     >
-      <DialogTrigger
-        render={
-          <Button variant="quiet" size="icon" className={className} aria-label={t('Set API token')}>
-            <KeyRound className="size-4" aria-hidden />
-          </Button>
-        }
-      />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('API token')}</DialogTitle>
@@ -90,7 +121,7 @@ export function TokenButton({ className }: { className?: string }) {
         </div>
 
         <DialogFooter>
-          <Button variant="quiet" onClick={() => setOpen(false)}>{t('Cancel')}</Button>
+          <Button variant="quiet" onClick={() => onOpenChange(false)}>{t('Cancel')}</Button>
           <Button onClick={save}>{t('Save')}</Button>
         </DialogFooter>
       </DialogContent>

@@ -657,31 +657,34 @@ and the footer. At 375px, keep labels, statuses, addresses and action buttons
 usable. Monitoring statistics use two columns on phones.
 
 The footer belongs to the rail on desktop and to the tab bar on a phone. In the
-rail's foot it is two rows: the controls — GitHub, theme, language, a token box when
-one is set — on one 32px line with the collapse toggle at the trailing edge, and the
-legal line under them, so the last thing the eye meets is what this build is rather
-than a toolbar. Collapsed to 48px of icons, the foot keeps the controls as icons in a
-column and drops the legal line: a rail that narrow cannot set a version string, and
-the names come back with the labels. Below `lg` there is no rail, so the footer is one
-line above the tab bar: it centres its row and thins the gap to 12px below 360px rather
-than wrapping. Its items run in one order — copyright, Credits, version, then the three
-controls — with one visible 16px gap: each control spends 8px of side padding on a 44px
-hit target, so the footer cancels that padding rather than letting the controls sit in
-visibly wider intervals than the text. Below 640px the copyright keeps the year alone
-and drops the product name, which the header already carries; the rail's legal line
-drops it too, because the wordmark is above it. The version stays at every width,
-because the footer is the only place that reports it. The repository link is GitHub's
-mark alone and the theme control a single icon; clicking the theme cycles auto, light
-and dark, and both name themselves in their accessible label and tooltip. Both are
-14px, the row's one icon size: an icon's class is its optical size, so artwork with no
-inset of its own brings that inset with it instead of the call site asking for a
-smaller box. The language
+rail's foot it is one quiet line: a button that names the build (`v0.6.0-dev`) and
+opens the console menu, with the collapse toggle at the trailing edge. Theme,
+language, GitHub, Credits, the credential when one is set, and the copyright live
+in that menu rather than in the rail: an operator sets the theme and the language
+once and visits Credits rarely, so a permanent row of icons spends the rail's most
+valuable strip on the least-used controls. The menu opens upward, so it never
+covers the navigation it sits under, and it is the same surface on every route.
+The version is the one item shown without opening anything — it is what a bug
+report asks for — so the trigger is the version rather than a bare ellipsis.
+Collapsed to 48px of icons, the trigger keeps the ellipsis and loses the version.
+Below `lg` there is no rail, so the footer is one line above the tab bar: it
+centres its row and thins the gap to 12px below 360px rather than wrapping. Its
+items run in one order — copyright, Credits, version, then the three controls —
+with one visible 16px gap: each control spends 8px of side padding on a 44px hit
+target, so the footer cancels that padding rather than letting the controls sit in
+visibly wider intervals than the text. Below 640px the copyright keeps the year
+alone and drops the product name, which the header already carries; the rail's
+menu footer line drops it too, because the wordmark is above it. The version stays
+at every width, because the footer is the only place that reports it. The
+repository link is GitHub's mark alone and the theme control a single icon;
+clicking the theme cycles auto, light and dark, and both name themselves in their
+accessible label and tooltip. Both are 14px, the row's one icon size: an icon's
+class is its optical size, so artwork with no inset of its own brings that inset
+with it instead of the call site asking for a smaller box. The language
 control shows only the language in use, in its native writing (English / 中文): footer
 text size and weight, no icon, no separate "Language" label, and no filled hover
 background, so it reads as footer text rather than as a button, with visible keyboard
-focus. The collapsed rail is the one place with no room for the word, so there the
-control becomes a languages icon and keeps the tooltip. Like the theme control, it
-reports the state it is in, and its accessible label
+focus. Like the theme control, it reports the state it is in, and its accessible label
 and tooltip name the language a click switches to. Place the same control below the
 sign-in and initial-setup forms.
 Language changes preserve layout, current navigation and in-progress form values.

@@ -202,12 +202,14 @@ still open, so the rail prints `Not answering` — and only that — when the
 five-second metrics read the Status card already makes stops getting an HTTP
 answer. Any answer, even an error or a 401, is the daemon being there.
 
-The rail's foot is where the console's own items live, which is what lets the
-page column end with content instead of a footer: a 32px line of controls
-(GitHub, theme, language, a token box when one is set, and the collapse toggle)
-over the legal line — copyright, Credits, version — at the bottom edge of the
-rail. A phone has no rail, so below `lg` those items are one centred row above
-the tab bar instead.
+The rail's foot is what lets the page column end with content instead of a
+footer. It holds two things: the version, as a button that opens the console's own
+menu, and the collapse toggle. The menu carries theme, language, GitHub, Credits,
+the API token when one is set, and the copyright, and it opens upward so it never
+covers the navigation it sits under. Those items are the console's, not a page's,
+and they are set once: a row of five icons at the bottom of the rail would spend
+the rail's most useful strip on what an operator touches least. A phone has no
+rail, so below `lg` the same items are one centred row above the tab bar instead.
 
 Phones keep the bottom tab bar, reduced to the operations group plus an overflow
 for configuration.
