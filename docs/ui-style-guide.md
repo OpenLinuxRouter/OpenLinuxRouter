@@ -666,7 +666,8 @@ valuable strip on the least-used controls. The menu opens upward, so it never
 covers the navigation it sits under, and it is the same surface on every route.
 The version is the one item shown without opening anything — it is what a bug
 report asks for — so the trigger is the version rather than a bare ellipsis.
-Collapsed to 48px of icons, the trigger keeps the ellipsis and loses the version.
+Collapsed to 48px of icons, the menu goes altogether: the foot is just the expand
+toggle, because the settings inside can wait for the names to come back.
 Below `lg` there is no rail, so the footer is one line above the tab bar: it
 centres its row and thins the gap to 12px below 360px rather than wrapping. Its
 items run in one order — copyright, Credits, version, then the three controls —

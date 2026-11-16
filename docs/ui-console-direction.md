@@ -203,13 +203,15 @@ five-second metrics read the Status card already makes stops getting an HTTP
 answer. Any answer, even an error or a 401, is the daemon being there.
 
 The rail's foot is what lets the page column end with content instead of a
-footer. It holds two things: the version, as a button that opens the console's own
-menu, and the collapse toggle. The menu carries theme, language, GitHub, Credits,
-the API token when one is set, and the copyright, and it opens upward so it never
-covers the navigation it sits under. Those items are the console's, not a page's,
-and they are set once: a row of five icons at the bottom of the rail would spend
-the rail's most useful strip on what an operator touches least. A phone has no
-rail, so below `lg` the same items are one centred row above the tab bar instead.
+footer. It holds two things: the version, as a button that opens the console's
+own menu, and the collapse toggle. The menu carries theme, language, GitHub,
+Credits, the API token when one is set, and the copyright, and it opens upward so
+it never covers the navigation it sits under. Collapsed, the foot keeps the
+toggle alone: the rail is 48px wide and has one job then, which is bringing the
+names back. Those items are the console's, not a page's, and they are set once: a
+row of five icons at the bottom of the rail would spend the rail's most useful
+strip on what an operator touches least. A phone has no rail, so below `lg` the
+same items are one centred row above the tab bar instead.
 
 Phones keep the bottom tab bar, reduced to the operations group plus an overflow
 for configuration.

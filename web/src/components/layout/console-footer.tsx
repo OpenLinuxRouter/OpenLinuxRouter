@@ -37,7 +37,9 @@ import { cn } from '@/lib/utils'
  * is the version — a button that opens the console menu — and the collapse
  * toggle; the menu holds the theme, the language, the links, the credential
  * when one is set, and the copyright. The version stays on the trigger rather
- * than in the menu because it is what a bug report asks for.
+ * than in the menu because it is what a bug report asks for. Collapsed, both
+ * the trigger and the menu go: 48px has one job, and it is bringing the names
+ * back.
  */
 
 /** GitHub's mark, alone: the anchor carries no word, so the labels name it. */
@@ -111,11 +113,14 @@ function ConsoleMenu({ onToken }: { onToken: () => void }) {
   const label = t('Console menu')
   return (
     <DropdownMenu>
+      {/* Collapsed, the rail has 48px and one job: the toggle that brings the
+          names back. The menu's contents are settings that can wait for the
+          expanded rail, so the trigger does not stay as a second icon. */}
       <DropdownMenuTrigger
         render={<Button type="button" variant="quiet" size="sm" aria-label={label} title={label}
-          className="flex-1 justify-start gap-1.5 px-1.5 text-xs font-normal text-muted-foreground group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" />}>
+          className="flex-1 justify-start gap-1.5 px-1.5 text-xs font-normal text-muted-foreground group-data-[collapsible=icon]:hidden" />}>
         <MoreHorizontal className="size-3.5" aria-hidden />
-        <span className="group-data-[collapsible=icon]:hidden">{__APP_VERSION__}</span>
+        <span>{__APP_VERSION__}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" align="start" sideOffset={6} className="w-60">
         <DropdownMenuGroup>
