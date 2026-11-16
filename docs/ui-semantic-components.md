@@ -61,7 +61,7 @@ can be shared variants/tokens within those components.
 | Disclosure | Optional detail without changing the main answer | Reuse Disclosure; dialog-based Overview details retain their existing behavior |
 | Dialog / menu / tooltip | Modal editing, contextual actions, short supplemental help | Reuse current primitives; never make tooltip-only information necessary for touch users |
 | Feedback / empty state | Loading, error, no data, completion and retry | Reuse Skeleton, Alert, ListEmpty and Sonner; generalize empty-state layout only when needed |
-| Chart frame | Title/actions, plot space, legend, data availability | Share frame conventions; keep radar, map, activity matrix and Sankey domain-specific |
+| Chart frame | Title/actions, plot space, legend, data availability | `components/ui/chart.tsx` (shadcn chart on Recharts) owns the plot frame, series config and tooltip; keep radar, map, activity matrix and Sankey domain-specific |
 | Device page frame | Portrait, identity, status, stat strip, read action, Details | Shared by every device type; the body below it stays per `switch`/`ont`/`openwrt` page. [Console direction §6.2](ui-console-direction.md) |
 | Port panel | A switch drawn as its front panel: tiles, selection, inspector | New; `features/devices/port-panel.tsx`. Tile contract in [console direction §6.3](ui-console-direction.md) |
 | Evidence edge | A topology link whose style states how it was observed | New; `features/topology/links.tsx` takes the class from the evidence, not from depth |

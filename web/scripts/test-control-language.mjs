@@ -43,7 +43,6 @@ const artworkSizes = {
   'routes/credits.tsx': ['0.6875rem'],
   'components/layout/launcher.tsx': ['28px'],
   'features/tools/speed-dial.tsx': ['40px', '12px'],
-  'features/network-quality/network-quality.tsx': ['15px'],
   'features/wireless/wireless-page.tsx': ['10px'],
   // The phone tab bar: seven labels across 375px.
   'components/layout/app-shell.tsx': ['11px'],

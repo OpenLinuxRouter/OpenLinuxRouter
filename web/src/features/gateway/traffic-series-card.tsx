@@ -1,11 +1,16 @@
 import { t, useLocale } from '@/lib/i18n'
+import { Area, AreaChart, XAxis, YAxis } from 'recharts'
 
 import { Card } from '@/components/ui/card'
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import type { ChartConfig } from '@/components/ui/chart'
 import { Heading } from '@/components/ui/heading'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatBytes, formatRate } from '@/lib/utils'
 
 import { useActivitySeries } from './queries'
+
+type Bucket = { at: string; bytes: { up: number; down: number } }
 
 /**
  * The day so far, in half-hour steps.
@@ -75,39 +80,67 @@ export function TrafficSeriesCard({ hours = 24 }: { hours?: number }) {
   )
 }
 
+type Row = { clock: string; down: number; up: number }
+
+const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+
+/** Five clocks: both ends and the quarter points, so the axis reads left to right. */
+function marks(rows: Row[]) {
+  const at = [0, Math.floor(rows.length / 4), Math.floor(rows.length / 2), Math.floor((rows.length * 3) / 4), rows.length - 1]
+  return [...new Set(at.map(index => rows[index].clock))]
+}
+
 /** Bytes per half hour, two directions, on one scale so their heights compare. */
-function Plot({ buckets }: { buckets: { at: string; bytes: { up: number; down: number } }[] }) {
-  const width = 640
-  const height = 136
-  const top = 6
-  const bottom = height - 14
-  const step = buckets.length > 1 ? width / (buckets.length - 1) : width
-  const max = Math.max(1, ...buckets.map(bucket => Math.max(bucket.bytes.up, bucket.bytes.down)))
+function Plot({ buckets }: { buckets: Bucket[] }) {
+  const rows: Row[] = buckets.map(bucket => ({ clock: clock(bucket.at), down: bucket.bytes.down, up: bucket.bytes.up }))
+  const ticks = marks(rows)
 
-  const points = (pick: (bytes: { up: number; down: number }) => number) =>
-    buckets.map((bucket, index) => {
-      const x = index * step
-      const y = bottom - (pick(bucket.bytes) / max) * (bottom - top)
-      return `${x.toFixed(1)} ${y.toFixed(1)}`
-    })
-
-  const down = points(bytes => bytes.down)
-  const up = points(bytes => bytes.up)
-  const area = `M0 ${bottom} L${down.join(' L')} L${width} ${bottom} Z`
-
-  const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-  const marks = [0, Math.floor(buckets.length / 4), Math.floor(buckets.length / 2), Math.floor((buckets.length * 3) / 4), buckets.length - 1]
+  const config = {
+    down: { label: t('Download'), color: 'var(--color-receive)' },
+    up: { label: t('Upload'), color: 'var(--color-transmit)' },
+  } satisfies ChartConfig
 
   return (
-    <>
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="block h-[136px] w-full" aria-hidden>
-        <path d={area} className="fill-receive/10" />
-        <polyline points={down.join(' ')} fill="none" strokeWidth={1.6} className="stroke-receive" strokeLinejoin="round" />
-        <polyline points={up.join(' ')} fill="none" strokeWidth={1.4} className="stroke-transmit" strokeLinejoin="round" opacity={0.85} />
-      </svg>
-      <div className="flex justify-between text-xs tabular-nums text-muted-foreground">
-        {marks.map(index => <span key={index}>{clock(buckets[index].at)}</span>)}
-      </div>
-    </>
+    // The axis sits inside the same box as the plot, so the frame is the old
+    // 136px of plot plus one row of clocks. The plot stays decoration for the
+    // accessibility layer the way the old SVG was — the total above and the
+    // caption below are the description — so nothing focusable hides in it.
+    <div className="h-[158px] w-full">
+      <ChartContainer config={config} className="size-full" aria-hidden>
+        <AreaChart data={rows} margin={{ top: 8, right: 0, bottom: 0, left: 0 }} accessibilityLayer={false}>
+          <XAxis dataKey="clock" ticks={ticks} interval={0} tick={<ClockTick count={ticks.length} />}
+            axisLine={false} tickLine={false} height={20} tickMargin={4} />
+          {/* One scale for both directions, and no numerals: the shape is the point. */}
+          <YAxis hide domain={[0, 'auto']} />
+          <ChartTooltip
+            cursor={{ stroke: 'var(--color-border)' }}
+            content={<ChartTooltipContent indicator="line" labelFormatter={(_, payload) => (payload?.[0]?.payload as Row | undefined)?.clock} formatter={(value, _, item) => (
+              <div className="flex w-full items-stretch gap-2">
+                <div className="my-0.5 w-1 shrink-0 rounded-[2px]" style={{ backgroundColor: item.color }} />
+                <div className="flex flex-1 justify-between gap-3 leading-none">
+                  <span className="text-muted-foreground">{config[(item.dataKey as 'down' | 'up') ?? 'down'].label}</span>
+                  <span className="font-mono font-medium tabular-nums">{formatBytes(Number(value))}</span>
+                </div>
+              </div>
+            )} />}
+          />
+          <Area type="linear" dataKey="down" stroke="var(--color-down)" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"
+            fill="var(--color-down)" fillOpacity={0.1} dot={false} activeDot={{ r: 3, strokeWidth: 0 }} isAnimationActive={false} />
+          <Area type="linear" dataKey="up" stroke="var(--color-up)" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round"
+            fill="none" dot={false} activeDot={{ r: 3, strokeWidth: 0 }} isAnimationActive={false} />
+        </AreaChart>
+      </ChartContainer>
+    </div>
   )
+}
+
+/**
+ * The clocks, flush to both edges of the plot the way the old hand-drawn axis
+ * was: a centred first label hangs half its width outside the card.
+ */
+function ClockTick({ x = 0, y = 0, index = 0, payload, count }: {
+  x?: number; y?: number; index?: number; payload?: { value?: string }; count: number
+}) {
+  const anchor = index === 0 ? 'start' : index === count - 1 ? 'end' : 'middle'
+  return <text x={x} y={y} dy={10} textAnchor={anchor} className="fill-muted-foreground text-xs tabular-nums">{payload?.value}</text>
 }

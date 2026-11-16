@@ -2,10 +2,13 @@ import { t, useLocale } from '@/lib/i18n'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { ChevronRight, CircleHelp, LoaderCircle, RotateCw } from 'lucide-react'
+import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart } from 'recharts'
 
 import { PageHeading } from '@/components/layout/page-heading'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { ChartContainer } from '@/components/ui/chart'
+import type { ChartConfig } from '@/components/ui/chart'
 import { Heading } from '@/components/ui/heading'
 import { MetricValue } from '@/components/ui/metric-value'
 import { PropertyRow, TechnicalValue } from '@/components/ui/property-row'
@@ -23,16 +26,62 @@ const axes = ['Speed', 'Latency', 'Stability', 'Wireless', 'Functionality']
 
 const categoryLabel = (label: string) => label === 'Wi-Fi' ? 'Wireless' : label
 
-function point(index: number, score: number, radius = 86) {
-  const angle = -Math.PI / 2 + index * Math.PI * 2 / axes.length
-  return [150 + Math.cos(angle) * radius * score / 100, 116 + Math.sin(angle) * radius * score / 100]
-}
-
-function polygon(score: number) {
-  return axes.map((_, index) => point(index, score).join(',')).join(' ')
-}
-
 const points = (value: number) => Number(value.toFixed(1)).toString()
+
+type RadarRow = { subject: string; score: number | null }
+
+/**
+ * Five axes, one polygon. The grid is rings at 25/50/75/100 and the spokes that
+ * join them; the polygon appears only when every measured axis has a score, so
+ * a half-finished assessment reads as dots on some axes rather than as a shape
+ * that suggests measurements the router does not have. Wireless keeps its
+ * display-only default, which is why it can carry a dot and still block the
+ * polygon when another axis is missing.
+ */
+function RadarPlot({ rows, complete }: { rows: RadarRow[]; complete: boolean }) {
+  const config = { score: { label: t('Score'), color: 'var(--color-primary)' } } satisfies ChartConfig
+  return (
+    <ChartContainer config={config} className="aspect-[340/245] h-full w-full">
+      <RadarChart data={rows.map(row => ({ ...row, knob: row.score ?? 0 }))} outerRadius="70%" accessibilityLayer={false}>
+        <PolarGrid gridType="polygon" stroke="var(--color-border)" fill="none" />
+        {/* Same four rings the old hand-drawn grid had, and no radial numerals. */}
+        <PolarRadiusAxis domain={[0, 100]} ticks={[25, 50, 75, 100]} tick={false} axisLine={false} />
+        <PolarAngleAxis dataKey="subject" axisLine={false} tick={<AngleTick rows={rows} />} />
+        {complete
+          ? <Radar dataKey="score" stroke="var(--color-score)" fill="var(--color-score)" strokeWidth={2} fillOpacity={0.15}
+              dot={{ r: 3, strokeWidth: 1.5, stroke: 'var(--color-card)', fill: 'var(--color-score)' }} isAnimationActive={false} />
+          : <Radar dataKey="knob" stroke="none" fill="none" dot={<MeasuredDot rows={rows} />} isAnimationActive={false} />}
+      </RadarChart>
+    </ChartContainer>
+  )
+}
+
+/**
+ * One axis name and the score it holds, centred on the outer ring.
+ *
+ * Centred rather than hung outward from it: "Functionality 67" is the widest
+ * label in the card, and anchoring it to the ring's end pushes it through the
+ * card's left edge at every breakpoint.
+ */
+function AngleTick({ x = 0, y = 0, index = 0, rows }: {
+  x?: number; y?: number; index?: number; rows: RadarRow[]
+}) {
+  const row = rows[index]
+  if (!row) return null
+  return (
+    <text x={x} y={y} textAnchor="middle" className="fill-muted-foreground text-xs">
+      {row.subject}{' '}<tspan className="fill-foreground font-semibold tabular-nums">{row.score == null ? '—' : Math.round(row.score)}</tspan>
+    </text>
+  )
+}
+
+/** A point only where there is a score: a missing axis is a dash, not a zero. */
+function MeasuredDot({ cx = 0, cy = 0, index = 0, rows }: {
+  cx?: number; cy?: number; index?: number; rows: RadarRow[]
+}) {
+  if (rows[index]?.score == null) return null
+  return <circle cx={cx} cy={cy} r={3} strokeWidth={1.5} className="fill-primary stroke-card" />
+}
 
 type GradeTone = 'success' | 'warning' | 'destructive'
 
@@ -100,25 +149,9 @@ export function NetworkQuality() {
         <Heading size="sm"><Link to="/quality" className="relative z-10 -my-2.5 inline-flex min-h-11 items-center py-2 text-left hover:text-primary focus-visible:outline-2 focus-visible:outline-ring" aria-label={t('Network quality details')}>{t('Quality')}</Link></Heading>
       </div>
       <Link to="/quality" aria-label={t('Open network quality assessment')} className="-mx-1.5 -mb-1.5 flex min-h-0 min-w-0 flex-1 items-center justify-center rounded-lg focus-visible:outline-2 focus-visible:outline-ring sm:-mx-2 sm:-mb-2">
-        <svg viewBox="0 -12 340 245" className="min-h-0 w-full flex-1" role="img" aria-label={`Network quality scores out of 100. ${axes.map((label, i) => `${label}: ${scores[i] == null ? 'not measured' : Math.round(scores[i]!)}${label === 'Wireless' && measuredScore(categories[i]) == null ? ' (default)' : categories[i]?.state === 'partial' ? ' (partial)' : ''}`).join('. ')}. Higher is better.`}>
-          <g transform="translate(20 0)">
-            {[25, 50, 75, 100].map(score => <polygon key={score} points={polygon(score)} className="fill-none stroke-border" strokeWidth="1" />)}
-            {axes.map((label, index) => {
-              const [x, y] = point(index, 100)
-              return <line key={label} x1="150" y1="116" x2={x} y2={y} className="stroke-border" />
-            })}
-            {complete && <polygon points={scores.map((score, index) => point(index, score!).join(',')).join(' ')} className="fill-primary/15 stroke-primary" strokeWidth="2" strokeLinejoin="round" />}
-            {axes.map((label, index) => {
-              const score = scores[index]
-              const [labelX, labelY] = point(index, 100, 108)
-              const [x, y] = point(index, score ?? 0)
-              return <g key={label}>
-                {score != null && <circle cx={x} cy={y} r="3" className="fill-primary stroke-card" strokeWidth="1.5" />}
-                <text x={labelX} y={labelY} textAnchor="middle" className="fill-muted-foreground text-[15px]">{t(label)} <tspan className="fill-foreground font-semibold tabular-nums">{score == null ? '—' : Math.round(score)}</tspan></text>
-              </g>
-            })}
-          </g>
-        </svg>
+        <div role="img" className="min-h-0 w-full flex-1" aria-label={`Network quality scores out of 100. ${axes.map((label, i) => `${label}: ${scores[i] == null ? 'not measured' : Math.round(scores[i]!)}${label === 'Wireless' && measuredScore(categories[i]) == null ? ' (default)' : categories[i]?.state === 'partial' ? ' (partial)' : ''}`).join('. ')}. Higher is better.`}>
+          <RadarPlot rows={axes.map((label, index) => ({ subject: t(label), score: scores[index] }))} complete={complete} />
+        </div>
       </Link>
     </section>
   )

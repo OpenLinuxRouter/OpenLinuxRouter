@@ -318,6 +318,35 @@ leading slot so text starts align.
 System health uses the same dialog interaction as uptime, with module names on
 the left and status values aligned right. Keep module details as plain rows.
 
+## Charts
+
+Plots are drawn with shadcn's chart primitive (`components/ui/chart.tsx`, which
+is Recharts underneath) rather than by hand: `ChartContainer` measures the box,
+`ChartConfig` names each series once, and `ChartTooltip` gives every bucket a
+readable value. Today that is the Overview traffic plot and the quality radar;
+keep it registry-shaped so the CLI can still update it.
+
+A series takes its colour from the chart config — `--color-receive` and
+`--color-transmit` for the two traffic directions, `--color-primary` for the
+radar — so light and dark themes follow the tokens instead of a second palette
+in the chart. A chart with more than one series still names each one in a
+legend, and the name carries the meaning when the hue is hard to tell apart.
+
+Charts stay decorative for assistive technology where a caption already
+describes them: the traffic plot is `aria-hidden` with its total above and its
+scope line below, and the radar is one `role="img"` with a label that names
+every axis, marks a missing measurement as “not measured” and the Wireless
+default as a default. Two sizing rules follow from Recharts owning the
+geometry: give the container an explicit height (an aspect ratio or a fixed
+box), because a responsive container inside an auto-height flex column measures
+zero; and keep radar axis labels centred on the outer ring, because
+“Functionality 67” anchored to the ring's end leaves the card at every
+breakpoint.
+
+Not every drawing is a plot. The firewall's vertical Sankey, the world map and
+the topology graph stay hand-drawn: their geometry is the domain knowledge, not
+a series on axes.
+
 ## Typography and imagery
 
 Use Geist Variable with system sans-serif fallback. Monospace deliberately uses
