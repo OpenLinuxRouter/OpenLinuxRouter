@@ -319,8 +319,9 @@ the left and status values aligned right. Keep module details as plain rows.
 
 ## Typography and imagery
 
-Use Geist Variable with system sans-serif fallback, and Geist Mono Variable for
-every `font-mono` value; neither is left to the platform's default. Page titles
+Use Geist Variable with system sans-serif fallback. Monospace deliberately uses
+the platform's own stack (Tailwind's `font-mono`: SF Mono on macOS, Consolas on
+Windows), the way most sites set code; do not bundle a mono face. Page titles
 are 24px/32px, weight 600. Panel titles are generally 16px, weight 600. Body and
 controls are 14px; descriptions and technical metadata are 13px (`text-meta`)
 with relaxed line height. Use 12px only for compact auxiliary metadata, and

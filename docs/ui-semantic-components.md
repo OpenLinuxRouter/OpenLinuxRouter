@@ -124,8 +124,9 @@ pending and read-only are different states; disabled controls do not react to ho
 
 ## Typography roles
 
-Use Geist Variable with the current system sans fallback throughout, and Geist
-Mono Variable (`--font-mono`) for monospace. Reserve monospace for
+Use Geist Variable with the current system sans fallback throughout, and the
+platform's monospace stack (Tailwind's default `font-mono`) by design. Reserve
+monospace for
 machine-readable identifiers and literal output. The 13px step is the
 `text-meta` token (13/20px) defined in `index.css` and registered with
 tailwind-merge in `lib/utils.ts`; every other size is Tailwind's (`text-xs` 12,
