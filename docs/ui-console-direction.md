@@ -421,18 +421,18 @@ with the new device words.
 Order matters in one place: **slice 1 before slice 2**. A device page is only
 worth building once the list can tell you which device to open.
 
-## 10. Open questions
+## 10. What is still open
 
-- **Does Topology earn a top-level slot?** It costs a route and a page, and it is
-  the only view that can draw a network with holes in it. If a household has one
-  switch and one AP, the answer may be "keep it in Overview, full width, with a
-  link" — slice 4 can end either way.
-- **A read that takes 30 seconds.** The service budget is 30 s per device. The
-  page needs a skeleton per section, not a spinner over the whole header, so
-  identity renders from the inventory while the hardware answers.
-- **Per-port rate.** The adapters report counters; a rate needs two samples and a
-  clock. If we show one, the page says "over the last 30 s" rather than implying
-  the switch told us.
-- **Server-side read cache.** §6.6's session-scoped status is honest but forgetful.
-  Caching the last read per device in `olrd` would let a reload show real states;
-  it also starts a history we do not currently keep.
+Nothing below is waiting on a design decision in the UI. Each is waiting on a
+fact about the hardware, a definition, or a deliberate trade — and each says
+which.
+
+| Item | Blocked on | What it would take |
+| --- | --- | --- |
+| **LLDP neighbours**, and with them the four evidence line styles of §6.4 | Device support. The Mercury adapter reads four firmware pages and none of them is LLDP; `docs/network-equipment.md` records that stock OpenWrt's ubus exposes no neighbour table either. | Confirm on a real SE109 Pro that the firmware has an LLDP page; decide whether access points may be required to run `lldpd`. Both are product decisions before they are code. |
+| **An events feed** | A definition. "An event" is undefined here: the audit log records mutations, not network happenings. | Agree on one, e.g. "a state change nobody asked for" — port link changes, a device flipping to `Not answering`, a service dropping. Then keep a bounded ring buffer of them. |
+| **`fdb.list`** (the whole forwarding table) | The adapter. Only a known-MAC lookup is implemented. | Parse the switch's full MAC table page; then the map could place every wired client instead of one at a time. |
+| **Per-port rates** | Arithmetic. Adapters report counters; a rate needs two samples and a clock. | A sampler beside the activity one, or a second read on the open page. Must say "over the last N s", never imply the switch reported a rate. |
+| **A read that takes 30 s** | Nothing — it is work. | Per-section skeletons on the device page so identity renders from the inventory while the hardware answers. |
+| **Server-side read cache** | A trade. §6.6's session-scoped status is honest but forgetful. | Caching the last read per device in `olrd` would let a reload show real states, and would start a history we do not currently keep. |
+| **Artwork for Mercury** | An asset. `web/src/assets/device-icons` has no Mercury product shot. | One illustration in the existing style; until then the role-based generic switch picture is used and the model name carries the identity. |
