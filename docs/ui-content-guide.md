@@ -530,9 +530,11 @@ is necessary. Keep essential text readable; reducing font size is not a remedy
 for excessive content.
 
 Keep the footer to the product copyright, Credits, version and the icon-only GitHub,
-theme and language controls. On desktop, bottom-align the visible content with 12px
-bottom padding. The row stays on one line, so phones keep the year alone in the
-copyright instead of the product name the header already carries. Describe the
+theme and language controls. On desktop these sit in the rail's foot — the controls in
+one row, the legal line under them at the bottom edge — and on a phone in one centred
+row above the tab bar. The phone's row stays on one line, so phones keep the year alone
+in the copyright instead of the product name the header already carries; the rail's
+legal line keeps the year alone too, for the wordmark above it. Describe the
 current and next theme, and the language in use and the one a click switches to, in
 their accessible labels and tooltips, and name GitHub in the accessible label and
 tooltip of its mark.

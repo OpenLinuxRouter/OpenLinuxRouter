@@ -26,7 +26,7 @@ import { getToken, setToken } from '@/lib/api'
  * box and not a login form. It should be replaced wholesale, not grown into
  * one.
  */
-export function TokenButton() {
+export function TokenButton({ className }: { className?: string }) {
   useLocale()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -58,7 +58,7 @@ export function TokenButton() {
     >
       <DialogTrigger
         render={
-          <Button variant="quiet" size="icon" aria-label={t('Set API token')}>
+          <Button variant="quiet" size="icon" className={className} aria-label={t('Set API token')}>
             <KeyRound className="size-4" aria-hidden />
           </Button>
         }

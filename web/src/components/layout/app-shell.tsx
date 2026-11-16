@@ -1,19 +1,14 @@
 import { t, useLocale } from '@/lib/i18n'
-import { PanelLeft } from 'lucide-react'
 import { useLayoutEffect, type CSSProperties } from 'react'
 import { Link, NavLink, Outlet, matchPath, useLocation } from 'react-router'
 
-import { GithubMark } from '@/components/layout/github-mark'
+import { FooterLine, RailFooter } from '@/components/layout/console-footer'
 import { Logo } from '@/components/layout/logo'
 import { SECTIONS, sectionOf } from '@/components/layout/sections'
-import { ThemeToggle } from '@/components/layout/theme-toggle'
-import { LanguageToggle } from '@/components/layout/language-toggle'
 import { TokenButton } from '@/components/layout/token-button'
-import { Button } from '@/components/ui/button'
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -23,7 +18,6 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
-  useSidebar,
 } from '@/components/ui/sidebar'
 import { StatusInline } from '@/components/ui/status'
 import { useHostMetrics } from '@/features/system/queries'
@@ -86,10 +80,7 @@ export function AppShell() {
           </nav>
         </SidebarContent>
 
-        <SidebarFooter className="flex-row items-center justify-end gap-1 border-t px-3 py-2.5 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:px-2">
-          <TokenButton />
-          <RailToggle />
-        </SidebarFooter>
+        <RailFooter />
         <SidebarRail aria-label={t('Collapse or expand the sidebar')} title={t('Collapse or expand the sidebar')} />
       </Sidebar>
 
@@ -111,35 +102,7 @@ export function AppShell() {
           </div>
         </main>
 
-        <footer>
-          {/* One line at every width, so the row centres instead of wrapping and the
-              gap tightens only under 360px. The product name leaves the copyright on
-              phones, where the header already carries it and the six items cannot fit;
-              the version stays, because it is the one thing the footer alone reports. */}
-          <div className="mx-auto flex max-w-[80rem] items-center justify-center gap-x-3 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] text-center text-xs text-muted-foreground min-[360px]:gap-x-4 lg:items-end lg:pb-3">
-            <span>© {new Date().getFullYear()}<span className="hidden sm:inline"> Open Linux Router</span></span>
-            <Link to="/credits" className="inline-flex min-h-11 items-center transition-colors duration-150 hover:text-foreground lg:items-end">{t('Credits')}</Link>
-            <span>{__APP_VERSION__}</span>
-            {/* Each control is 44px tall with 8px of side padding, so its hit area
-                reaches into the gap but stops at the midpoint instead of overlapping
-                its neighbour. Cancel that padding here, and the items keep one visible
-                gap while every control stays 44px tall to the pointer. border-0 keeps
-                the buttons' 1px border from lifting their content off the line the
-                plain items share. */}
-            <a href="https://github.com/open-linux-router/open-linux-router" target="_blank" rel="noreferrer" aria-label="GitHub" title="GitHub"
-              className="inline-flex h-11 shrink-0 items-center justify-center px-2 -mx-2 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring lg:items-end">
-              {/* One icon size for the row. The mark's artwork carries its own
-                  optical inset, so it takes the same 14px as the theme control
-                  rather than a smaller box that merely looks the same. */}
-              <GithubMark className="size-3.5" />
-            </a>
-            <ThemeToggle className="-mx-2 border-0" />
-            {/* The word reports the language in use, so it is always set in the script
-                of the words and marks beside it and shares their line, instead of being
-                the one word in a language the row is not set in. */}
-            <LanguageToggle className="-mx-2 border-0" />
-          </div>
-        </footer>
+        <FooterLine />
 
         <nav aria-label={t('Sections')} className="fixed inset-x-0 bottom-0 z-20 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
           <ul className="grid grid-cols-7">
@@ -200,41 +163,34 @@ function RailGroup({ label, sections, active }: {
 }
 
 /**
- * Which router this console is talking to, and whether it is still answering
- * (console direction §6.1). The host is the address in the bar — the daemon
- * reports no name of its own — and the state comes from the five-second
- * metrics read the Status card already makes, so it costs no request.
+ * Which router this console is talking to (console direction §6.1). The host is
+ * the address in the bar — the daemon reports no name of its own.
  *
- * Any HTTP answer, even an error or a 401, means the daemon is there; only a
- * request that never got one is Not answering.
+ * It says nothing while that is all there is to say. The console is served by
+ * the daemon it names, so a page that rendered is itself the proof that the
+ * daemon answered; a permanent `Connected` would label a fact the reader is
+ * already holding, and a label that never changes cannot be read as a state.
+ * What is worth a line is what the page cannot show: the five-second metrics
+ * read the Status card makes stops getting an HTTP answer, which means the
+ * daemon went away under a page that is still open. Any answer, even an error or
+ * a 401, is the daemon being there — only a request that never got one is `Not
+ * answering`.
  */
 function RouterLink() {
   const metrics = useHostMetrics()
-  const health = metrics.isPending
-    ? state('Checking…')
-    : metrics.isError && !(metrics.error instanceof ApiError)
-      ? state('Not answering')
-      : state('Connected')
+  const away = state('Not answering')
+  const answering = !metrics.isError || metrics.error instanceof ApiError
   const host = window.location.host
   return (
     <div className="mt-1 flex min-w-0 flex-col gap-0.5 px-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0"
-      title={`${host} · ${health.label}`}>
+      title={answering ? host : `${host} · ${away.label}`}>
       <span className="truncate font-mono text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">{host}</span>
-      <StatusInline tone={health.tone} emphasis="dense" className="text-xs group-data-[collapsible=icon]:[&>span:last-child]:sr-only">
-        {health.label}
-      </StatusInline>
+      {!answering && (
+        <StatusInline tone={away.tone} emphasis="dense" className="text-xs group-data-[collapsible=icon]:[&>span:last-child]:sr-only">
+          {away.label}
+        </StatusInline>
+      )}
     </div>
-  )
-}
-
-/** Collapses the rail to its icons; ⌘B / Ctrl+B does the same. */
-function RailToggle() {
-  const { open, toggleSidebar } = useSidebar()
-  const label = open ? t('Collapse sidebar') : t('Expand sidebar')
-  return (
-    <Button variant="quiet" size="icon-sm" onClick={toggleSidebar} aria-label={label} title={label} className="text-muted-foreground">
-      <PanelLeft aria-hidden />
-    </Button>
   )
 }
 

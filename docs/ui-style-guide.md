@@ -234,7 +234,8 @@ The shell has a 1280px maximum width, a 64px header and horizontal gutters of
 24px vertical space on phones and 32px on larger screens.
 
 All page containers use the available shell width, centered in the viewport.
-Header, page headings, cards and footer share the same outer boundaries. Do not
+Header, page headings and cards share the same outer boundaries; the footer is
+the rail's foot, not part of that column. Do not
 apply route-dependent page widths. Individual fields and explanatory paragraphs
 may constrain their own reading width without narrowing the entire page.
 Section landing pages omit the visible heading already named in navigation;
@@ -655,14 +656,20 @@ Account for the device safe area and bottom navigation when laying out content
 and the footer. At 375px, keep labels, statuses, addresses and action buttons
 usable. Monitoring statistics use two columns on phones.
 
-The footer is one line at every width: it centres its row and thins the gap to 12px
-below 360px rather than wrapping. On desktop it bottom-aligns its text and icons with
-12px bottom padding, keeping the visible content close to the viewport edge. Its items
-run in one order — copyright, Credits, version, then the three controls — with one
-visible 16px gap: each control spends 8px of side padding on a 44px-high hit target, so
-the footer cancels that padding rather than letting the controls sit in visibly wider
-intervals than the text. Below 640px the copyright keeps the year alone and drops the
-product name, which the header already carries; the version stays at every width,
+The footer belongs to the rail on desktop and to the tab bar on a phone. In the
+rail's foot it is two rows: the controls — GitHub, theme, language, a token box when
+one is set — on one 32px line with the collapse toggle at the trailing edge, and the
+legal line under them, so the last thing the eye meets is what this build is rather
+than a toolbar. Collapsed to 48px of icons, the foot keeps the controls as icons in a
+column and drops the legal line: a rail that narrow cannot set a version string, and
+the names come back with the labels. Below `lg` there is no rail, so the footer is one
+line above the tab bar: it centres its row and thins the gap to 12px below 360px rather
+than wrapping. Its items run in one order — copyright, Credits, version, then the three
+controls — with one visible 16px gap: each control spends 8px of side padding on a 44px
+hit target, so the footer cancels that padding rather than letting the controls sit in
+visibly wider intervals than the text. Below 640px the copyright keeps the year alone
+and drops the product name, which the header already carries; the rail's legal line
+drops it too, because the wordmark is above it. The version stays at every width,
 because the footer is the only place that reports it. The repository link is GitHub's
 mark alone and the theme control a single icon; clicking the theme cycles auto, light
 and dark, and both name themselves in their accessible label and tooltip. Both are
@@ -672,7 +679,9 @@ smaller box. The language
 control shows only the language in use, in its native writing (English / 中文): footer
 text size and weight, no icon, no separate "Language" label, and no filled hover
 background, so it reads as footer text rather than as a button, with visible keyboard
-focus. Like the theme control, it reports the state it is in, and its accessible label
+focus. The collapsed rail is the one place with no room for the word, so there the
+control becomes a languages icon and keeps the tooltip. Like the theme control, it
+reports the state it is in, and its accessible label
 and tooltip name the language a click switches to. Place the same control below the
 sign-in and initial-setup forms.
 Language changes preserve layout, current navigation and in-progress form values.

@@ -1,3 +1,5 @@
+import { Languages } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
 import { setLocale, t, useLocale, type Locale } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -20,6 +22,10 @@ const NAMES: Record<Locale, Record<Locale, string>> = {
  * the rest of the footer and shares its line with it. The 8px side padding makes
  * the target reach into the gap between items; the footer cancels it so the
  * visible gap stays 16px.
+ *
+ * The rail's icon state is the one place the word cannot follow: 32px cannot set
+ * "English", so there the control becomes the one icon that means the same
+ * thing, and the tooltip still names both languages.
  */
 export function LanguageToggle({ className }: { className?: string }) {
   const locale = useLocale()
@@ -32,7 +38,8 @@ export function LanguageToggle({ className }: { className?: string }) {
     <Button variant="quiet" size="sm" className={cn('min-h-11 px-2 text-xs font-normal text-muted-foreground transition-colors duration-150 hover:bg-transparent hover:text-foreground active:bg-transparent dark:hover:bg-transparent lg:items-end', className)}
       aria-label={label} title={label}
       onClick={() => setLocale(next)}>
-      <span lang={locale}>{SELF[locale]}</span>
+      <span lang={locale} className="group-data-[collapsible=icon]:hidden">{SELF[locale]}</span>
+      <Languages className="hidden size-3.5 group-data-[collapsible=icon]:block" aria-hidden />
     </Button>
   )
 }
