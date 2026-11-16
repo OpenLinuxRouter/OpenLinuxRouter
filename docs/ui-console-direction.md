@@ -348,7 +348,8 @@ per-section status already exist in `GET /api/devices/{id}/snapshot` and
 
 Six slices, each independently shippable. Nothing here writes to hardware.
 **Shipped: 0 (the rail), 1 (the object index), 2 (the device frame), 3 (the port
-panel) and 4 (the map as a page). Slice 5 is in part. Open: the rest of 5 and 6.**
+panel), 4 (the map as a page) and 5 except its events feed. Open: events, and the
+LLDP work that would let the map draw evidence, and 6.**
 
 **Slice 0 — Tokens and shell.** *(small; no behaviour change)*
 Add the two brand values to `index.css` and the one legal drawing to the rail
@@ -399,11 +400,12 @@ better than a strip of facts could.
 
 Two pieces are still open, and neither is a UI job:
 
-- **A 24-hour throughput chart.** The daemon keeps half-hour traffic samples
-  (`/api/gateway/activity`) but only per client or per address; there is no total
-  series. Summing clients in the browser would present a lower bound as the
-  router's throughput. The honest fix is a total-series endpoint beside the
-  existing view.
+- ~~A 24-hour throughput chart~~ — **shipped as "traffic counted"**. The daemon
+  keeps half-hour samples (`/api/gateway/activity`) per client or per address;
+  `/api/gateway/activity/series` adds them up in one place. It is deliberately
+  not called throughput: the sampler stores nothing it cannot attribute, so the
+  card says "counted for clients this router can name" and that the link carried
+  at least this much.
 - **An events feed.** Nothing exposes one. "An event" is undefined here — the
   audit log records mutations, not network happenings — so this needs a decision
   about what an event is before it can have a list.

@@ -215,6 +215,7 @@ func (h HTTP) Routes() []core.Route {
 			Handler: h.getTraffic,
 		},
 		{Method: "GET", Path: "/activity", Tool: "show activity", Summary: "Show retained half-hour traffic samples for one client, or for the requested addresses, over the last 90 days.", Handler: h.getActivity},
+		{Method: "GET", Path: "/activity/series", Tool: "show activity series", Summary: "Show retained half-hour traffic summed across every client this router can name. Counted traffic, not link throughput.", Query: []core.QueryParam{{Name: "hours", Type: "integer", Summary: "How far back to sum, in hours. Defaults to 24, capped at the retention window."}}, Handler: h.getActivitySeries},
 	}
 
 	// The NAT half's routes, under the same prefix. Appended rather than
@@ -778,6 +779,32 @@ func (h HTTP) getActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	core.WriteJSON(w, http.StatusOK, h.Activity.view("", addresses))
+}
+
+// getActivitySeries is the day's shape in one series: every named client's
+// half-hour buckets, added up.
+func (h HTTP) getActivitySeries(w http.ResponseWriter, r *http.Request) {
+	if h.Activity == nil {
+		core.WriteError(w, http.StatusServiceUnavailable, "Activity unavailable")
+		return
+	}
+	hours := 24
+	if raw := r.URL.Query().Get("hours"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 {
+			core.WriteError(w, http.StatusBadRequest, "Invalid hours")
+			return
+		}
+		hours = parsed
+	}
+	if max := int(ActivityRetention / time.Hour); hours > max {
+		hours = max
+	}
+	since := time.Now().Add(-time.Duration(hours) * time.Hour)
+	core.WriteJSON(w, http.StatusOK, struct {
+		Hours   int              `json:"hours"`
+		Buckets []activityBucket `json:"buckets"`
+	}{Hours: hours, Buckets: h.Activity.seriesTotal(since)})
 }
 
 // --- plumbing --------------------------------------------------------------

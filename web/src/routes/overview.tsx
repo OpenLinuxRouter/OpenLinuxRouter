@@ -22,6 +22,7 @@ import 'flag-icons/css/flag-icons.min.css'
 import { SiteIcon } from '@/features/gateway/latency-site-icon'
 import { useGatewayLatency, useMeasureLatencySite, useGatewayStatus, useGatewayTraffic } from '@/features/gateway/queries'
 import { FirstRun } from '@/features/setup/first-run'
+import { TrafficSeriesCard } from '@/features/gateway/traffic-series-card'
 import { useRemoteStatus } from '@/features/remote/queries'
 import { useClientList } from '@/features/clients/queries'
 import { useDevicesConfig } from '@/features/devices/queries'
@@ -127,6 +128,8 @@ export function OverviewPage() {
       ))}
 
       <Glance />
+
+      <TrafficSeriesCard hours={24} />
 
       <section aria-label={t('Your network')} className="pt-2">
         <NetworkMapPanel density="auto" />

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
-import type { GatewayApplyResult, GatewayLatency, GatewayPlan, GatewayRoutes, GatewayStatus, GatewayTraffic } from '@/lib/api-types'
+import type { ActivitySeries, GatewayApplyResult, GatewayLatency, GatewayPlan, GatewayRoutes, GatewayStatus, GatewayTraffic } from '@/lib/api-types'
 import type { GatewayConfig } from '@/lib/config-types'
 
 import { TRAFFIC_SAMPLE_SAVE_MS, writeTrafficSample } from './traffic-sample'
@@ -31,6 +31,7 @@ export const gatewayKeys = {
   status: ['gateway', 'status'] as const,
   traffic: ['gateway', 'traffic'] as const,
   routes: ['gateway', 'routes'] as const,
+  activitySeries: ['gateway', 'activity', 'series'] as const,
 }
 
 /**
@@ -272,5 +273,20 @@ export function useSaveLatencySites() {
       if (target !== undefined) await api.put('/api/gateway/latency/target', { target })
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gateway', 'latency'] }),
+  })
+}
+
+/**
+ * The day's shape, in half-hour steps.
+ *
+ * Hourly rather than per-second: the sampler records every half hour and this is
+ * a picture of the day, not a live rate, so it refreshes on the same slow clock
+ * as the other observed data.
+ */
+export function useActivitySeries(hours = 24) {
+  return useQuery({
+    queryKey: [...gatewayKeys.activitySeries, hours] as const,
+    queryFn: () => api.get<ActivitySeries>(`/api/gateway/activity/series?hours=${hours}`),
+    refetchInterval: 5 * 60_000,
   })
 }

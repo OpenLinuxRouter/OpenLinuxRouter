@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
@@ -543,6 +544,40 @@ func (a *Activity) Run(ctx context.Context, applier Applier) {
 			}
 		}
 	}
+}
+
+// seriesTotal is every retained bucket summed across the clients this router can
+// name, from `since` onward.
+//
+// It is deliberately not called "throughput". The sampler stores nothing it
+// cannot attribute — `named` and the client join drop the rest — so this is the
+// part of the day's traffic that could be given an owner, and a chart drawn from
+// it must say so. Summing it here rather than in the browser keeps the number
+// and the buckets it came from in one place, the same reason a client's total is
+// not sent alongside its matrix.
+func (a *Activity) seriesTotal(since time.Time) []activityBucket {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	out := make([]activityBucket, 0, len(a.buckets))
+	for at, values := range a.buckets {
+		observed := time.Unix(at, 0)
+		if observed.Before(since) {
+			continue
+		}
+		var total activityBytes
+		for _, value := range values {
+			total.Up += value.Up
+			total.Down += value.Down
+		}
+		// A bucket whose every subject trimmed to zero is silence, not a sample
+		// of nothing: the chart should not draw a dip the router never saw.
+		if total.Up == 0 && total.Down == 0 {
+			continue
+		}
+		out = append(out, activityBucket{At: observed, Bytes: total})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].At.Before(out[j].At) })
+	return out
 }
 
 // view is the retained history for one client (mac), or for addresses when mac

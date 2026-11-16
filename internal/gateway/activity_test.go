@@ -340,3 +340,38 @@ func TestActivityDropsTrafficNoScreenCanShow(t *testing.T) {
 		t.Fatalf("stored %d entries for two showable rows", a.entries)
 	}
 }
+
+func TestActivitySeriesSumsEverySubjectAndOrdersIt(t *testing.T) {
+	now := time.Now().Truncate(30 * time.Minute)
+	a := NewActivity()
+	early := now.Add(-90 * time.Minute).Unix()
+	late := now.Add(-30 * time.Minute).Unix()
+	stale := now.Add(-48 * time.Hour).Unix()
+	a.buckets[late] = map[string]activityBytes{
+		"aa:bb:cc:dd:ee:01": {Up: 10, Down: 90},
+		"aa:bb:cc:dd:ee:02": {Up: 5, Down: 45},
+	}
+	a.buckets[early] = map[string]activityBytes{
+		"aa:bb:cc:dd:ee:01": {Up: 1, Down: 2},
+	}
+	// Outside the window: present in the store, absent from the answer.
+	a.buckets[stale] = map[string]activityBytes{
+		"aa:bb:cc:dd:ee:01": {Up: 1000, Down: 1000},
+	}
+	// A bucket every subject trimmed to zero is silence, not a sample.
+	a.buckets[now.Unix()] = map[string]activityBytes{"aa:bb:cc:dd:ee:03": {}}
+
+	got := a.seriesTotal(now.Add(-24 * time.Hour))
+	if len(got) != 2 {
+		t.Fatalf("expected two buckets, got %+v", got)
+	}
+	if !got[0].At.Before(got[1].At) {
+		t.Fatal("buckets are not in time order")
+	}
+	if got[1].Bytes.Up != 15 || got[1].Bytes.Down != 135 {
+		t.Fatalf("buckets were not summed across subjects: %+v", got[1].Bytes)
+	}
+	if got[0].Bytes.Up != 1 || got[0].Bytes.Down != 2 {
+		t.Fatalf("wrong early bucket: %+v", got[0].Bytes)
+	}
+}

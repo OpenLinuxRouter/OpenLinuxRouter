@@ -1115,6 +1115,18 @@ export interface Usage {
   down_packets: number
 }
 
+/**
+ * Half-hour traffic samples summed across every client this router can name.
+ *
+ * Deliberately not "throughput": the sampler stores nothing it cannot attribute
+ * to a client or a named address, so this series is the part of the day that
+ * could be given an owner. A chart drawn from it says so.
+ */
+export interface ActivitySeries {
+  hours: number
+  buckets: { at: string; bytes: { up: number; down: number } }[]
+}
+
 /** internal/gateway trafficView. */
 export interface GatewayTraffic {
   /** Intent. `counting` is whether the kernel actually has the table. */
