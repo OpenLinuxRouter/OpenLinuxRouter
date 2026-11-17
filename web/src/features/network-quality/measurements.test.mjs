@@ -119,7 +119,28 @@ test('functionality counts services that answered at least once', () => {
 })
 
 test('an unmeasured category carries no evidence', () => {
-  assert.equal(categoryEvidence(category({ id: 'wifi' }), []).kind, 'unmeasured')
+  const out = categoryEvidence(category({ id: 'wifi' }), [])
+  assert.equal(out.kind, 'wireless')
+  assert.equal(out.wireless, null)
+})
+
+test('wireless evidence counts links and the access points that answered', () => {
+  const out = categoryEvidence(category({ id: 'wifi' }), [], {
+    targets: [],
+    wireless: {
+      observed_at: '2026-11-17T04:41:16Z',
+      aps: [
+        { id: 'ap-1', state: 'ok', links: 2 },
+        { id: 'ap-2', state: 'error', error: 'connection refused', links: 0 },
+      ],
+      links: [
+        { ap_id: 'ap-1', mac: 'aa:bb:cc:dd:ee:01', signal_dbm: -52, snr_db: 48 },
+        { ap_id: 'ap-1', mac: 'aa:bb:cc:dd:ee:02', signal_dbm: -71 },
+      ],
+    },
+  })
+  assert.equal(out.kind, 'wireless')
+  assert.deepEqual(out.wireless, { links: 2, accessPoints: 2, answered: 1, weakest: -71 })
 })
 
 test('speed evidence comes from the transfer, not from samples', () => {

@@ -33,7 +33,7 @@ export interface QualityCategory {
   components: QualityComponent[]
 }
 
-export type QualityScope = 'all' | 'responses' | 'target' | 'speed' | 'nat'
+export type QualityScope = 'all' | 'responses' | 'target' | 'speed' | 'nat' | 'wifi'
 
 export interface QualitySnapshot {
   scoring_version: string
@@ -43,7 +43,7 @@ export interface QualitySnapshot {
   scope: string
   run_id: string
   state: 'idle' | 'running' | 'completed' | 'cancelled' | 'timed_out'
-  phase: 'responses' | 'speed' | 'nat' | ''
+  phase: 'responses' | 'speed' | 'nat' | 'wifi' | ''
   running_scope?: QualityScope
   running_target?: string
   include_speed: boolean
@@ -71,6 +71,31 @@ export interface QualitySnapshot {
     error?: string
   } | null
   nat_error?: string
+  wireless: {
+    observed_at: string
+    aps: {
+      id: string
+      name?: string
+      state: 'ok' | 'error'
+      error?: string
+      links: number
+    }[]
+    links: {
+      ap_id: string
+      ap_name?: string
+      mac: string
+      radio_id?: string
+      band?: string
+      signal_dbm?: number
+      noise_dbm?: number
+      snr_db?: number
+      rx_rate_mbps?: number
+      tx_rate_mbps?: number
+      connected_seconds?: number
+    }[]
+  } | null
+  wireless_at: string | null
+  wireless_error?: string
   categories: QualityCategory[]
   overall: {
     state: 'unavailable' | 'partial' | 'ready' | 'stale' | 'measuring'

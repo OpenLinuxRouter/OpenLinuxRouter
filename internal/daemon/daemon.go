@@ -1079,6 +1079,10 @@ func run(args []string) error {
 	go recovery.Run(ctx, func(err error) { logger.Error("connectivity recovery failed; retrying", "error", err) })
 	toolHTTP.QualityContext = ctx
 	toolHTTP.QualityPath = filepath.Join(opts.root, "/var/lib/open-linux-router/quality.json")
+	// The Wi-Fi category reads the managed access points through the same
+	// equipment service the Wireless page uses, so a credential or a timeout
+	// cannot differ between the two surfaces.
+	toolHTTP.Wireless = qualityWireless(devicesService)
 	if err := toolHTTP.RestoreQuality(); err != nil {
 		logger.Error("could not restore quality assessment", "error", err)
 	}

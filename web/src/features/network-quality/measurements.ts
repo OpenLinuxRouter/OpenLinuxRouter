@@ -115,11 +115,19 @@ export interface FunctionalityEvidence {
   measured: number
 }
 
+export interface WirelessEvidence {
+  links: number
+  accessPoints: number
+  answered: number
+  weakest: number | null
+}
+
 export type CategoryEvidence =
   | { kind: 'speed'; speed: SpeedEvidence | null }
   | { kind: 'latency'; latency: LatencyEvidence }
   | { kind: 'stability'; stability: StabilityEvidence }
   | { kind: 'functionality'; functionality: FunctionalityEvidence }
+  | { kind: 'wireless'; wireless: WirelessEvidence | null }
   | { kind: 'unmeasured' }
 
 /**
@@ -165,6 +173,22 @@ export function categoryEvidence(category: QualityCategory, services: ServiceEvi
         functionality: {
           reachable: measured.filter(item => item.responded > 0).length,
           measured: measured.length,
+        },
+      }
+    }
+    case 'wifi': {
+      const wireless = data?.wireless
+      if (!wireless) return { kind: 'wireless', wireless: null }
+      const signals = wireless.links
+        .map(link => link.signal_dbm)
+        .filter((value): value is number => value != null && Number.isFinite(value))
+      return {
+        kind: 'wireless',
+        wireless: {
+          links: wireless.links.length,
+          accessPoints: wireless.aps.length,
+          answered: wireless.aps.filter(ap => ap.state === 'ok').length,
+          weakest: signals.length > 0 ? Math.min(...signals) : null,
         },
       }
     }

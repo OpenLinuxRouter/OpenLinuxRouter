@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	qualityVersion = "quality-v3"
+	qualityVersion = "quality-v4"
 	qualityCatalog = "reference-v1"
 	qualitySamples = 6
 
@@ -26,6 +26,7 @@ const (
 	qualityScopeTarget    = "target"
 	qualityScopeSpeed     = "speed"
 	qualityScopeNAT       = "nat"
+	qualityScopeWifi      = "wifi"
 )
 
 type qualityTarget struct {
@@ -83,6 +84,9 @@ type QualitySnapshot struct {
 	SpeedError     string                `json:"speed_error,omitempty"`
 	NAT            *NATResult            `json:"nat"`
 	NATError       string                `json:"nat_error,omitempty"`
+	Wireless       *QualityWireless      `json:"wireless"`
+	WirelessAt     *time.Time            `json:"wireless_at"`
+	WirelessError  string                `json:"wireless_error,omitempty"`
 	Categories     []QualityCategory     `json:"categories"`
 	Overall        QualityOverall        `json:"overall"`
 }
@@ -156,7 +160,11 @@ func (h *HTTP) qualitySnapshot() QualitySnapshot {
 	if snapshot.State == "" {
 		snapshot.State = "idle"
 	}
-	snapshot.Version, snapshot.Catalog, snapshot.Scope = qualityVersion, qualityCatalog, "router-default-route"
+	snapshot.Version, snapshot.Catalog = qualityVersion, qualityCatalog
+	snapshot.Scope = "router-default-route"
+	if snapshot.Wireless != nil {
+		snapshot.Scope = "router-and-access-points"
+	}
 	snapshot.Profile, snapshot.ProfileVersion = "reference", "1"
 	if snapshot.Targets == nil {
 		snapshot.Targets = []QualityTargetResult{}
@@ -183,6 +191,8 @@ func qualityPhase(scope string) string {
 		return "speed"
 	case qualityScopeNAT:
 		return "nat"
+	case qualityScopeWifi:
+		return "wifi"
 	default:
 		return "responses"
 	}
@@ -198,6 +208,8 @@ func qualityTimeout(scope string) time.Duration {
 		return 100 * time.Second
 	case qualityScopeNAT:
 		return 20 * time.Second
+	case qualityScopeWifi:
+		return 45 * time.Second
 	default:
 		return 150 * time.Second
 	}
@@ -224,7 +236,7 @@ func (h *HTTP) startQuality(w http.ResponseWriter, r *http.Request) {
 			core.WriteError(w, http.StatusBadRequest, "target is only valid with scope=target")
 			return
 		}
-	case qualityScopeResponses, qualityScopeSpeed, qualityScopeNAT:
+	case qualityScopeResponses, qualityScopeSpeed, qualityScopeNAT, qualityScopeWifi:
 		if target != "" {
 			core.WriteError(w, http.StatusBadRequest, "target is only valid with scope=target")
 			return
@@ -235,11 +247,15 @@ func (h *HTTP) startQuality(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
-		core.WriteError(w, http.StatusBadRequest, "scope must be all, responses, target, speed or nat")
+		core.WriteError(w, http.StatusBadRequest, "scope must be all, responses, target, speed, nat or wifi")
 		return
 	}
 	if includeSpeed && scope != qualityScopeAll {
 		core.WriteError(w, http.StatusBadRequest, "speed is only valid with scope=all")
+		return
+	}
+	if scope == qualityScopeWifi && h.Wireless == nil {
+		core.WriteError(w, http.StatusBadRequest, "no access point is configured for wireless measurement")
 		return
 	}
 	h.quality.mu.Lock()
@@ -354,6 +370,9 @@ func (h *HTTP) measureQuality(ctx context.Context, spec qualityRunSpec) {
 	case qualityScopeNAT:
 		h.measureQualityNAT(ctx)
 		completed = ctx.Err() == nil
+	case qualityScopeWifi:
+		h.measureQualityWireless(ctx)
+		completed = ctx.Err() == nil
 	default:
 		h.measureQualityAll(ctx, spec.IncludeSpeed)
 	}
@@ -369,6 +388,12 @@ func (h *HTTP) measureQualityAll(ctx context.Context, includeSpeed bool) {
 	}
 	if ctx.Err() == nil {
 		h.measureQualityNAT(ctx)
+	}
+	// Wireless is a read of the access points, so it comes after the tests
+	// that touch the internet: adding a management request mid-transfer would
+	// be the one thing that could disturb the throughput sample.
+	if ctx.Err() == nil {
+		h.measureQualityWireless(ctx)
 	}
 }
 
@@ -471,6 +496,40 @@ func (h *HTTP) measureQualitySpeed(ctx context.Context) {
 		// Keep the last successful transfer; the error explains why this
 		// attempt did not replace it.
 		h.quality.snapshot.SpeedError = err.Error()
+	}
+}
+
+// measureQualityWireless reads the access points' client tables. It is a
+// passive read: no test traffic, so it can run beside anything, but a client
+// that moved a minute ago is simply not in it. An access point that did not
+// answer is named in the evidence instead of shrinking the client count.
+func (h *HTTP) measureQualityWireless(ctx context.Context) {
+	h.quality.mu.Lock()
+	h.quality.snapshot.Phase = "wifi"
+	h.quality.mu.Unlock()
+	read := h.Wireless
+	if read == nil {
+		h.quality.mu.Lock()
+		h.quality.snapshot.WirelessError = "No access point is configured for measurement"
+		h.quality.mu.Unlock()
+		return
+	}
+	bounded, cancel := context.WithTimeout(ctx, 30*time.Second)
+	result, err := read(bounded)
+	cancel()
+	h.quality.mu.Lock()
+	defer h.quality.mu.Unlock()
+	switch {
+	case ctx.Err() != nil:
+		// A cancelled run must not replace published evidence in memory.
+	case err != nil:
+		// Keep the last read and let wireless_at say how old it is; a failed
+		// read is not evidence that every client left.
+		h.quality.snapshot.WirelessError = err.Error()
+	default:
+		now := time.Now().UTC()
+		h.quality.snapshot.Wireless, h.quality.snapshot.WirelessAt = &result, &now
+		h.quality.snapshot.WirelessError = ""
 	}
 }
 

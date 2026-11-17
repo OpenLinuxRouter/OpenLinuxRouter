@@ -93,7 +93,8 @@ hidden page title. Detail and operation pages keep their identifying titles.
   the total. Raw service and NAT evidence and the scoring explanation stay in
   collapsed Measurement details. The page always includes the reference transfer, so replace the old
   optional-bandwidth switch with one short line at the run action; keep freshness
-  and the router-default-route scope visible without restating the workflow.
+  and where the evidence came from visible without restating the workflow — the
+  default route, and the managed access points once a wireless read is present.
   The view has its own /quality address. Snapshot reads never start
   tests. Clicking the Latency title opens the /latency test page, without a
   separate plus button. Internet target selection remains available through the

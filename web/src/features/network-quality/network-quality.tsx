@@ -57,12 +57,14 @@ const phaseText: Record<string, string> = {
   responses: 'Checking service responses',
   speed: 'Measuring download and upload',
   nat: 'Checking NAT type',
+  wifi: 'Reading wireless links',
   '': 'Starting…',
 }
 
-function categoryScope(id: string): 'responses' | 'speed' | null {
+function categoryScope(id: string): Exclude<QualityScope, 'all' | 'target'> | null {
   switch (id) {
     case 'speed': return 'speed'
+    case 'wifi': return 'wifi'
     case 'latency':
     case 'stability':
     case 'functionality': return 'responses'
@@ -94,6 +96,7 @@ function runningLabel(data: QualitySnapshot | undefined) {
     case 'responses': return t('Updating service tests')
     case 'speed': return t('Updating the transfer test')
     case 'nat': return t('Updating NAT observations')
+    case 'wifi': return t('Updating wireless links')
     case 'target': return t('Updating {target} tests', { target: targetName(data, data.running_target) })
     default: return t('Testing network quality')
   }
@@ -136,7 +139,9 @@ function QualityReport({ data, readError, loading, retry }: {
 
   return <>
     <PageHeading title={t('Network quality')} description={<>
-      {t("From this router's default route.")}
+      {data?.wireless
+        ? t("From this router's default route and its access points.")
+        : t("From this router's default route.")}
       {updated && <> · {t('Updated {time}', { time: formatWhen(updated, locale) })}</>}
     </>} action={
       <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
@@ -358,6 +363,17 @@ function categorySummary(evidence: CategoryEvidence, category: QualityCategory, 
       return evidence.functionality.measured === 0
         ? t('Not measured')
         : t('{count} of {total} services reachable', { count: evidence.functionality.reachable, total: evidence.functionality.measured })
+    case 'wireless': {
+      const wireless = evidence.wireless
+      if (!wireless) return t('Not measured')
+      if (wireless.links === 0) return t('No associated clients')
+      const parts = [t('{links} links on {aps} access points', { links: wireless.links, aps: wireless.accessPoints })]
+      if (wireless.weakest != null) parts.push(t('Weakest {value} dBm', { value: wireless.weakest }))
+      if (wireless.answered < wireless.accessPoints) {
+        parts.push(t('{count} of {total} access points answered', { count: wireless.answered, total: wireless.accessPoints }))
+      }
+      return parts.join(' · ')
+    }
     default:
       return null
   }
@@ -410,8 +426,9 @@ function CategoryRow({ category, data, services, hasRun, runningScope, runningTa
   const grade = displayed == null ? null : gradeFor(displayed)
   const width = score == null ? 0 : Math.max(0, Math.min(100, score))
   const scope = categoryScope(category.id)
+  const rerun: QualityAction | null = scope ? { scope } : null
   const tests = data ? categoryTests(category, services, data) : []
-  const busy = (scope === 'responses' && runningScope === 'responses') || (scope === 'speed' && runningScope === 'speed')
+  const busy = scope != null && runningScope === scope
   const label = t(categoryLabel(category.label))
   const listID = `quality-${category.id}-tests`
   const summary = categorySummary(categoryEvidence(category, services, data), category, hasRun)
@@ -443,12 +460,12 @@ function CategoryRow({ category, data, services, hasRun, runningScope, runningTa
       {/* The action slot is reserved even when a category has no rerun, so the
           scores stay in one column instead of stepping sideways. */}
       <div className="flex w-8 shrink-0 justify-end">
-        {scope && canRerun && <Button
+        {rerun && canRerun && <Button
           variant="quiet"
           size="icon-sm"
           className={cn('shrink-0', busy && 'disabled:opacity-100')}
           disabled={anyRunning}
-          onClick={() => onRerun(scope === 'speed' ? { scope: 'speed' } : { scope: 'responses' })}
+          onClick={() => onRerun(rerun)}
           aria-label={t('Rerun {category} tests', { category: label })}
           title={t('Rerun {category} tests', { category: label })}
         >
@@ -500,8 +517,8 @@ interface TestGroup {
   label: string
   target?: string
   /** What opening the row shows, or `null` when the row is all there is. */
-  evidence: 'samples' | 'transfer' | 'nat' | null
-  scope: 'target' | 'speed' | 'nat' | null
+  evidence: 'samples' | 'transfer' | 'nat' | 'links' | null
+  scope: 'target' | 'speed' | 'nat' | 'wifi' | null
   score: number | null
   metrics: TestMetric[]
   /** What the group measured, in its own units, so the row can be checked. */
@@ -608,6 +625,26 @@ function categoryTests(category: QualityCategory, services: ServiceEvidence[], d
     groups.push({ id: component.id, label: t(component.label), evidence: null, scope: null, score: component.score, metrics: [] })
   }
 
+  // Wireless evidence is one list of links, not one service per access point:
+  // a client belongs to exactly one of them, and the category score is the mean
+  // over those links.
+  if (category.id === 'wifi' && data) {
+    const wireless = data.wireless
+    // The row exists even when no access point answered: expanding the
+    // category must explain the gap instead of showing an empty list.
+    groups.push({
+      id: 'links',
+      label: t('Observed links'),
+      evidence: wireless ? 'links' : null,
+      scope: 'wifi',
+      score: category.components[0]?.score ?? null,
+      metrics: [],
+      detail: wireless && wireless.links.length > 0
+        ? t('{links} links on {aps} access points', { links: wireless.links.length, aps: wireless.aps.length })
+        : data.wireless_error || t('No associated clients'),
+    })
+  }
+
   // NAT is Functionality evidence (docs/network-quality.md §6) that the score
   // deliberately does not reward, so it is listed where a reader looks for that
   // capability and says in its own line why it carries no number.
@@ -650,10 +687,10 @@ function QualityTestRow({ test, category, data, view, runningScope, runningTarge
   const busy = test.scope === 'target' ? runningScope === 'target' && runningTarget === test.target : test.scope != null && runningScope === test.scope
   const rerun: QualityAction | null = test.scope === 'target' && test.target
     ? { scope: 'target', target: test.target }
-    : test.scope === 'speed' || test.scope === 'nat'
+    : test.scope === 'speed' || test.scope === 'nat' || test.scope === 'wifi'
       ? { scope: test.scope }
       : null
-  const openable = test.evidence === 'samples' || test.evidence === 'nat'
+  const openable = test.evidence === 'samples' || test.evidence === 'nat' || test.evidence === 'links'
   const bodyID = `quality-${category}-${test.id}-evidence`
   // The Speed row's own rerun is the reference transfer's rerun; offering the
   // same button twice in a stack of two rows reads as two different actions.
@@ -701,6 +738,7 @@ function QualityTestRow({ test, category, data, view, runningScope, runningTarge
     </div>
     {open && test.evidence === 'samples' && test.samples && <SampleList id={bodyID} samples={test.samples} url={test.url} family={test.family} view={view} />}
     {open && test.evidence === 'nat' && <NATDetail id={bodyID} data={data} />}
+    {open && test.evidence === 'links' && <WirelessDetail id={bodyID} data={data} />}
     {/* The transfer is the row's own measurement, not a detail under it, so its
         two numbers are visible as soon as the category is open. */}
     {test.evidence === 'transfer' && <TransferDetail data={data} busy={busy} />}
@@ -775,6 +813,45 @@ function NATDetail({ id, data }: { id: string; data?: QualitySnapshot }) {
     </dl>}
     {data?.nat_error && <p className="break-words text-xs leading-5 text-muted-foreground">{data.nat_error}</p>}
     <p className="mt-1 text-xs leading-5 text-muted-foreground">{t('An observed mapping does not prove public IPv4 assignment, inbound access or P2P success. These observations do not add points.')}</p>
+  </div>
+}
+
+/**
+ * The wireless evidence is a list of links, not a number: each row is one
+ * client as its access point reports it. The rate is the radio's negotiated
+ * rate, which a footnote says is not throughput — a link can be fast on paper
+ * and slow in the air.
+ */
+function WirelessDetail({ id, data }: { id: string; data?: QualitySnapshot }) {
+  const locale = useLocale()
+  const wireless = data?.wireless
+  if (!wireless) return null
+  return <div id={id} className="mt-1 mb-1.5 ml-5 max-w-3xl rounded-lg bg-muted/30 px-3 py-2">
+    <ol className="space-y-1">
+      {wireless.links.map((link, index) => {
+        const rate = Math.max(link.tx_rate_mbps ?? 0, link.rx_rate_mbps ?? 0)
+        return <li key={index} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-xs">
+          <span className="flex min-w-0 items-baseline gap-1.5">
+            <span className="break-all font-mono">{link.mac}</span>
+            {link.band && <span className="uppercase text-muted-foreground">{link.band}</span>}
+          </span>
+          <span className="tabular-nums text-muted-foreground">
+            {link.signal_dbm == null ? '—' : `${link.signal_dbm} dBm`}
+            {link.snr_db != null && ` · ${link.snr_db} dB SNR`}
+            {rate > 0 && ` · ${Math.round(rate)} Mbps`}
+          </span>
+        </li>
+      })}
+    </ol>
+    {wireless.aps.filter(ap => ap.state === 'error').map(ap => <p key={ap.id} className="mt-1 break-words text-xs leading-5 text-destructive">
+      {t('{accessPoint} did not answer', { accessPoint: ap.name || ap.id })}: {ap.error}
+    </p>)}
+    {data?.wireless_error && <p className="mt-1 break-words text-xs leading-5 text-destructive">
+      {t('The last wireless read failed; these links are from {time}.', { time: formatWhen(wireless.observed_at, locale) })}: {data.wireless_error}
+    </p>}
+    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+      {t('Signal and SNR as the access point reports them, for the clients attached right now. Link rate is not throughput.')}
+    </p>
   </div>
 }
 

@@ -117,6 +117,9 @@ type HTTP struct {
 	// QualityPath stores the latest finished assessment; empty disables persistence.
 	QualityPath  string
 	qualityProbe func(context.Context, qualityTarget, string) QualitySample
+	// Wireless reads every managed access point's client table for the Wi-Fi
+	// category. Nil means this build has no access point to ask.
+	Wireless func(context.Context) (QualityWireless, error)
 
 	Trace  func(context.Context, string) (TraceResult, error)
 	RunNAT func(context.Context) (NATResult, error)
@@ -161,7 +164,7 @@ func (h *HTTP) Routes() []core.Route {
 	search := core.QueryParam{Name: "search", Type: "string", Summary: "Optional word to widen the server list, matched by Ookla against provider, city and country names; empty lists nearby servers."}
 	return []core.Route{
 		{Method: "GET", Path: "/quality", Tool: "show quality", Summary: "Read the latest network quality assessment, evidence and score coverage without starting tests.", Handler: h.getQuality},
-		{Method: "POST", Path: "/quality", Mutating: true, Summary: "Run a full router default-route quality assessment, or rerun one scope and update its scores; the reference transfer consumes bandwidth.", Query: []core.QueryParam{{Name: "scope", Type: "string", Summary: "all (default) runs every test; responses, target, speed and nat rerun one part and keep the rest."}, {Name: "target", Type: "string", Summary: "Service target ID when scope is target: cloudflare, google or github."}, {Name: "speed", Type: "boolean", Summary: "Include the bandwidth-consuming reference transfer with scope=all; defaults to false."}}, Handler: h.startQuality},
+		{Method: "POST", Path: "/quality", Mutating: true, Summary: "Run a full network quality assessment from this router and its managed access points, or rerun one scope and update its scores; the reference transfer consumes bandwidth.", Query: []core.QueryParam{{Name: "scope", Type: "string", Summary: "all (default) runs every test; responses, target, speed, nat and wifi rerun one part and keep the rest."}, {Name: "target", Type: "string", Summary: "Service target ID when scope is target: cloudflare, google or github."}, {Name: "speed", Type: "boolean", Summary: "Include the bandwidth-consuming reference transfer with scope=all; defaults to false."}}, Handler: h.startQuality},
 		{Method: "DELETE", Path: "/quality", Mutating: true, Summary: "Cancel the active network quality assessment and retain its completed evidence.", Handler: h.cancelQuality},
 		{Method: "GET", Path: "/speedtest/providers", Tool: "show speedtest providers", Summary: "List the speed test services this router can run and whether each command-line tool is installed.", Handler: h.providers},
 		{Method: "GET", Path: "/speedtest/servers", Tool: "show speedtest servers", Summary: "List the speed test servers near the selected way out; one network request, no latency probing and no test data.", Query: []core.QueryParam{exit, search}, Handler: h.servers},

@@ -219,8 +219,11 @@ remain unavailable rather than being inferred from internet speed.
 High negotiated PHY rate does not prove high useful throughput. Nearby AP count
 does not by itself measure interference. Keep router-terminating local tests
 distinct from forwarding tests and internet tests. Do not summarize an entire
-site from one observed client without stating coverage. The initial design
-does not choose a whole-site Wi-Fi aggregation formula.
+site from one observed client without stating coverage. The reference
+implementation (§13) chooses a first formula — one score per observed link,
+averaged over the links in use — and states the scope it covers; a whole-site
+coverage formula that would need clients at known locations is still not
+chosen.
 
 ## 8. Data model
 
@@ -512,13 +515,17 @@ Next reviews should settle:
 5. Coordinator/API ownership and reuse of current Tools implementations.
 6. External-peer operation and the first supported Wi-Fi/client data source.
 
-## 13. Reference implementation: reference-v1 / quality-v3
+## 13. Reference implementation: reference-v1 / quality-v4
 
 This is an initial reference assessment, not the complete service catalog.
 Snapshots identify the fixed `reference` profile at version `1` separately
 from the scoring and catalog versions.
-All measurements originate at the router over its default route, without
-environment proxies. The UI is reached through the Quality readout on Overview,
+Every measurement originates at this router or at an access point it manages:
+the service probes and the reference transfer leave over the router's default
+route without environment proxies, and the Wi-Fi evidence is what each managed
+access point reports about its own clients. The snapshot scope is
+`router-default-route`, or `router-and-access-points` once wireless evidence is
+present. The UI is reached through the Quality readout on Overview,
 whose assessment page at /quality uses the shared header, content area and
 footer, with Overview selected in navigation.
 It replaces the fixed sample scores and renames Reachability to Functionality.
@@ -532,17 +539,18 @@ It replaces the fixed sample scores and renames Reachability to Functionality.
   full assessment and returns 202. The assessment page always sends
   `speed=true`; API callers may omit it for a lighter run. `scope=responses`
   reruns every service probe, `scope=target&target=cloudflare` reruns one
-  service, `scope=speed` reruns the reference transfer and `scope=nat` reruns
-  the NAT observations. A scoped run requires a completed snapshot and merges
-  its fresh evidence into the other results. Another assessment, reference speed
+  service, `scope=speed` reruns the reference transfer, `scope=nat` reruns the
+  NAT observations and `scope=wifi` rereads the access points. A scoped run
+  requires a completed snapshot and merges its fresh evidence into the other
+  results; `scope=wifi` is refused with 400 when no access point source exists. Another assessment, reference speed
   test or NatTypeTester test holds the shared runner reservations and produces 409.
   Regular user traffic is not controlled.
 - `DELETE /api/tools/quality` requests cancellation. The runner releases its
   reservations after stopping and retains completed evidence. Daemon shutdown
   also cancels it. Closing the assessment view does not cancel a test.
 - A full assessment replaces the previous in-memory result. A scoped run
-  replaces only the targets, speed or NAT evidence it names and recalculates
-  every affected score. While a scoped run is active, `running_scope` and
+  replaces only the targets, speed, NAT or wireless evidence it names and
+  recalculates every affected score. While a scoped run is active, `running_scope` and
   `running_target` identify it and `state` stays `completed`, so readers keep
   the last scores; `completed_at` advances to the last successful update. A
   cancelled scoped run changes neither the published evidence nor the
@@ -584,7 +592,8 @@ leaves `speed` optional and off by default for callers that need a lighter run.
 This measures the router's default route to Cloudflare, not Wi-Fi or all
 internet services. Speed scoring uses the existing curves, weighting download
 70% and upload 30%; missing, invalid or timed-out transfers are excluded.
-Scoring version `quality-v3` identifies this change of reference provider.
+Scoring version `quality-v3` identified the reference provider change; `quality-v4`
+adds the wireless evidence and its curve.
 The standalone speed tests are one tool each — Speedtest by Ookla, Cloudflare
 Speed Test and Fast.com — because the three measure different paths and an
 operator arrives already knowing which one they want; a page whose command is
@@ -675,8 +684,40 @@ release](https://github.com/HMBSbige/NatTypeTester/releases/tag/10.0.10) as
 diagnostic only and do not prove public IPv4 assignment, inbound or P2P access.
 A full assessment has a 150-second deadline; scoped reruns use shorter deadlines
 (65 seconds for all service probes, 40 seconds for one service, 100 seconds for
-the reference transfer and 20 seconds for NAT). No configuration changes,
-temporary inbound listeners or port mappings are made.
+the reference transfer, 20 seconds for NAT and 45 seconds for the access-point
+read). No configuration changes, temporary inbound listeners or port mappings
+are made.
+
+### Wireless evidence
+
+The Wi-Fi category reads the access points in the network equipment inventory;
+it does not measure Wi-Fi from this router, which has no radio. Every device
+with the `ap` role is read through the same equipment service the Wireless page
+uses, bounded at 15 seconds each, and the read collects each association's
+client MAC, radio and band, signal, noise, signal-to-noise ratio (only when the
+access point reported both) and directional rates. An access point that does
+not answer is listed as an error beside its peers instead of shrinking the
+client count; if none answers the read fails and the previous links stay with
+`wireless_error` naming the failure. `wireless_at` dates the evidence.
+
+Each link is scored from its signal strength (0 at −95 dBm, 10 at −85, 25 at
+−80, 45 at −75, 65 at −70, 75 at −67, 90 at −60, 100 at −50), capped by SNR when
+the access point reported a noise floor (20 at 10 dB, 45 at 15, 70 at 20, 90 at
+25); SNR can only lower a link's score. The category score is the mean over the
+observed links, not a median: a client in a dead corner is the case a median
+would hide. A link without a reported signal level is skipped rather than
+scored zero, and a read that observed no link at all leaves the category
+unscored rather than zero.
+
+This is a stated-scope first formula, not a coverage claim. It sees only the
+clients associated at the moment of the read: a device that dropped off, an
+empty room and an idle link are outside it. The negotiated rate is kept as
+evidence but is not scored — a radio agreement is not throughput — and retries,
+failed transmissions, airtime and channel utilization stay unknown because the
+tested Beam WRT build grants neither `iwinfo.survey` nor hostapd's retry
+counters. Measuring one link's actual speed still means running LibreSpeed or
+iperf3 on that client (`docs/device-link-test.md`); it needs a participant and
+is not part of the scheduled assessment.
 
 ### Component base weights
 
@@ -685,7 +726,7 @@ temporary inbound listeners or port mappings are made.
 | Speed (25 points) | Reference transfer: 40% of category; within this, download 70%, upload 30% | Service-specific transfers: 60% |
 | Latency (25 points) | TCP connect 60%, DNS 15%, HTTPS response 25%, each averaged equally across the three targets | Unsupported/missing timings remain unscored |
 | Stability (25 points) | Connection establishment success 40%; TCP timing variation 30%, averaged equally across the three targets | Behavior under load: 30% |
-| Wi-Fi (15 points) | None | Client/AP measurements: 100% |
+| Wi-Fi (15 points) | Measured wireless links: 100% — each observed link scored on signal and SNR, then averaged | Client throughput, retries/airtime, roaming and mesh measurements |
 | Functionality (10 points) | Test-resource access: 50%, averaged equally across the three services | Protocol capabilities 25%; inbound/P2P 25% |
 
 For access, either family returning the expected status earns that service's
@@ -707,7 +748,8 @@ reference samples, not representative historical stability or loaded behavior.
 ### Initial normalization curves
 
 Use linear interpolation between these anchors and clamp beyond the endpoints.
-Negative/nonfinite measurements are invalid. These initial experience hints
+Negative and non-finite measurements are invalid, except signal strength, which
+is negative by nature and clamps at its lowest anchor. These initial experience hints
 are versioned and can be calibrated later without changing the aggregation
 rules. They are not statistical confidence estimates.
 
@@ -719,18 +761,23 @@ rules. They are not statistical confidence estimates.
 | DNS lookup ms | 0→100, 10→100, 30→90, 60→75, 100→60, 200→35, 500→0 |
 | HTTPS response ms | 0→100, 30→100, 100→90, 200→75, 500→50, 1000→20, 2000→0 |
 | TCP variation ms | 0→100, 2→95, 5→85, 10→70, 20→50, 50→20, 100→0 |
+| Signal dBm | −95→0, −85→10, −80→25, −75→45, −70→65, −67→75, −60→90, −50→100 |
+| SNR dB | 0→0, 10→20, 15→45, 20→70, 25→90, 30→100 |
 
 Per category, normalize scored component weights to sum to 1. Reference
 transfer therefore supplies 100% of the current speed score; stability uses
 connection success and timing variation in the ratio 4:3 when both are usable;
-functionality uses the equal mean of scored service-access results.
+functionality uses the equal mean of scored service-access results; Wi-Fi uses
+the mean of its scored links.
 
 Normalize the base weights of scored categories to a 100-point total. With
-bandwidth enabled and all implemented metrics usable, Speed, Latency, Stability
-and Functionality have effective point budgets of 29.41, 29.41, 29.41 and 11.76.
-Without bandwidth testing they become 41.67, 41.67 and 16.67 for Latency,
-Stability and Functionality. Either assessment can score 100. Wi-Fi remains
-unmeasured and excluded until supported measurements exist.
+bandwidth enabled and every category measured, Speed, Latency, Stability, Wi-Fi
+and Functionality hold effective point budgets of 25, 25, 25, 15 and 10.
+Without bandwidth testing they become 33.33, 33.33, 20 and 13.33 for Latency,
+Stability, Wi-Fi and Functionality. Without a readable access point Wi-Fi stays
+unmeasured and excluded, and the remaining budgets become 29.41, 29.41, 29.41
+and 11.76 with bandwidth, or 41.67, 41.67 and 16.67 without. Any of these
+assessments can score 100.
 
 The API exposes component `weight` (base) and `effective_weight` (normalized
 within the category). Category `budget` retains its base weight;
