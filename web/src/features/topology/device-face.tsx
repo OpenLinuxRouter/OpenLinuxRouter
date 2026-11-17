@@ -9,9 +9,11 @@ import {
   CAGE_MOUTH,
   CAGE_W,
   FOOT,
+  FRAME_H,
   FRAME_W,
   LAMP_GAP,
   LAMP_H,
+  LAMP_W,
   MOUTH_PATH,
   PRONG_BODY,
   PRONG_TIP,
@@ -68,13 +70,25 @@ export function DeviceFace({
     speedMbps: port.speed_mbps,
     clients: addresses?.get(port.id),
   }))
+  const up = faces.filter(port => port.linkUp === true).length
+  const total = faces.filter(port => port.kind === 'ethernet' || port.kind === 'fiber').length
+  if (form !== 'switch' && form !== 'generic') {
+    return (
+      <DeviceBox
+        faces={faces}
+        addresses={addresses}
+        form={form}
+        uid={uid}
+        className={className}
+        label={t('{up} of {total} ports up', { up, total })}
+      />
+    )
+  }
   const chrome = FORM_CHROME[form]
   const top = chrome.top ?? 0
   const layout = faceLayout(faces, chrome)
   if (layout.rows.length === 0) return null
 
-  const up = faces.filter(port => port.linkUp === true).length
-  const total = faces.filter(port => port.kind === 'ethernet' || port.kind === 'fiber').length
   const label = t('{up} of {total} ports up', { up, total })
 
   return (
@@ -222,7 +236,7 @@ function Chassis({
 /** The class mark in the panel to the left of the ports. Nothing about state. */
 function ClassMarks({ form, lead, height }: { form: DeviceForm; lead: number; height: number }) {
   if (lead === 0) return null
-  const cx = lead / 2 + 2
+  const cx = lead / 2 + 6
   const cy = height / 2
   const mark = '#c7c7cd'
   const soft = '#e8e8ec'
@@ -311,5 +325,124 @@ function Lamp({ x, lit }: { x: number; lit: boolean }) {
       stroke={lit ? LIT_EDGE : PART_EDGE}
       strokeWidth={1.5}
     />
+  )
+}
+
+/**
+ * A box drawn as a product: a front panel with its ports, the top face above it
+ * and the side falling away to the left, plus the one mark its class is known
+ * for — three status windows on a gateway, antennas and a radio on an access
+ * point, a power button and vents on the small machine that runs this router.
+ *
+ * Only the switch is a flat row of ports. The others are drawn the way you would
+ * recognise them on a shelf, because that is how a person finds them: the port
+ * count is still the reading, but the shape says which box to walk over to.
+ */
+const BOX = {
+  scale: 0.4,
+  pad: 16,
+  gap: 7,
+  depth: 24,
+  panel: 14,
+  lead: { ont: 40, ap: 34, router: 44, switch: 0, generic: 0 } as Record<DeviceForm, number>,
+  minWidth: { ont: 250, ap: 196, router: 200, switch: 0, generic: 0 } as Record<DeviceForm, number>,
+  antenna: 34,
+}
+
+function DeviceBox({
+  faces,
+  form,
+  uid,
+  className,
+  label,
+}: {
+  faces: readonly FacePort[]
+  addresses?: ReadonlyMap<string, number>
+  form: DeviceForm
+  uid: string
+  className?: string
+  label: string
+}) {
+  const s = BOX.scale
+  const n = faces.filter(port => port.kind === 'ethernet' || port.kind === 'fiber').length
+  if (n === 0) return null
+  const physical = faces.filter(port => port.kind === 'ethernet' || port.kind === 'fiber')
+  const lead = BOX.lead[form] ?? 0
+  const pitch = (FRAME_W + BOX.gap) * s
+  const inner = lead + n * FRAME_W * s + (n - 1) * BOX.gap * s
+  const w = Math.max(inner + BOX.pad * 2, BOX.minWidth[form] ?? 0)
+  const portTop = BOX.panel + (LAMP_H + LAMP_GAP) * s
+  const h = portTop + FRAME_H * s + BOX.panel
+  const left = (w - inner) / 2 + lead
+  const d = BOX.depth
+  const antennas = form === 'ap'
+  const totalH = d + h
+  const totalW = w + d
+
+  const face = form === 'router' ? '#f4f4f5' : '#ffffff'
+  const topFace = form === 'router' ? '#ededef' : '#f8f8f9'
+  const sideFace = form === 'router' ? '#e4e4e6' : '#eeedf0'
+
+  // The same natural size as the switch: a port is a port whichever box it is
+  // in, so the drawing stops growing once a shield reaches MAX_PORT across.
+  const natural = totalW * (MAX_PORT / (FRAME_W * s))
+  return (
+    <div className={className} style={{ maxWidth: natural }}>
+      <svg
+        viewBox={`${-d} ${antennas ? -d - BOX.antenna : -d} ${totalW} ${totalH + (antennas ? BOX.antenna : 0)}`}
+        className="block h-auto w-full"
+        role="img"
+        aria-label={label}
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <title>{label}</title>
+        <clipPath id={`mouth${uid}`}><path d={MOUTH_PATH} /></clipPath>
+        <clipPath id={`cage${uid}`}><path d={CAGE_MOUTH} /></clipPath>
+
+        {/* antennas stand behind the body, so only their tops show above it */}
+        {antennas && (
+          <g fill={sideFace} stroke={PART_EDGE} strokeWidth={1.4}>
+            <rect x={w * 0.16} y={-d - BOX.antenna} width={17} height={BOX.antenna + 16} rx={8.5} />
+            <rect x={w * 0.74} y={-d - BOX.antenna} width={17} height={BOX.antenna + 16} rx={8.5} />
+            <rect x={w * 0.45} y={-d - BOX.antenna + 10} width={17} height={BOX.antenna + 6} rx={8.5} />
+          </g>
+        )}
+        {/* the side that falls away, then the top, then the panel in front */}
+        <path d={`M0 0 L0 ${h} L${-d} ${h - d} L${-d} ${-d} Z`} fill={sideFace} stroke={PART_EDGE} strokeWidth={1.2} />
+        <path d={`M0 0 L${w} 0 L${w - d} ${-d} L${-d} ${-d} Z`} fill={topFace} stroke={PART_EDGE} strokeWidth={1.2} />
+        <rect x={0} y={0} width={w} height={h} rx={5} fill={face} stroke={BODY_EDGE} strokeWidth={1.5} />
+
+        {form === 'router' && (
+          /* vents across the top face, and the seam of a machined lid */
+          <g stroke="#cdcdd3" strokeWidth={2} strokeLinecap="round">
+            {[0, 1, 2].map(index => (
+              <line key={index} x1={w * 0.34 - index * 5} y1={-d * 0.28 - index * 7} x2={w * 0.72 - index * 5} y2={-d * 0.28 - index * 7} />
+            ))}
+          </g>
+        )}
+
+        <ClassMarks form={form} lead={lead} height={h} />
+        {physical.map((port, index) => {
+          const x = left + index * pitch
+          const cx = x + (FRAME_W / 2) * s
+          return (
+            <g key={port.id}>
+              <g transform={`translate(${cx} ${BOX.panel}) scale(${s})`}>
+                <g transform={`translate(${-FRAME_W / 2} 0)`}>
+                  <rect x={-11.5} y={0} width={LAMP_W} height={LAMP_H} rx={3.5}
+                    fill={port.linkUp === true ? LIT : PART}
+                    stroke={port.linkUp === true ? LIT_EDGE : PART_EDGE} strokeWidth={2} />
+                </g>
+              </g>
+              <g transform={`translate(${x} ${portTop}) scale(${s})`}>
+                <title>{describe(port)}</title>
+                {port.kind === 'fiber' ? <Cage uid={uid} /> : <Shield uid={uid} />}
+              </g>
+              <text x={cx} y={h - 4} textAnchor="middle" fontSize={9} fill="#71717a" fontFamily="ui-sans-serif,system-ui">{port.id}</text>
+            </g>
+          )
+        })}
+      </svg>
+    </div>
   )
 }
