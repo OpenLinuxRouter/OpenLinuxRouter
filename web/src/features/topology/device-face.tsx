@@ -13,13 +13,14 @@ import {
   LAMP_GAP,
   LAMP_H,
   MOUTH_PATH,
-  PAD,
   PRONG_BODY,
   PRONG_TIP,
   faceLayout,
+  rowLeft,
   rowTop,
   type FacePort,
 } from './face'
+import { FORM_CHROME, type DeviceForm } from './form'
 
 /**
  * The box, drawn.
@@ -47,11 +48,14 @@ import {
 export function DeviceFace({
   ports,
   addresses,
+  form = 'switch',
   className,
 }: {
   ports?: readonly Port[]
   /** How many addresses each port learned, when that is known. */
   addresses?: ReadonlyMap<string, number>
+  /** What kind of box this is; it changes the chassis, never the ports. */
+  form?: DeviceForm
   className?: string
 }) {
   useLocale()
@@ -64,7 +68,9 @@ export function DeviceFace({
     speedMbps: port.speed_mbps,
     clients: addresses?.get(port.id),
   }))
-  const layout = faceLayout(faces)
+  const chrome = FORM_CHROME[form]
+  const top = chrome.top ?? 0
+  const layout = faceLayout(faces, chrome)
   if (layout.rows.length === 0) return null
 
   const up = faces.filter(port => port.linkUp === true).length
@@ -80,7 +86,7 @@ export function DeviceFace({
       style={{ maxWidth: layout.width * (MAX_PORT / FRAME_W) }}
     >
     <svg
-      viewBox={`0 0 ${layout.width} ${layout.height + FOOT}`}
+      viewBox={`0 ${-top} ${layout.width} ${layout.height + top + FOOT}`}
       className="block h-auto w-full"
       role="img"
       aria-label={label}
@@ -90,17 +96,17 @@ export function DeviceFace({
       <clipPath id={`mouth${uid}`}><path d={MOUTH_PATH} /></clipPath>
       <clipPath id={`cage${uid}`}><path d={CAGE_MOUTH} /></clipPath>
 
-      <Chassis width={layout.width} height={layout.height} />
+      <Chassis form={form} width={layout.width} height={layout.height} lead={chrome.lead ?? 0} top={top} />
 
       {layout.rows.map((row, index) => (
-        <g key={index} transform={`translate(0 ${rowTop(index) - LAMP_H - LAMP_GAP})`}>
+        <g key={index} transform={`translate(0 ${rowTop(index, chrome) - LAMP_H - LAMP_GAP})`}>
           {row.slots.map(slot => {
             const lit = slot.port.linkUp === true
-            const centre = PAD + slot.x + slot.width / 2
+            const centre = rowLeft(chrome) + slot.x + slot.width / 2
             return (
               <g key={slot.port.id}>
                 <Lamp x={centre} lit={lit} />
-                <g transform={`translate(${PAD + slot.x} ${LAMP_H + LAMP_GAP})`}>
+                <g transform={`translate(${rowLeft(chrome) + slot.x} ${LAMP_H + LAMP_GAP})`}>
                   <title>{describe(slot.port)}</title>
                   {slot.fiber
                     ? <Cage uid={uid} />
@@ -122,7 +128,7 @@ export function DeviceFace({
           <span
             key={slot.port.id}
             className="absolute flex -translate-x-1/2 items-center gap-1 whitespace-nowrap tabular-nums"
-            style={{ left: `${((PAD + slot.x + slot.width / 2) / layout.width) * 100}%` }}
+            style={{ left: `${((rowLeft(chrome) + slot.x + slot.width / 2) / layout.width) * 100}%` }}
           >
             <span className="text-muted-foreground">{slot.port.id}</span>
             {/* Filled means something is on the port; a bare dot for one, a
@@ -155,7 +161,6 @@ function describe(port: FacePort): string {
 /** The widest a port is ever drawn, in pixels. */
 const MAX_PORT = 44
 
-const BODY = '#ffffff'
 const BODY_EDGE = '#e4e4e7'
 const PART = '#f4f4f5'
 const PART_EDGE = '#dcdcdf'
@@ -167,15 +172,96 @@ const GOLD_TIP = '#efe0c2'
 const LIT = '#22c55e'
 const LIT_EDGE = '#16a34a'
 
-function Chassis({ width, height }: { width: number; height: number }) {
+/**
+ * The chassis under the ports, in the shape of the class the box belongs to.
+ *
+ * The differences are the ones you would see across a room: a switch is a flat
+ * slab of ports, a fiber gateway is a small box with a lamp cluster, an access
+ * point has antennas and a radio mark, and the machine that runs this router is
+ * a vented little box with a power button. None of it is a claim about a model —
+ * every port on the face still comes from the reading.
+ */
+function Chassis({
+  form,
+  width,
+  height,
+  lead,
+  top,
+}: {
+  form: DeviceForm
+  width: number
+  height: number
+  lead: number
+  top: number
+}) {
+  const body = form === 'router' ? '#f6f6f7' : '#ffffff'
+  const radius = form === 'ap' ? 18 : form === 'router' ? 6 : form === 'ont' ? 8 : 9
   return (
     <g>
-      <rect x={0.75} y={0.75} width={width - 1.5} height={height - 1.5} rx={9} fill={BODY} stroke={BODY_EDGE} strokeWidth={1.5} />
+      {form === 'ap' && (
+        /* Antennas first, so the chassis covers their roots. */
+        <g fill="#ececef" stroke={PART_EDGE} strokeWidth="1.5">
+          <rect x={lead + 26} y={-top - 2} width={16} height={top + 10} rx={8} />
+          <rect x={lead + 62} y={-top - 2} width={16} height={top + 10} rx={8} />
+        </g>
+      )}
+      <rect x={0.75} y={0.75} width={width - 1.5} height={height - 1.5} rx={radius} fill={body} stroke={BODY_EDGE} strokeWidth={1.5} />
+      {form === 'router' && (
+        /* A machined top edge and a shadow line: brushed cases read by their edge. */
+        <rect x={radius + 6} y={1.6} width={width - radius * 2 - 12} height={1.4} rx={0.7} fill="#c9c9cf" opacity={0.7} />
+      )}
+      {form === 'ont' && (
+        /* The base it stands on. */
+        <rect x={1} y={height - 7} width={width - 2} height={6} rx={3} fill={PART} />
+      )}
+      <ClassMarks form={form} lead={lead} height={height} />
     </g>
   )
 }
 
-/** One RJ45 shield: the traced port, at the size the row gave it. */
+/** The class mark in the panel to the left of the ports. Nothing about state. */
+function ClassMarks({ form, lead, height }: { form: DeviceForm; lead: number; height: number }) {
+  if (lead === 0) return null
+  const cx = lead / 2 + 2
+  const cy = height / 2
+  const mark = '#c7c7cd'
+  const soft = '#e8e8ec'
+  if (form === 'ont') {
+    // Three status windows, unlit: the shape of a gateway's front panel.
+    return (
+      <g>
+        {[0, 1, 2].map(index => (
+          <rect key={index} x={cx - 13} y={cy - 33 + index * 23} width={26} height={15} rx={4}
+            fill={soft} stroke={mark} strokeWidth={1.6} />
+        ))}
+      </g>
+    )
+  }
+  if (form === 'ap') {
+    // A radio: a dot and two arcs.
+    return (
+      <g fill="none" stroke={mark} strokeWidth="3" strokeLinecap="round">
+        <circle cx={cx - 2} cy={cy + 9} r={2.4} fill={mark} stroke="none" />
+        <path d={`M${cx - 12} ${cy - 1} A13 13 0 0 1 ${cx + 8} ${cy - 1}`} />
+        <path d={`M${cx - 19} ${cy - 11} A21 21 0 0 1 ${cx + 15} ${cy - 11}`} />
+      </g>
+    )
+  }
+  if (form === 'router') {
+    // A power button, and the vents beside it.
+    return (
+      <g>
+        <circle cx={cx - 4} cy={cy} r={12} fill="none" stroke={mark} strokeWidth="3" />
+        <path d={`M${cx - 4} ${cy - 9} L${cx - 4} ${cy - 2}`} stroke={mark} strokeWidth="3" strokeLinecap="round" />
+        {[0, 1, 2].map(index => (
+          <rect key={index} x={cx + 12} y={cy - 15 + index * 12} width={18} height={5} rx={2.5} fill={mark} opacity={0.8} />
+        ))}
+      </g>
+    )
+  }
+  return null
+}
+
 function Shield({ uid }: { uid: string }) {
   return (
     <g>

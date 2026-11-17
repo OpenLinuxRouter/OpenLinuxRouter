@@ -53,6 +53,16 @@ export interface FaceLayout {
   height: number
 }
 
+/**
+ * Room a form needs around the ports for its own marks: a lead-in panel on the
+ * left (status lamps, a power button, a radio glyph) and, for an access point,
+ * a strip above the chassis where its antennas show.
+ */
+export interface Chrome {
+  lead?: number
+  top?: number
+}
+
 /** A port's own box, in the traced picture's units. */
 export const FRAME_W = 146
 export const FRAME_H = 120
@@ -80,7 +90,7 @@ export const ROW_MAX = 12
  * Lay the physical ports out as the hardware carries them: one row up to
  * twelve, then the next row, cages treated as wider than shields.
  */
-export function faceLayout(ports: readonly FacePort[]): FaceLayout {
+export function faceLayout(ports: readonly FacePort[], chrome: Chrome = {}): FaceLayout {
   const physical = ports.filter(isPhysical)
   const rows: FaceRow[] = []
   for (let start = 0; start < physical.length; start += ROW_MAX) {
@@ -95,8 +105,8 @@ export function faceLayout(ports: readonly FacePort[]): FaceLayout {
     }
     rows.push({ slots, width: x })
   }
-  const width = Math.max(0, ...rows.map(row => row.width)) + PAD * 2
-  const height = rows.length * rowHeight() + (rows.length - 1) * rowGap() + TOP + BOTTOM
+  const width = Math.max(0, ...rows.map(row => row.width)) + PAD * 2 + (chrome.lead ?? 0)
+  const height = rows.length * rowHeight() + (rows.length - 1) * rowGap() + TOP + (chrome.top ?? 0) + BOTTOM
   return { rows, width, height }
 }
 
@@ -111,8 +121,13 @@ export function rowGap(): number {
 }
 
 /** Where a row's shields start, measured from the top of the chassis. */
-export function rowTop(index: number): number {
-  return TOP + LAMP_H + LAMP_GAP + index * (rowHeight() + rowGap())
+export function rowTop(index: number, chrome: Chrome = {}): number {
+  return TOP + (chrome.top ?? 0) + LAMP_H + LAMP_GAP + index * (rowHeight() + rowGap())
+}
+
+/** Where the port row starts, measured from the left of the chassis. */
+export function rowLeft(chrome: Chrome = {}): number {
+  return PAD + (chrome.lead ?? 0)
 }
 
 // --- the traced port -------------------------------------------------------

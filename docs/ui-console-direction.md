@@ -365,6 +365,14 @@ stays for the session with the time it arrived (`features/topology/sweep.ts`). A
 reading that carries a real forwarding table is resolved the same way without a
 sweep, but no adapter on this hardware does.
 
+A face has a **form**: a switch is a flat slab of ports, a fiber gateway is a
+small box with a lamp cluster and a base, an access point carries antennas and a
+radio mark, and the machine that runs this router is a vented box with a power
+button. The form is chosen by the role the operator stated, then by the adapter
+family (`features/topology/form.ts`), and a box nothing has named is drawn
+plain rather than guessed into a shape. It changes the chassis and the class
+mark, never the ports: those are still exactly the ones the reading listed.
+
 The numbers are HTML, not paths: type has to stay legible while the row of ports
 is only a thumbnail, and text drawn inside the viewBox would shrink with it. A
 face whose ports are too small to letter — two rows of twelve — carries its names

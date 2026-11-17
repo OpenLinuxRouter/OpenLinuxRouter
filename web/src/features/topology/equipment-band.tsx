@@ -17,6 +17,7 @@ import { deviceKeys, useDeviceRead, useDevicesConfig, useReadDevice } from '@/fe
 import type { Device } from '@/features/devices/types'
 import { useInterfaces } from '@/features/link/queries'
 import { DeviceFace } from './device-face'
+import { formOf } from './form'
 import { attachedClients, equipmentFacts, farEnd, learnedByPort, planReads, type FarEndSources, type LearnedAddress } from './equipment'
 import { rememberSweep, usePortSweep } from './sweep'
 import { placeDevice } from './placement'
@@ -289,7 +290,7 @@ function EquipmentCard({
       {/* The box itself, drawn from the ports it reported: one shield per port,
           a lamp per port, lit only where the box said there was a carrier. */}
       {snapshot?.ports !== undefined && snapshot.ports.length > 0 && (
-        <DeviceFace ports={snapshot.ports} addresses={addresses} />
+        <DeviceFace ports={snapshot.ports} addresses={addresses} form={formOf(device.adapter, device.roles)} />
       )}
 
       {snapshot === undefined ? (
