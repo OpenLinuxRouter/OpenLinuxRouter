@@ -312,6 +312,29 @@ reach but cannot describe — are therefore **withdrawn, not postponed**. Drawin
 them would be a guess in a line's clothing, and there is nothing on this hardware
 to guess from.
 
+**The boxes the router reads sit above the map, in a strip of their own.** A
+switch or an access point answers "what is this", and the map below answers
+"who is on this network"; the first is a short list of hardware and the second is
+a picture of groups. The strip is deliberately not a row of the drawing: a card
+between the router and the group columns would need every group's line to run
+through it or squeeze past it, which is the one thing that layout refuses to do
+(`features/topology/layout.ts`), and a switch belongs to no operator's group.
+
+Placement in the strip is a **join, not a claim**: a box carries the network
+whose range holds its management address. That is where it is managed from, not
+where its cables are, and the section says so once instead of repeating a caveat
+per card. A box reached by name, or from a segment this router does not serve,
+says it has no network here rather than being filed somewhere plausible.
+
+**The strip costs no reading.** Cards come from the inventory, from Link's
+networks and — only for a box this session already read — from the snapshot in
+the query cache. Opening the page asks no box anything; a card offers one button
+that reads that one box, and then says what arrived and when. Adding a box is
+the exception that proves the rule: the save finishes with the first read, so
+the card a person lands on already has the ports and the clients it reported,
+and leaving it unread would be the one case where the page's own promise makes
+the next screen worth less.
+
 ### 6.5 Devices, including this one
 
 The router running OLR is a device too. It appears in the same list with the same

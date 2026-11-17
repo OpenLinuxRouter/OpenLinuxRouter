@@ -130,6 +130,21 @@ export function useReadDevices() {
 }
 
 /**
+ * One device, read now, into the cache entry the device page uses.
+ *
+ * `fetchQuery` rather than a query observer, for the reason `useDeviceRead`
+ * gives: a page that draws a box from the cache must not make the snapshot key
+ * active, or saving a device — which invalidates the whole `network` family —
+ * would refetch every box the page happens to mention.
+ */
+export function useReadDevice() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => client.fetchQuery({ ...snapshotQuery(id), staleTime: 0, retry: false }),
+  })
+}
+
+/**
  * Where one MAC is reachable from. The search is a decision an operator makes
  * about a specific address, not a table the page fetches on arrival, and its
  * answer is a dated read like every other observation here.
