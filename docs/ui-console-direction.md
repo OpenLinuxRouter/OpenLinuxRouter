@@ -325,8 +325,8 @@ on different pages instead of one drawing pretending to be both.
 **The card draws the box.** A reading says how many ports have a carrier, and
 a sentence cannot say *which* — which is the whole of what somebody standing in
 front of the switch is asking. So a card draws its own front panel from the
-ports the answer listed: one chrome shield per RJ45 port, a cage for each fiber
-port, a lamp above every one, lit only where the box reported a carrier. Ports
+ports the answer listed: one shield per RJ45 port, a cage for each fiber port,
+a lamp above every one, lit only where the box reported a carrier. Ports
 without a connector are not drawn at all — a bridge, a VLAN and a radio are
 interfaces the firmware lists, not holes a cable goes into — so the row on the
 screen is the row in the answer, and a box that has not answered has no panel
@@ -341,6 +341,11 @@ shield count and the cage are the reading rather than a decoration on top of it,
 and a model nobody has drawn yet still gets a panel that is honest about what it
 reported. There is no per-model art to keep, and nothing to re-shoot when a
 switch is added.
+
+It is drawn flat: two greys, a dark opening, one green accent, and no gradients,
+shadows or reflections. Shading a picture this small reads as dirt, and what the
+panel has to say is *which* port — a rendered material competes with that
+instead of carrying it.
 
 Placement in that list is a **join, not a claim**: a box carries the network
 whose range holds its management address. That is where it is managed from, not

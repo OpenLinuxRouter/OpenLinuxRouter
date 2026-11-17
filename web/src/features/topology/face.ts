@@ -57,9 +57,9 @@ export const PAD = 26
 /** The lamp above a port: a small window in the chassis, wider than it is tall. */
 export const LAMP_W = 23
 export const LAMP_H = 17
-export const LAMP_GAP = 19
+export const LAMP_GAP = 12
 /** Chassis margin above the lamps and below the shields. */
-export const TOP = 30
+export const TOP = 16
 export const BOTTOM = 26
 /** How tall the feet are, and how far they show below the chassis. */
 export const FOOT = 10
