@@ -343,10 +343,15 @@ const BOX = {
   pad: 16,
   gap: 7,
   depth: 24,
-  panel: 14,
+  panel: 17,
   lead: { ont: 40, ap: 34, router: 44, switch: 0, generic: 0 } as Record<DeviceForm, number>,
   minWidth: { ont: 250, ap: 196, router: 200, switch: 0, generic: 0 } as Record<DeviceForm, number>,
-  antenna: 34,
+  antenna: 42,
+}
+
+/** The width at which one shield is MAX_PORT across, whatever the form. */
+function naturalWidth(width: number, scale: number): number {
+  return width * (MAX_PORT / (FRAME_W * scale))
 }
 
 function DeviceBox({
@@ -374,22 +379,17 @@ function DeviceBox({
   const portTop = BOX.panel + (LAMP_H + LAMP_GAP) * s
   const h = portTop + FRAME_H * s + BOX.panel
   const left = (w - inner) / 2 + lead
-  const d = BOX.depth
   const antennas = form === 'ap'
-  const totalH = d + h
-  const totalW = w + d
+  const totalH = h
+  const antennaTop = antennas ? BOX.antenna : 0
 
   const face = form === 'router' ? '#f4f4f5' : '#ffffff'
-  const topFace = form === 'router' ? '#ededef' : '#f8f8f9'
-  const sideFace = form === 'router' ? '#e4e4e6' : '#eeedf0'
+  const radius = form === 'ap' ? 12 : form === 'ont' ? 8 : 6
 
-  // The same natural size as the switch: a port is a port whichever box it is
-  // in, so the drawing stops growing once a shield reaches MAX_PORT across.
-  const natural = totalW * (MAX_PORT / (FRAME_W * s))
   return (
-    <div className={className} style={{ maxWidth: natural }}>
+    <div className={className} style={{ maxWidth: naturalWidth(w, s) }}>
       <svg
-        viewBox={`${-d} ${antennas ? -d - BOX.antenna : -d} ${totalW} ${totalH + (antennas ? BOX.antenna : 0)}`}
+        viewBox={`0 ${-antennaTop} ${w} ${totalH + antennaTop}`}
         className="block h-auto w-full"
         role="img"
         aria-label={label}
@@ -399,24 +399,26 @@ function DeviceBox({
         <clipPath id={`mouth${uid}`}><path d={MOUTH_PATH} /></clipPath>
         <clipPath id={`cage${uid}`}><path d={CAGE_MOUTH} /></clipPath>
 
-        {/* antennas stand behind the body, so only their tops show above it */}
+        {/* Antennas are part of the outline: two strokes on the body, not a
+            perspective drawing of one. Nothing here is three-dimensional. */}
         {antennas && (
-          <g fill={sideFace} stroke={PART_EDGE} strokeWidth={1.4}>
-            <rect x={w * 0.16} y={-d - BOX.antenna} width={17} height={BOX.antenna + 16} rx={8.5} />
-            <rect x={w * 0.74} y={-d - BOX.antenna} width={17} height={BOX.antenna + 16} rx={8.5} />
-            <rect x={w * 0.45} y={-d - BOX.antenna + 10} width={17} height={BOX.antenna + 6} rx={8.5} />
+          <g fill="#f4f4f5" stroke={PART_EDGE} strokeWidth={1.4}>
+            <rect x={w * 0.15} y={-BOX.antenna} width={19} height={BOX.antenna + 12} rx={9.5} />
+            <rect x={w * 0.45} y={-BOX.antenna + 9} width={19} height={BOX.antenna + 3} rx={9.5} />
+            <rect x={w * 0.75} y={-BOX.antenna} width={19} height={BOX.antenna + 12} rx={9.5} />
           </g>
         )}
-        {/* the side that falls away, then the top, then the panel in front */}
-        <path d={`M0 0 L0 ${h} L${-d} ${h - d} L${-d} ${-d} Z`} fill={sideFace} stroke={PART_EDGE} strokeWidth={1.2} />
-        <path d={`M0 0 L${w} 0 L${w - d} ${-d} L${-d} ${-d} Z`} fill={topFace} stroke={PART_EDGE} strokeWidth={1.2} />
-        <rect x={0} y={0} width={w} height={h} rx={5} fill={face} stroke={BODY_EDGE} strokeWidth={1.5} />
 
+        <rect x={0.75} y={0.75} width={w - 1.5} height={h - 1.5} rx={radius} fill={face} stroke={BODY_EDGE} strokeWidth={1.5} />
+        {form === 'ont' && (
+          /* the plinth a gateway sits on */
+          <rect x={1} y={h - 7} width={w - 2} height={6} rx={3} fill={PART} />
+        )}
         {form === 'router' && (
-          /* vents across the top face, and the seam of a machined lid */
-          <g stroke="#cdcdd3" strokeWidth={2} strokeLinecap="round">
+          /* vents, on the front panel where a small machine has them */
+          <g stroke="#d6d6db" strokeWidth={2} strokeLinecap="round">
             {[0, 1, 2].map(index => (
-              <line key={index} x1={w * 0.34 - index * 5} y1={-d * 0.28 - index * 7} x2={w * 0.72 - index * 5} y2={-d * 0.28 - index * 7} />
+              <line key={index} x1={w * 0.42} y1={h * 0.2 + index * 7} x2={w * 0.86} y2={h * 0.2 + index * 7} />
             ))}
           </g>
         )}
@@ -438,11 +440,33 @@ function DeviceBox({
                 <title>{describe(port)}</title>
                 {port.kind === 'fiber' ? <Cage uid={uid} /> : <Shield uid={uid} />}
               </g>
-              <text x={cx} y={h - 4} textAnchor="middle" fontSize={9} fill="#71717a" fontFamily="ui-sans-serif,system-ui">{port.id}</text>
             </g>
           )
         })}
       </svg>
+      {/* The names go under the box in HTML, at the same size as the switch's:
+          a label has to stay readable when the drawing is a thumbnail. */}
+      <div className="relative mt-1 h-4 text-[10px] leading-4">
+        {physical.map((port, index) => {
+          const cx = left + index * pitch + (FRAME_W / 2) * s
+          return (
+            <span
+              key={port.id}
+              className="absolute flex -translate-x-1/2 items-center gap-1 whitespace-nowrap tabular-nums"
+              style={{ left: `${(cx / w) * 100}%` }}
+            >
+              <span className="text-muted-foreground">{port.id}</span>
+              {port.clients !== undefined && port.clients > 0 && (
+                port.clients === 1
+                  ? <span className="size-1.5 shrink-0 rounded-full bg-foreground/45" title={t('{count} address learned here', { count: 1 })} />
+                  : <span className="shrink-0 rounded bg-muted px-1 text-[9px] leading-4 text-foreground/75" title={t('{count} addresses learned here', { count: port.clients })}>
+                      {port.clients}
+                    </span>
+              )}
+            </span>
+          )
+        })}
+      </div>
     </div>
   )
 }

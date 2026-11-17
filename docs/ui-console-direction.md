@@ -366,14 +366,16 @@ reading that carries a real forwarding table is resolved the same way without a
 sweep, but no adapter on this hardware does.
 
 A face has a **form**. Only a switch is drawn flat, as the row of ports it is;
-the other classes are drawn the way they sit on a shelf, because that is how a
-person finds the box they are looking for: a fiber gateway is a small white box
-with a lamp cluster and a base, an access point carries three antennas and a
-radio mark, and the machine running this router is a vented metal box with a
-power button. The form is chosen by the role stated for that box, then by the
-adapter family (`features/topology/form.ts`); a box nothing has named is drawn
-plain rather than guessed into a shape. Ports are drawn at one natural size, so
-a port is the same size whichever box it is in.
+the other classes are drawn as the object itself, front-on: a fiber gateway is a
+small white box with a lamp cluster and a plinth, an access point carries three
+antennas and a radio mark, and the machine running this router is a vented box
+with a power button. Flat means flat — a front view, one plane, no perspective
+and no shading; the boxes differ by outline and mark, not by drawing style. The
+form is chosen by the role stated for that box, then by the adapter family
+(`features/topology/form.ts`); a box nothing has named is drawn plain rather
+than guessed into a shape. Ports are drawn at one natural size, so a port is the
+same size whichever box it is in, and their names sit under the drawing in HTML
+where they stay readable.
 
 The numbers are HTML, not paths: type has to stay legible while the row of ports
 is only a thumbnail, and text drawn inside the viewBox would shrink with it. A
