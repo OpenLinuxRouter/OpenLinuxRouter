@@ -332,8 +332,9 @@ interfaces the firmware lists, not holes a cable goes into — so the row on the
 screen is the row in the answer, and a box that has not answered has no panel
 rather than an empty one.
 
-The geometry is traced once, in the reference switch's own units (a 146 × 120
-port, measured off a photograph of it), and drawn as vector paths. That is what
+The geometry is traced once, in the reference switch's own units — a 146 × 120
+port, measured pixel by pixel off a reference picture of that model — and drawn
+as vector paths. That is what
 makes it worth doing in code instead of shipping a picture per model: the same
 markup is a thumbnail at card width and a legible port at 4×, the lamp, the
 shield count and the cage are the reading rather than a decoration on top of it,
