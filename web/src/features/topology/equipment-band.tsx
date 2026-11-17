@@ -1,64 +1,92 @@
 import { t, useLocale } from '@/lib/i18n'
-import { Plus, Wifi } from 'lucide-react'
-import { useEffect, useMemo, useRef } from 'react'
+import { Wifi } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Heading } from '@/components/ui/heading'
 import { Skeleton } from '@/components/ui/skeleton'
 
 import { useClientList } from '@/features/clients/queries'
 import { adapterLabel, addressLabel, roleLabels } from '@/features/devices/device'
 import { readWhen } from '@/features/devices/device-format'
-import { useDeviceRead, useDevicesConfig, useReadDevice } from '@/features/devices/queries'
+import { deviceKeys, useDeviceRead, useDevicesConfig, useReadDevice } from '@/features/devices/queries'
 import type { Device } from '@/features/devices/types'
 import { useInterfaces } from '@/features/link/queries'
-import { attachedClients, equipmentFacts } from './equipment'
+import { attachedClients, equipmentFacts, planReads } from './equipment'
 import { placeDevice } from './placement'
 import type { ClientRow } from '@/lib/api-types'
 
 /**
- * The boxes this router reads, as a strip above the map.
+ * The boxes this router reads, and the clients each one reports.
  *
- * It is a strip and not a row of the map on purpose. The map hangs the
- * operator's groups off the router and says, in its own legend, that a line is
- * membership; a card between the router and those columns would need every
- * group's line to run through it or squeeze past it, which is the one thing
- * that layout refuses to do (features/topology/layout.ts). A switch is also not
- * a client in anybody's group, so it has no place inside one.
+ * This page reads: opening it asks every box it has no answer from this session
+ * yet, one at a time, and each card fills in as its answer arrives. That is a
+ * deliberate difference from the group map on Overview, which costs nothing to
+ * draw — the map's subject is what the router already knows, and this page's
+ * subject is what the hardware says about itself. A person asking "what is
+ * plugged into what" will not click four times to assemble the answer, so the
+ * page does the clicking.
  *
- * **Drawing this costs no reading.** Every card comes from the inventory, the
- * networks Link already reports, and — only for a box this session has already
- * read — the snapshot in the query cache. Opening the map must never start
- * eight HTTP conversations with eight boxes; the button on a card is how an
- * operator asks, one box at a time, and the card says when the answer arrived.
+ * The one thing it will not do is read the same box twice. An answer this
+ * session already holds is reused and carries the time it arrived; a box that
+ * does not answer says so and is left alone until the page is opened again.
  *
  * Placement is a join, not a claim. A box carries the network whose range holds
- * its management address, and the section says so once: it is where the box is
- * managed from, not where its cables are. What the map still cannot draw — a
- * cable between two boxes — stays outside this component's vocabulary.
+ * its management address, and the page says so once: that is where it is
+ * managed from, not where its cables are.
  */
 export function EquipmentBand({ highlight }: { highlight?: string }) {
   useLocale()
   const config = useDevicesConfig()
   const interfaces = useInterfaces()
   const clients = useClientList()
+  const client = useQueryClient()
+  const { mutateAsync: readDevice } = useReadDevice()
+  const started = useRef(false)
+  const [reading, setReading] = useState<string | undefined>(undefined)
+  const [failed, setFailed] = useState<Record<string, string>>({})
+
+  const devices = config.data?.devices ?? []
   const byMac = useMemo(
     () => new Map((clients.data?.clients ?? []).map(client => [client.mac.toLowerCase(), client])),
     [clients.data],
   )
   const networks = interfaces.data?.networks ?? []
-  const devices = config.data?.devices ?? []
+
+  // One pass over the inventory, on arrival only. `started` is a ref rather
+  // than state so a second render cannot start a second pass, and the pass
+  // itself skips anything this session already answered — including a box that
+  // was just added, which the Devices page read before sending us here.
+  useEffect(() => {
+    if (started.current || config.data === undefined) return
+    started.current = true
+    let cancelled = false
+    void (async () => {
+      for (const device of planReads(config.data?.devices ?? [], id => client.getQueryData(deviceKeys.snapshot(id)) !== undefined)) {
+        setReading(device.id)
+        try {
+          await readDevice(device.id)
+        } catch (error) {
+          if (!cancelled) {
+            setFailed(current => ({ ...current, [device.id]: error instanceof Error ? error.message : t('no answer') }))
+          }
+        }
+        if (cancelled) return
+      }
+      setReading(undefined)
+    })()
+    return () => { cancelled = true }
+    // The ref, not the dependencies, is what keeps this to one pass: the
+    // mutation object is new on every render, and the inventory refetches.
+  }, [client, config.data, readDevice])
 
   return (
-    <section aria-labelledby="topology-equipment" className="space-y-3">
-      <div className="space-y-1">
-        <Heading as="h2" size="sm" id="topology-equipment">{t('Network equipment')}</Heading>
-        <p className="max-w-prose text-xs leading-5 text-muted-foreground">
-          {t('Where each box is managed from, and what this session read. A card carries the network its management address belongs to; drawing the page asks no box anything.')}
-        </p>
-      </div>
+    <section aria-label={t('Network equipment')} className="space-y-4">
+      <p className="max-w-prose text-xs leading-5 text-muted-foreground">
+        {t('The network on a card is the one its management address belongs to. Opening this page reads every box that has not answered yet in this session.')}
+      </p>
 
       {config.isError ? (
         <p className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
@@ -77,36 +105,36 @@ export function EquipmentBand({ highlight }: { highlight?: string }) {
               networks={networks}
               byMac={byMac}
               highlight={highlight === device.id}
+              reading={reading !== undefined}
+              failed={failed[device.id]}
             />
           ))}
         </ul>
       )}
+
+      <p className="max-w-prose text-xs leading-5 text-muted-foreground">
+        {t('A cable between two boxes is not drawn: no adapter reports its neighbours, so this router can see each box and what it says about itself, not the wire between them.')}
+      </p>
     </section>
   )
 }
 
 /**
- * Nobody has added a box, which is the normal state of a fresh install and the
- * only place in this picture where a person can make it better. It is a link
- * and not a second copy of the dialog: adding lives on Devices, where the
- * credential, the type and the first read already are.
+ * Nobody has added a box, and the page has nothing to read. It is the one place
+ * in this picture where a person can make it better, so it says what adding one
+ * buys instead of showing an empty grid.
  */
 function Empty() {
   useLocale()
   return (
     <div className="rounded-xl border border-dashed border-border px-4 py-5">
-      <p className="text-sm font-medium">{t('No boxes yet')}</p>
+      <Heading as="h2" size="sm">{t('No boxes yet')}</Heading>
       <p className="mt-1 max-w-prose text-xs leading-5 text-muted-foreground">
-        {t('Add a switch or an access point and it appears here with the clients it reports. Until then this page can only draw the networks this router serves.')}
+        {t('Add a switch or an access point on Devices and this page will read it, place it, and list the clients it reports.')}
       </p>
-      <div className="mt-3">
-        <Button
-          variant="secondary"
-          size="sm"
-          nativeButton={false}
-          render={<Link to="/devices"><Plus className="size-4" />{t('Add a device')}</Link>}
-        />
-      </div>
+      <p className="mt-3 text-xs">
+        <Link to="/devices" className="font-medium underline-offset-4 hover:underline">{t('Add a device')}</Link>
+      </p>
     </div>
   )
 }
@@ -116,15 +144,18 @@ function EquipmentCard({
   networks,
   byMac,
   highlight,
+  reading,
+  failed,
 }: {
   device: Device
   networks: readonly { name: string; subnet?: string }[]
   byMac: ReadonlyMap<string, ClientRow>
   highlight: boolean
+  reading: boolean
+  failed?: string
 }) {
   useLocale()
   const state = useDeviceRead(device.id)
-  const read = useReadDevice()
   const snapshot = state?.data
   const facts = equipmentFacts(snapshot)
   const attached = attachedClients(snapshot, byMac)
@@ -135,9 +166,11 @@ function EquipmentCard({
     addressLabel(device.address),
   ].filter(part => part !== '').join(' · ')
 
-  const ref = useRef<HTMLLIElement>(null)
-  useEffect(() => {
-    if (highlight) ref.current?.scrollIntoView({ block: 'nearest' })
+  // A callback ref, not an effect: the inventory arrives after this component
+  // first renders, so an effect on `highlight` alone would run while there was
+  // no card to scroll to.
+  const ref = useCallback((node: HTMLLIElement | null) => {
+    if (node !== null && highlight) node.scrollIntoView({ block: 'nearest' })
   }, [highlight])
 
   return (
@@ -164,16 +197,11 @@ function EquipmentCard({
       </div>
 
       {snapshot === undefined ? (
-        <div className="flex items-center gap-2">
-          <p className="min-w-0 flex-1 text-xs text-muted-foreground">
-            {read.isError
-              ? t('Could not read it: {reason}', { reason: read.error instanceof Error ? read.error.message : t('no answer') })
-              : t('Not read in this session')}
-          </p>
-          <Button variant="secondary" size="sm" onClick={() => read.mutate(device.id)} disabled={read.isPending}>
-            {read.isPending ? t('Reading…') : t('Read')}
-          </Button>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          {failed !== undefined
+            ? t('Could not read it: {reason}', { reason: failed })
+            : reading ? t('Reading…') : t('Not read this session')}
+        </p>
       ) : (
         <div className="space-y-1.5">
           <ReadLine facts={facts} at={state?.dataUpdatedAt} />
@@ -205,16 +233,18 @@ function EquipmentCard({
 }
 
 /**
- * The three facts a card is allowed, in the order that survives truncation:
- * ports, then clients, then when this reading arrived. A reading with none of
- * them says so rather than printing three dashes.
+ * The facts a card is allowed, in the order that survives truncation: ports,
+ * then clients, then when this reading arrived. A reading with none of them
+ * says so rather than printing three dashes.
  */
 function ReadLine({ facts, at }: { facts: ReturnType<typeof equipmentFacts>; at?: number }) {
   useLocale()
   const parts: string[] = []
   if (facts?.ports) parts.push(t('{up} of {total} ports up', { up: facts.ports.up, total: facts.ports.total }))
   if (facts?.wireless !== undefined) {
-    parts.push(facts.wireless === 0 ? t('no clients') : t('{count} clients', { count: facts.wireless }))
+    parts.push(facts.wireless === 0
+      ? t('no clients')
+      : facts.wireless === 1 ? t('1 client') : t('{count} clients', { count: facts.wireless }))
   }
   if (parts.length === 0) parts.push(t('It answered, and had nothing to say about its ports or clients.'))
   return (

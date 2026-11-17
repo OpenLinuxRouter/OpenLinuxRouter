@@ -1,4 +1,4 @@
-import type { Snapshot } from '@/features/devices/types'
+import type { Device, Snapshot } from '@/features/devices/types'
 import type { ClientRow } from '@/lib/api-types'
 
 /**
@@ -63,4 +63,17 @@ export function attachedClients(
     name: clients.get(association.mac.toLowerCase())?.name || association.mac,
     signal: association.signal_dbm,
   }))
+}
+
+/**
+ * The boxes still to ask, in inventory order.
+ *
+ * An answer this session already holds is evidence, and evidence is not
+ * reread: opening the page again shows the same reading with the same time on
+ * it rather than starting four HTTP conversations to learn nothing. A box that
+ * has not been read, or one that failed the last time, has no entry and is
+ * asked again.
+ */
+export function planReads(devices: readonly Device[], answered: (id: string) => boolean): Device[] {
+  return devices.filter(device => !answered(device.id))
 }

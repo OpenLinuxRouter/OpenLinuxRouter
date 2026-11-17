@@ -62,7 +62,6 @@ export function DeviceDialog({
   onOpenChange,
   initial,
   busy,
-  busyLabel,
   existing = [],
   types = [],
   subject = 'equipment',
@@ -73,8 +72,6 @@ export function DeviceDialog({
   onOpenChange: (open: boolean) => void
   initial?: Device
   busy: boolean
-  /** What the save button says while busy; adding reads the box before leaving. */
-  busyLabel?: string
   /** Client IDs already in the inventory, so adding cannot silently replace one. */
   existing?: string[]
   /** The shapes this page can create. Empty when only an existing entry is edited. */
@@ -220,7 +217,7 @@ export function DeviceDialog({
             onClick={() => onSubmit({ ...draft, id, adapter, roles, name: draft.name.trim(), address: draft.address.trim(), username: draft.username.trim() })}
             disabled={!canSave}
           >
-            {busy ? (busyLabel ?? t('Saving…')) : t('Save')}
+            {busy ? t('Saving…') : t('Save')}
           </Button>
         </DialogFooter>
       </DialogContent>

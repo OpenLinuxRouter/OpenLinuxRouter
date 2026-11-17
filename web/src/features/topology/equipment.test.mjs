@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { attachedClients, equipmentFacts } from './equipment.ts'
+import { attachedClients, equipmentFacts, planReads } from './equipment.ts'
 
 /**
  * The card shows what a reading said and nothing it did not. The cases that
@@ -70,4 +70,16 @@ test('attached clients take the inventory name, and keep the address when it has
 test('a device with no associations lists no clients', () => {
   assert.deepEqual(attachedClients(undefined, new Map()), [])
   assert.deepEqual(attachedClients(snapshot(), new Map()), [])
+})
+
+test('a box already answered for this session is not asked again', () => {
+  const boxes = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+  const answered = new Set(['b'])
+  assert.deepEqual(planReads(boxes, id => answered.has(id)).map(box => box.id), ['a', 'c'])
+})
+
+test('the pass keeps inventory order and skips nothing that has no answer', () => {
+  const boxes = [{ id: 'z' }, { id: 'a' }]
+  assert.deepEqual(planReads(boxes, () => false).map(box => box.id), ['z', 'a'])
+  assert.deepEqual(planReads([], () => false), [])
 })

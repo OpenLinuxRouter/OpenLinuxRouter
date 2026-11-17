@@ -279,8 +279,10 @@ A tile may carry: its number, link state, speed, medium (`copper`, `fiber`,
 ### 6.4 The map is logical, and says so
 
 The overview ends with a picture: the router at the top, the operator's groups
-below it, the devices inside them. `/topology` is that picture with the room to
-be the whole page, plus the legend that says what a line means.
+below it, the devices inside them. That picture lives there and nowhere else. A
+page named for the network's shape is not a second copy of a page about groups,
+so `/topology` is the other half of the same question: the hardware this router
+can actually observe.
 
 **A line is membership, not cabling.** It joins a group to the router; its
 thickness is the group's traffic. Nothing on the drawing claims that two boxes
@@ -297,8 +299,8 @@ are plugged into each other, because nothing we can read establishes that:
 The last two rows are the evidence we actually hold, and they are about
 *placement*, not wiring: "this device answered on lan0" and "this device's
 address falls inside lan0's range" are different claims with different
-strengths. The page states the limit in the legend rather than spending it on a
-drawing it cannot support.
+strengths. The limit is a sentence on the topology page rather than a legend
+invented for a drawing that cannot support it.
 
 **Measured, not assumed.** On 16 November 2026 the LAN was listened to for 75
 seconds: zero LLDP frames arrived on the segment while 193,000 frames passed in
@@ -312,28 +314,28 @@ reach but cannot describe — are therefore **withdrawn, not postponed**. Drawin
 them would be a guess in a line's clothing, and there is nothing on this hardware
 to guess from.
 
-**The boxes the router reads sit above the map, in a strip of their own.** A
-switch or an access point answers "what is this", and the map below answers
-"who is on this network"; the first is a short list of hardware and the second is
-a picture of groups. The strip is deliberately not a row of the drawing: a card
-between the router and the group columns would need every group's line to run
-through it or squeeze past it, which is the one thing that layout refuses to do
-(`features/topology/layout.ts`), and a switch belongs to no operator's group.
+**`/topology` is the boxes.** The page is the equipment inventory read out loud:
+a card per box, the network its management address falls inside, its ports that
+have a link, and the clients it reports, by name and signal. A switch is not a
+client in anybody's group, and a card between the router and the group columns
+would need every group's line to run through it or squeeze past it — the one
+thing that layout refuses to do (`features/topology/layout.ts`). So the two live
+on different pages instead of one drawing pretending to be both.
 
-Placement in the strip is a **join, not a claim**: a box carries the network
+Placement in that list is a **join, not a claim**: a box carries the network
 whose range holds its management address. That is where it is managed from, not
-where its cables are, and the section says so once instead of repeating a caveat
+where its cables are, and the page says so once instead of repeating a caveat
 per card. A box reached by name, or from a segment this router does not serve,
 says it has no network here rather than being filed somewhere plausible.
 
-**The strip costs no reading.** Cards come from the inventory, from Link's
-networks and — only for a box this session already read — from the snapshot in
-the query cache. Opening the page asks no box anything; a card offers one button
-that reads that one box, and then says what arrived and when. Adding a box is
-the exception that proves the rule: the save finishes with the first read, so
-the card a person lands on already has the ports and the clients it reported,
-and leaving it unread would be the one case where the page's own promise makes
-the next screen worth less.
+**Opening the page reads each box, once.** The read is the page's subject, so it
+is not deferred to a button per card: somebody asking what is plugged into what
+will not click four times to assemble the answer. What the page will not do is
+read the same box twice — an answer this session already holds is reused, with
+the time it arrived on it, and a box that does not answer says why instead of
+retrying behind the reader's back. That is also the difference between this page
+and the overview's map, which costs nothing to draw because it draws only what
+the router already knows.
 
 ### 6.5 Devices, including this one
 

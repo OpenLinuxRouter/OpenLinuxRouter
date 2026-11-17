@@ -23,7 +23,7 @@ import { DeviceDialog, type DeviceDraft, type DeviceType } from './device-dialog
 import { DevicePortrait } from './device-parts'
 import { readWhen } from './device-format'
 import { addressLabel, isThisRouter, roleLabels } from './device'
-import { useDeviceEditor, useDeviceRead, useDevicesConfig, useLocalInterfaces, useReadDevice, useReadDevices } from './queries'
+import { useDeviceEditor, useDeviceRead, useDevicesConfig, useLocalInterfaces, useReadDevices } from './queries'
 import type { Device, Snapshot } from './types'
 
 /**
@@ -47,8 +47,6 @@ export function DevicesPage() {
   const editor = useDeviceEditor()
   const interfaces = useLocalInterfaces()
   const reads = useReadDevices()
-  const readOne = useReadDevice()
-  const [firstRead, setFirstRead] = useState(false)
   const [dialog, setDialog] = useState<'add' | null>(null)
   const devices = config.data?.devices ?? []
   const types: DeviceType[] = [
@@ -72,25 +70,13 @@ export function DevicesPage() {
   }, [interfaces.data])
 
   /**
-   * Saving an entry is one act, and for a new box it has a second half: the
-   * first read. That read is what puts the box on the map with its ports and
-   * the clients it reports, so it happens before the page changes rather than
-   * as a button someone has to find afterwards. The dialog stays open with the
-   * button saying so; a read that fails is not a reason to stay, because the
-   * card it lands on reports the failure itself.
+   * Adding a box is the start of looking at it: the topology page reads it on
+   * arrival, so this hands over rather than staying. Editing stays on the
+   * device page, where the credential and the read are.
    */
   const submit = async (draft: DeviceDraft) => {
     const adding = !devices.some(device => device.id === draft.id)
     if (!(await editor.save(draft))) return
-    if (adding) {
-      setFirstRead(true)
-      try {
-        await readOne.mutateAsync(draft.id)
-      } catch {
-        // The card on the map says why it is empty; nothing to add here.
-      }
-      setFirstRead(false)
-    }
     setDialog(null)
     navigate(adding
       ? `/topology?device=${encodeURIComponent(draft.id)}`
@@ -106,8 +92,7 @@ export function DevicesPage() {
       onOpenChange={open => { if (!open) setDialog(null) }}
       types={types}
       existing={devices.map(device => device.id)}
-      busy={editor.busy || firstRead}
-      busyLabel={firstRead ? t('Reading…') : undefined}
+      busy={editor.busy}
       onSubmit={submit}
     />
   )
