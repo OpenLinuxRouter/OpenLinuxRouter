@@ -1,14 +1,10 @@
 import { t, useLocale } from '@/lib/i18n'
 import { useState } from 'react'
-import { Link } from 'react-router'
 import { ChevronRight, CircleHelp, LoaderCircle, RotateCw } from 'lucide-react'
-import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart } from 'recharts'
 
 import { PageHeading } from '@/components/layout/page-heading'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { ChartContainer } from '@/components/ui/chart'
-import type { ChartConfig } from '@/components/ui/chart'
 import { Heading } from '@/components/ui/heading'
 import { MetricValue } from '@/components/ui/metric-value'
 import { PropertyRow, TechnicalValue } from '@/components/ui/property-row'
@@ -22,66 +18,9 @@ import { useNetworkQuality, useQualityAction } from './queries'
 import type { QualityAction } from './queries'
 import type { QualityCategory, QualitySample, QualitySnapshot, QualityScope } from './types'
 
-const axes = ['Speed', 'Latency', 'Stability', 'Wireless', 'Functionality']
-
 const categoryLabel = (label: string) => label === 'Wi-Fi' ? 'Wireless' : label
 
 const points = (value: number) => Number(value.toFixed(1)).toString()
-
-type RadarRow = { subject: string; score: number | null }
-
-/**
- * Five axes, one polygon. The grid is rings at 25/50/75/100 and the spokes that
- * join them; the polygon appears only when every measured axis has a score, so
- * a half-finished assessment reads as dots on some axes rather than as a shape
- * that suggests measurements the router does not have. Wireless keeps its
- * display-only default, which is why it can carry a dot and still block the
- * polygon when another axis is missing.
- */
-function RadarPlot({ rows, complete }: { rows: RadarRow[]; complete: boolean }) {
-  const config = { score: { label: t('Score'), color: 'var(--color-primary)' } } satisfies ChartConfig
-  return (
-    <ChartContainer config={config} className="aspect-[340/245] h-full w-full">
-      <RadarChart data={rows.map(row => ({ ...row, knob: row.score ?? 0 }))} outerRadius="70%" accessibilityLayer={false}>
-        <PolarGrid gridType="polygon" stroke="var(--color-border)" fill="none" />
-        {/* Same four rings the old hand-drawn grid had, and no radial numerals. */}
-        <PolarRadiusAxis domain={[0, 100]} ticks={[25, 50, 75, 100]} tick={false} axisLine={false} />
-        <PolarAngleAxis dataKey="subject" axisLine={false} tick={<AngleTick rows={rows} />} />
-        {complete
-          ? <Radar dataKey="score" stroke="var(--color-score)" fill="var(--color-score)" strokeWidth={2} fillOpacity={0.15}
-              dot={{ r: 3, strokeWidth: 1.5, stroke: 'var(--color-card)', fill: 'var(--color-score)' }} isAnimationActive={false} />
-          : <Radar dataKey="knob" stroke="none" fill="none" dot={<MeasuredDot rows={rows} />} isAnimationActive={false} />}
-      </RadarChart>
-    </ChartContainer>
-  )
-}
-
-/**
- * One axis name and the score it holds, centred on the outer ring.
- *
- * Centred rather than hung outward from it: "Functionality 67" is the widest
- * label in the card, and anchoring it to the ring's end pushes it through the
- * card's left edge at every breakpoint.
- */
-function AngleTick({ x = 0, y = 0, index = 0, rows }: {
-  x?: number; y?: number; index?: number; rows: RadarRow[]
-}) {
-  const row = rows[index]
-  if (!row) return null
-  return (
-    <text x={x} y={y} textAnchor="middle" className="fill-muted-foreground text-xs">
-      {row.subject}{' '}<tspan className="fill-foreground font-semibold tabular-nums">{row.score == null ? '—' : Math.round(row.score)}</tspan>
-    </text>
-  )
-}
-
-/** A point only where there is a score: a missing axis is a dash, not a zero. */
-function MeasuredDot({ cx = 0, cy = 0, index = 0, rows }: {
-  cx?: number; cy?: number; index?: number; rows: RadarRow[]
-}) {
-  if (rows[index]?.score == null) return null
-  return <circle cx={cx} cy={cy} r={3} strokeWidth={1.5} className="fill-primary stroke-card" />
-}
 
 type GradeTone = 'success' | 'warning' | 'destructive'
 
@@ -130,31 +69,6 @@ function categoryScope(id: string): 'responses' | 'speed' | null {
     case 'functionality': return 'responses'
     default: return null
   }
-}
-
-export function NetworkQuality() {
-  useLocale()
-  const query = useNetworkQuality()
-  // A failed read must not keep a cached healthy result looking current.
-  const data = query.isError ? undefined : query.data
-  const categories = axes.map(label => data?.categories.find(category => categoryLabel(category.label) === label))
-  const measuredScore = (category: QualityCategory | undefined) => category?.score ?? null
-  // Wireless has a display-only default until client/AP measurements exist.
-  const scores = categories.map((category, index) => measuredScore(category) ?? (axes[index] === 'Wireless' ? 80 : null))
-  const complete = scores.every(score => score != null)
-
-  return (
-    <section aria-label={t('Quality')} className="flex w-full min-w-0 flex-col gap-2 panel-surface p-3 sm:p-4 lg:min-h-60 lg:aspect-[4/3] lg:h-fit">
-      <div className="flex h-6 items-center justify-between gap-2">
-        <Heading size="sm"><Link to="/quality" className="relative z-10 -my-2.5 inline-flex min-h-11 items-center py-2 text-left hover:text-primary focus-visible:outline-2 focus-visible:outline-ring" aria-label={t('Network quality details')}>{t('Quality')}</Link></Heading>
-      </div>
-      <Link to="/quality" aria-label={t('Open network quality assessment')} className="-mx-1.5 -mb-1.5 flex min-h-0 min-w-0 flex-1 items-center justify-center rounded-lg focus-visible:outline-2 focus-visible:outline-ring sm:-mx-2 sm:-mb-2">
-        <div role="img" className="min-h-0 w-full flex-1" aria-label={`Network quality scores out of 100. ${axes.map((label, i) => `${label}: ${scores[i] == null ? 'not measured' : Math.round(scores[i]!)}${label === 'Wireless' && measuredScore(categories[i]) == null ? ' (default)' : categories[i]?.state === 'partial' ? ' (partial)' : ''}`).join('. ')}. Higher is better.`}>
-          <RadarPlot rows={axes.map((label, index) => ({ subject: t(label), score: scores[index] }))} complete={complete} />
-        </div>
-      </Link>
-    </section>
-  )
 }
 
 export function NetworkQualityPage() {

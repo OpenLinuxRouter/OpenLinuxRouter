@@ -97,7 +97,8 @@ hidden until its row is hovered or the button is focused; a pinned site keeps a
 primary pin visible, and a coarse-pointer device always shows it because it has
 no hover. Only that button toggles Overview visibility; the mark and name are
 not a control. While a pin change saves, its row shows progress and the other
-pin buttons wait. The homepage Latency card shows only pinned monitored sites;
+pin buttons wait. Overview's Internet readout shows only pinned monitored sites, as chips under
+the sample, and clicking one probes it again;
 no sites are pinned by default. Pins are router configuration shared by all
 browsers and survive daemon restarts. They do not affect which sites are probed
 or their URLs, exits, latest results, hourly history, or in-flight probes.

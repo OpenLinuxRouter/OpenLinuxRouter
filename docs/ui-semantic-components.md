@@ -52,7 +52,7 @@ can be shared variants/tokens within those components.
 | Navigation tile | A capability/entity with one primary destination | LauncherTile in `components/layout/launcher.tsx`; logo, initial or icon mark, optional state line |
 | Property list / row | Label and current answer, optionally an edit trigger | PropertyRow inside a `dl`; DeviceSettingRow re-exports the same component |
 | Metric value | Measurement and optional unit | MetricValue, used by Tools, traffic primitives, Gateway and DNS summaries |
-| Traffic meter | Current rate, optional limit and utilization | Reuse Meter; keep data/direction semantics in traffic code |
+| Traffic meter | Current rate, optional limit and utilization | `Meter` stays for rows that compare a rate with a limit (QoS). Overview shows a rate as a readout instead: a figure, a unit and the plan speed as its note |
 | Status | A state's tone and its one word | `state()` in `lib/state.ts` owns the words and their tones; `StatusPill`, `StatusInline` and `StatusDot` in `components/ui/status.tsx` draw them; `StatusStrip` owns a module verdict. Badge remains a tag primitive |
 | Row action | One trailing action, or a menu of several | `RowAction`, `RowMenu` and `RowChevron` in `components/ui/row-action.tsx`; ListRow renders the pencil for `editLabel` rows |
 | Technical value | IP, MAC, hostname, interface identifier, command | TechnicalValue for wrapping identifiers; literal output retains pre/code |
@@ -146,8 +146,8 @@ theme foreground unless stated otherwise; do not make ordinary values primary bl
 | Compact metadata | 12 / 16px | 400 | Muted foreground; not the default for important answers |
 | Technical value | 13 / 20px | 400 | Monospace, foreground, wrap long identifiers |
 | Inline metric | 14 / 20px | 600 | Tabular numerals |
-| Summary metric | 20 / 28px | 600 | Tabular numerals; also Overview's count strip and a device's stat strip |
-| Diagnostic result metric | 30 / 36px | 600 | Tabular numerals, tracking -0.015em |
+| Summary metric | 20 / 28px | 600 | Tabular numerals; a device's stat strip |
+| Diagnostic result metric | 30 / 36px | 600 | Tabular numerals, tracking -0.015em; also Overview's readouts and a tool's result |
 
 Visual size does not choose HTML heading level. CardTitle renders Heading and
 accepts its `as` and `size`; do not nest another heading inside it.

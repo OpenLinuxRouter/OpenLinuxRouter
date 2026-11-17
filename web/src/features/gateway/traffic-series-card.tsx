@@ -1,5 +1,6 @@
 import { t, useLocale } from '@/lib/i18n'
 import { Area, AreaChart, XAxis, YAxis } from 'recharts'
+import { Link } from 'react-router'
 
 import { Card } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
@@ -42,11 +43,17 @@ export function TrafficSeriesCard({ hours = 24 }: { hours?: number }) {
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 pt-3.5">
         <Heading as="h2" size="sm">{t('Traffic counted')}</Heading>
         <span className="text-xs text-muted-foreground">{t('last {hours} hours', { hours })}</span>
-        <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-          {series.isPending ? t('Reading…')
-            : series.isError ? t('Unavailable')
-              : buckets.length === 0 ? t('Nothing counted yet')
-                : t('peak {rate} over 30 min', { rate: formatRate((peak * 8) / 1800) })}
+        <span className="ml-auto flex items-baseline gap-3 text-xs text-muted-foreground">
+          <span className="tabular-nums">
+            {series.isPending ? t('Reading…')
+              : series.isError ? t('Unavailable')
+                : buckets.length === 0 ? t('Nothing counted yet')
+                  : t('peak {rate} over 30 min', { rate: formatRate((peak * 8) / 1800) })}
+          </span>
+          {/* The world map used to be a hidden face of this card. A card that
+              flips is a card you have to be told to flip; the page it holds is
+              reachable from the chart it is about. */}
+          <Link to="/map" className="underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring">{t('World map')}</Link>
         </span>
       </div>
 

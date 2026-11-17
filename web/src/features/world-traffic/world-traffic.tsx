@@ -1,8 +1,6 @@
 import { t, useLocale } from '@/lib/i18n'
-import { Heading } from '@/components/ui/heading'
 import { PageHeading } from '@/components/layout/page-heading'
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTheme } from 'next-themes'
 import * as maplibregl from 'maplibre-gl'
@@ -413,22 +411,6 @@ function useWorldTraffic() {
   const unknown = peers.filter(p => !position(p.place)).length
   const status = query.isError || stale ? t('Unavailable') : !data ? t('Loading…') : data.state === 'disabled' ? 'Counting off' : data.state === 'warming' ? 'Measuring…' : data.state !== 'ready' ? t('Unavailable') : peers.length ? `Top ${peers.length} · ${share}%` : 'No observed traffic'
   return { data, ready, peers, unknown, status }
-}
-
-export function WorldTraffic({ origin, embedded = false }: {
-  origin?: Origin
-  embedded?: boolean
-}) {
-  useLocale()
-  const [open, setOpen] = useState(false)
-  const { resolvedTheme } = useTheme()
-  const traffic = useWorldTraffic()
-  return <section aria-label={t('Traffic map')} className={embedded ? 'flex min-h-0 w-full min-w-0 flex-col gap-1' : 'col-span-2 flex min-w-0 flex-col gap-2 panel-surface p-3 sm:p-4 lg:col-span-1 lg:row-span-3'}>
-    {!embedded && <Heading size="sm" className="flex h-6 items-center"><button onClick={() => setOpen(true)} className="relative rounded-sm before:absolute before:inset-x-0 before:-inset-y-2.5 focus-visible:outline-2 focus-visible:outline-ring" aria-label={t('Map details')}>{t('Map')}</button></Heading>}
-    <Link to="/map" aria-label={t('Map')} className={embedded ? 'flex min-h-32 flex-1 rounded-lg focus-visible:outline-2 focus-visible:outline-ring' : '-mx-1 -mb-1 flex min-h-44 flex-1 rounded-lg focus-visible:outline-2 focus-visible:outline-ring sm:-mx-2 sm:-mb-2'}><TrafficMap peers={traffic.peers} origin={origin} dark={resolvedTheme === 'dark'} /></Link>
-    {(!traffic.ready || !traffic.peers.length) && <p className="text-xs text-muted-foreground">{traffic.status}</p>}
-    <WorldTrafficDetails open={open} onOpenChange={setOpen} origin={origin} {...traffic} />
-  </section>
 }
 
 export function WorldTrafficPage() {

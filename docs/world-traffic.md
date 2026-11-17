@@ -1,9 +1,9 @@
 # World traffic
 
-Overview's Traffic card flips to a MapLibre preview with a bundled Natural
-Earth 1:110m country map (public domain). Opening /map loads a separate,
-fingerprinted local GeoJSON asset with 1:50m countries and simplified global
-1:10m first-order administrative boundaries, label points and major cities.
+The Traffic counted card on Overview links to /map, which draws a MapLibre
+map over a fingerprinted local GeoJSON asset with 1:50m countries (public
+domain Natural Earth) and simplified global 1:10m first-order administrative
+boundaries, label points and major cities.
 State/province boundaries appear from zoom 2; their names and capital/world-city
 names start at zoom 3. Million-plus cities appear from zoom 4 and the remaining
 major cities from zoom 5, with collision handling and population priority.

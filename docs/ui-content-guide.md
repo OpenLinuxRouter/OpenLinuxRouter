@@ -99,9 +99,10 @@ hidden page title. Detail and operation pages keep their identifying titles.
   separate plus button. Internet target selection remains available through the
   API and CLI; failure never silently switches the chosen target. Show the latest
   single HTTPS latency sample, with `<1 ms` for sub-millisecond values; keep
-  DNS lookup simple and omit bandwidth tests. Overview's site grid contains only
-  pinned sites, with none selected by default; Internet and DNS remain visible.
-  Clicking the Latency title opens /latency to manage pins. The pin is a small
+  DNS lookup simple and omit bandwidth tests. Overview's Internet readout carries
+  only pinned sites, as chips under the sample, with none selected by default;
+  the Internet figure and the DNS lookup stay visible. The word Internet opens
+  /latency to manage pins. The pin is a small
   button before the site mark; an unpinned pin is hidden until its row is hovered
   or the button is focused, while a coarse pointer keeps it visible. Only the pin
   toggles Overview visibility — the mark and name are not a control. It indicates

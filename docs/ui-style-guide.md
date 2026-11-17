@@ -439,8 +439,7 @@ is a mono fact row, not a chip beside the title; the dialed-in page puts its
 configured name in the same place. Services shows matching configured
 services as 28px icon tiles linking directly to their published webpages. A matching
 28px outlined add button opens Ingress with the device prefilled. An empty list
-shows only the add button. Total uses the Overview Traffic meter's neutral text
-arrows (↓/↑), with the same size and weight, and byte values, with no caption
+shows only the add button. Total uses neutral text arrows (↓/↑), with the same size and weight, and byte values, with no caption
 after them: it sums the title matrix rather than a counter, and that matrix is
 where the window is read.
 Match row padding and let wrapped content grow both sides together; feedback follows the aligned rows.

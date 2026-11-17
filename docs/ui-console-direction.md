@@ -439,10 +439,13 @@ The evidence line styles wait for an adapter that reports neighbours (§6.4).
 a line is and what it is not, and neither page can drift from the other.
 
 **Slice 5 — Overview rebuilt.** *(medium; in part)*
-Shipped: the four counts above the map (clients online, networks, managed
-devices, tunnel peers), each linking to the page that owns the number. The
-existing verdict row and fault list stay — they answer "is anything wrong"
-better than a strip of facts could.
+Shipped, then revised: one verdict card, with the faults inside it and the
+evidence for it behind one disclosure; five readouts; the chart; and the map
+under a header that counts what it draws. The counts live on the readouts and
+that header, each still linking to the page that owns the number. The separate
+count strip, the radar and the card that flipped to the map are gone — the
+chart links to /map, and the verdict and faults answer "is anything wrong" in
+the one place a reader already looks.
 
 Two pieces are still open, and neither is a UI job:
 

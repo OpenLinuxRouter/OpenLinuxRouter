@@ -518,9 +518,9 @@ This is an initial reference assessment, not the complete service catalog.
 Snapshots identify the fixed `reference` profile at version `1` separately
 from the scoring and catalog versions.
 All measurements originate at the router over its default route, without
-environment proxies. The UI is reached through Overview's Quality card, whose
-assessment page at /quality uses the shared header, content area and footer,
-with Overview selected in navigation.
+environment proxies. The UI is reached through the Quality readout on Overview,
+whose assessment page at /quality uses the shared header, content area and
+footer, with Overview selected in navigation.
 It replaces the fixed sample scores and renames Reachability to Functionality.
 
 ### API and lifecycle
