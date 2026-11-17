@@ -21,6 +21,7 @@ import { SiteIcon } from '@/features/gateway/latency-site-icon'
 import { useGatewayLatency, useGatewayStatus, useGatewayTraffic, useMeasureLatencySite } from '@/features/gateway/queries'
 import { TrafficSeriesCard } from '@/features/gateway/traffic-series-card'
 import { useNetworkQuality } from '@/features/network-quality/queries'
+import { scoreText } from '@/features/network-quality/score'
 import { useRemoteStatus } from '@/features/remote/queries'
 import { FirstRun } from '@/features/setup/first-run'
 import { useHostMetrics, usePublicAddresses, type HostMetrics, type PublicAddresses } from '@/features/system/queries'
@@ -250,7 +251,7 @@ function Readouts({ flows, trafficFailed, latency, latencyFailed }: {
       </div>}
       {measure.isError && <p role="alert" className="mt-1 text-xs text-destructive">{t('Could not measure {name}. Try again.', { name: measure.variables ?? '' })}</p>}
     </Tile>
-    <Tile label={t('Quality')} value={score} to="/quality"
+    <Tile label={t('Quality')} value={score == null ? undefined : scoreText(score)} to="/quality"
       note={score == null ? t('Not tested') : t('of 100')} />
     <Tile label={t('Clients')} value={online} note={t('online')} to="/topology" />
 

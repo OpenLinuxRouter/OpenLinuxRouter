@@ -16,11 +16,10 @@ import { filteringVerdict, mappingVerdict, natTypeLabel } from '@/features/tools
 import { categoryEvidence, serviceEvidence, type CategoryEvidence, type ServiceEvidence } from './measurements'
 import { useNetworkQuality, useQualityAction } from './queries'
 import type { QualityAction } from './queries'
+import { scoreText } from './score'
 import type { QualityCategory, QualitySample, QualitySnapshot, QualityScope } from './types'
 
 const categoryLabel = (label: string) => label === 'Wi-Fi' ? 'Wireless' : label
-
-const points = (value: number) => Number(value.toFixed(1)).toString()
 
 type GradeTone = 'success' | 'warning' | 'destructive'
 
@@ -277,7 +276,7 @@ function ScoreRing({ score, busy }: { score: number | null; busy: boolean }) {
     ? t('Testing network quality')
     : score == null
       ? t('No overall score')
-      : t('Overall score {score} out of 100, {grade}', { score: points(score), grade: t(grade!.label) })
+      : t('Overall score {score} out of 100, {grade}', { score: scoreText(score), grade: t(grade!.label) })
 
   return <div className="relative size-28 shrink-0" role="img" aria-label={label}>
     <svg viewBox="0 0 120 120" className="size-full -rotate-90" aria-hidden="true">
@@ -295,7 +294,7 @@ function ScoreRing({ score, busy }: { score: number | null; busy: boolean }) {
         ? <LoaderCircle className="size-7 animate-spin text-primary" aria-hidden="true" />
         : score == null
           ? <span className="text-3xl leading-none font-semibold text-muted-foreground">—</span>
-          : <span className="text-4xl leading-none font-semibold tracking-tight text-foreground tabular-nums">{points(score)}</span>}
+          : <span className="text-4xl leading-none font-semibold tracking-tight text-foreground tabular-nums">{scoreText(score)}</span>}
       <span className="mt-1.5 text-xs font-medium tracking-wider text-muted-foreground uppercase">
         {busy ? t('Testing…') : score == null ? t('No score') : '/ 100'}
       </span>
