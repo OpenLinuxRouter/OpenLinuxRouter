@@ -429,12 +429,13 @@ function DeviceBox({
           const cx = x + (FRAME_W / 2) * s
           return (
             <g key={port.id}>
+              {/* The lamp is centred on its own port. The translate already
+                  puts us at the port's centre with the scale applied, so the
+                  window is drawn from -LAMP_W/2 and nothing else is shifted. */}
               <g transform={`translate(${cx} ${BOX.panel}) scale(${s})`}>
-                <g transform={`translate(${-FRAME_W / 2} 0)`}>
-                  <rect x={-11.5} y={0} width={LAMP_W} height={LAMP_H} rx={3.5}
-                    fill={port.linkUp === true ? LIT : PART}
-                    stroke={port.linkUp === true ? LIT_EDGE : PART_EDGE} strokeWidth={2} />
-                </g>
+                <rect x={-LAMP_W / 2} y={0} width={LAMP_W} height={LAMP_H} rx={3.5}
+                  fill={port.linkUp === true ? LIT : PART}
+                  stroke={port.linkUp === true ? LIT_EDGE : PART_EDGE} strokeWidth={2} />
               </g>
               <g transform={`translate(${x} ${portTop}) scale(${s})`}>
                 <title>{describe(port)}</title>
