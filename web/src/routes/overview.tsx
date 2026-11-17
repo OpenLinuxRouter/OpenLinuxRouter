@@ -146,47 +146,52 @@ function Verdict({ faults, known, idle, failed, host, addresses, modules }: {
   const place = [addresses?.ipv4?.city || addresses?.ipv4?.region || addresses?.ipv4?.country,
     addresses?.ipv4?.isp || addresses?.ipv4?.organization].filter(Boolean).join(', ')
 
-  return <StatusStrip
-    tone={tone}
-    headline={headline}
-    detail={<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span>{host ? `Up ${uptime(host.uptime_seconds)}` : t('Uptime unavailable')}</span>
-      {place && <>
-        <span aria-hidden className="text-border">·</span>
-        <span className="inline-flex items-center gap-1.5"><CountryIcon code={addresses?.ipv4?.country_code} />{place}</span>
-      </>}
-    </span>}
-    details={<>
-      {modules.map((module) => {
-        const issues = faults.filter((fault) => fault.to === module.to)
-        const health = module.failed ? state('Unavailable')
-          : !module.data ? state('Checking…')
-            : issues.length ? state('Needs attention')
-              : !module.data.enabled ? state('Disabled')
-                : !module.observed ? state('Unavailable')
-                  : state('OK')
-        return <div key={module.name} className="flex items-baseline justify-between gap-2">
-          <dt><Link to={module.to} className="underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{module.name}</Link></dt>
-          <dd className="text-right"><StatusInline tone={health.tone} emphasis="dense">{health.label}</StatusInline></dd>
-        </div>
-      })}
-      {host && <>
-        <div className="flex justify-between gap-2"><dt>CPU</dt><dd className="tabular-nums">{host.cpu_used_cores == null ? '—' : `${host.cpu_used_cores.toFixed(1)} / ${host.cpu_cores}`}</dd></div>
-        <div className="flex justify-between gap-2"><dt>{t('Memory')}</dt><dd className="tabular-nums">{formatBytes(host.memory_used_bytes)} / {formatBytes(host.memory_total_bytes)}</dd></div>
-        {host.disk_total_bytes ? <div className="flex justify-between gap-2"><dt>{t('Disk')}</dt><dd className="tabular-nums">{formatBytes(host.disk_used_bytes ?? 0)} / {formatBytes(host.disk_total_bytes)}</dd></div> : null}
-      </>}
-      {addresses?.ipv4?.ip && <div className="flex justify-between gap-2"><dt>IPv4</dt><dd className="break-all text-right font-mono">{addresses.ipv4.ip}</dd></div>}
-      {addresses?.ipv6?.ip && <div className="flex justify-between gap-2"><dt>IPv6</dt><dd className="break-all text-right font-mono">{addresses.ipv6.ip}</dd></div>}
-      {addresses?.ipv4?.asn != null && addresses.ipv4.asn > 0 && <div className="flex justify-between gap-2"><dt>ASN</dt><dd className="text-right font-mono">AS{addresses.ipv4.asn}</dd></div>}
-      {addresses?.ipv4?.asn_organization && <div className="flex justify-between gap-2"><dt>{t('Org')}</dt><dd className="break-words text-right">{addresses.ipv4.asn_organization}</dd></div>}
-    </>}>
-    {faults.map((fault) => <p key={fault.key} className="text-sm leading-5 text-muted-foreground">
-      {fault.to
-        ? <Link to={fault.to} className="font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{fault.title}</Link>
-        : <span className="font-medium text-foreground">{fault.title}</span>}
-      {` · ${fault.detail}`}
-    </p>)}
-  </StatusStrip>
+  return <Card className="gap-0 py-0">
+    <div className="px-4 py-4">
+      <StatusStrip
+        density="compact"
+        tone={tone}
+        headline={headline}
+        detail={<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span>{host ? `Up ${uptime(host.uptime_seconds)}` : t('Uptime unavailable')}</span>
+          {place && <>
+            <span aria-hidden className="text-border">·</span>
+            <span className="inline-flex items-center gap-1.5"><CountryIcon code={addresses?.ipv4?.country_code} />{place}</span>
+          </>}
+        </span>}
+        details={<>
+          {modules.map((module) => {
+            const issues = faults.filter((fault) => fault.to === module.to)
+            const health = module.failed ? state('Unavailable')
+              : !module.data ? state('Checking…')
+                : issues.length ? state('Needs attention')
+                  : !module.data.enabled ? state('Disabled')
+                    : !module.observed ? state('Unavailable')
+                      : state('OK')
+            return <div key={module.name} className="flex items-baseline justify-between gap-2">
+              <dt><Link to={module.to} className="underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{module.name}</Link></dt>
+              <dd className="text-right"><StatusInline tone={health.tone} emphasis="dense">{health.label}</StatusInline></dd>
+            </div>
+          })}
+          {host && <>
+            <div className="flex justify-between gap-2"><dt>CPU</dt><dd className="tabular-nums">{host.cpu_used_cores == null ? '—' : `${host.cpu_used_cores.toFixed(1)} / ${host.cpu_cores}`}</dd></div>
+            <div className="flex justify-between gap-2"><dt>{t('Memory')}</dt><dd className="tabular-nums">{formatBytes(host.memory_used_bytes)} / {formatBytes(host.memory_total_bytes)}</dd></div>
+            {host.disk_total_bytes ? <div className="flex justify-between gap-2"><dt>{t('Disk')}</dt><dd className="tabular-nums">{formatBytes(host.disk_used_bytes ?? 0)} / {formatBytes(host.disk_total_bytes)}</dd></div> : null}
+          </>}
+          {addresses?.ipv4?.ip && <div className="flex justify-between gap-2"><dt>IPv4</dt><dd className="break-all text-right font-mono">{addresses.ipv4.ip}</dd></div>}
+          {addresses?.ipv6?.ip && <div className="flex justify-between gap-2"><dt>IPv6</dt><dd className="break-all text-right font-mono">{addresses.ipv6.ip}</dd></div>}
+          {addresses?.ipv4?.asn != null && addresses.ipv4.asn > 0 && <div className="flex justify-between gap-2"><dt>ASN</dt><dd className="text-right font-mono">AS{addresses.ipv4.asn}</dd></div>}
+          {addresses?.ipv4?.asn_organization && <div className="flex justify-between gap-2"><dt>{t('Org')}</dt><dd className="break-words text-right">{addresses.ipv4.asn_organization}</dd></div>}
+        </>}>
+        {faults.map((fault) => <p key={fault.key} className="text-sm leading-5 text-muted-foreground">
+          {fault.to
+            ? <Link to={fault.to} className="font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{fault.title}</Link>
+            : <span className="font-medium text-foreground">{fault.title}</span>}
+          {` · ${fault.detail}`}
+        </p>)}
+      </StatusStrip>
+    </div>
+  </Card>
 }
 
 /* -------------------------------------------------------------------------- */
@@ -234,7 +239,7 @@ function Readouts({ flows, trafficFailed, latency, latencyFailed }: {
     <Tile label={<Link to="/latency" className="underline-offset-4 hover:text-foreground hover:underline">{t('Internet')}</Link>} className="xl:col-span-2"
       value={measured ? formatLatency(latency.milliseconds!) : latency?.state === 'unreachable' ? t('No response') : undefined}
       note={dnsMeasured ? `${t('DNS lookup')} ${formatLatency(latency.dns_milliseconds!)}` : undefined}>
-      {sites.length > 0 && <div className="mt-1.5 flex flex-wrap items-center gap-x-1 gap-y-1">
+      {sites.length > 0 && <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
         {sites.map((site) => {
           // Only a probe started by clicking this row sets its flag; the
           // once-a-minute background round leaves every row quiet.
@@ -277,12 +282,12 @@ function Tile({ label, value, unit, note, to, className, children }: {
   className?: string
   children?: ReactNode
 }) {
-  const card = <Card size="sm" className="flex h-full min-w-0 flex-col justify-between gap-2 py-3.5 transition-colors group-hover:bg-accent/40 group-focus-visible:bg-accent/40">
+  const card = <Card size="sm" className="flex h-full min-w-0 flex-col gap-2 px-(--card-spacing) transition-colors group-hover:bg-accent/40 group-focus-visible:bg-accent/40">
     <p className="truncate text-xs leading-4 font-medium text-muted-foreground">{label}</p>
     <div className="min-w-0">
       <PrimaryMetric value={value} unit={unit} note={note} />
-      {children}
     </div>
+    {children && <div className="mt-auto min-w-0">{children}</div>}
   </Card>
   return <div className={`min-w-0 ${className ?? ''}`}>
     {to
