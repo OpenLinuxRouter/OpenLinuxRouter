@@ -9,6 +9,7 @@ import {
   CAGE_MOUTH,
   CAGE_W,
   FOOT,
+  FRAME_W,
   LAMP_GAP,
   LAMP_H,
   MOUTH_PATH,
@@ -43,7 +44,16 @@ import {
  * VLAN or a radio is filtered out before it gets here, because those are not
  * holes a cable goes into.
  */
-export function DeviceFace({ ports, className }: { ports?: readonly Port[]; className?: string }) {
+export function DeviceFace({
+  ports,
+  addresses,
+  className,
+}: {
+  ports?: readonly Port[]
+  /** How many addresses each port learned, when that is known. */
+  addresses?: ReadonlyMap<string, number>
+  className?: string
+}) {
   useLocale()
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '')
   const faces: FacePort[] = (ports ?? []).map(port => ({
@@ -52,6 +62,7 @@ export function DeviceFace({ ports, className }: { ports?: readonly Port[]; clas
     kind: port.kind,
     linkUp: port.link_up,
     speedMbps: port.speed_mbps,
+    clients: addresses?.get(port.id),
   }))
   const layout = faceLayout(faces)
   if (layout.rows.length === 0) return null
@@ -61,9 +72,16 @@ export function DeviceFace({ ports, className }: { ports?: readonly Port[]; clas
   const label = t('{up} of {total} ports up', { up, total })
 
   return (
+    // A port has a natural size: past it the face stops growing and centres,
+    // so a four-port box is drawn as the smaller thing it is instead of having
+    // its jacks blown up to fill the card.
+    <div
+      className={className}
+      style={{ maxWidth: layout.width * (MAX_PORT / FRAME_W) }}
+    >
     <svg
       viewBox={`0 0 ${layout.width} ${layout.height + FOOT}`}
-      className={className ?? 'block h-auto w-full'}
+      className="block h-auto w-full"
       role="img"
       aria-label={label}
       preserveAspectRatio="xMidYMid meet"
@@ -94,6 +112,29 @@ export function DeviceFace({ ports, className }: { ports?: readonly Port[]; clas
         </g>
       ))}
     </svg>
+    {/* The numbers under the shields are the box's own names for its ports,
+        drawn in HTML rather than in the picture: type has to stay legible when
+        the row of ports is only a thumbnail, and SVG text would shrink with
+        it. One row of ports only — a second row is too dense to letter. */}
+    {layout.rows.length === 1 && (
+      <div className="relative mt-1 h-4 text-[10px] leading-4">
+        {layout.rows[0].slots.map(slot => (
+          <span
+            key={slot.port.id}
+            className="absolute flex -translate-x-1/2 items-center gap-1 whitespace-nowrap tabular-nums"
+            style={{ left: `${((PAD + slot.x + slot.width / 2) / layout.width) * 100}%` }}
+          >
+            <span className="text-muted-foreground">{slot.port.id}</span>
+            {slot.port.clients !== undefined && slot.port.clients > 0 && (
+              <span className="rounded bg-muted px-1 text-[9px] leading-4 text-foreground/75" title={t('{count} addresses learned here', { count: slot.port.clients })}>
+                {slot.port.clients}
+              </span>
+            )}
+          </span>
+        ))}
+      </div>
+    )}
+    </div>
   )
 }
 
@@ -106,6 +147,9 @@ function describe(port: FacePort): string {
   if (port.linkUp === true && port.speedMbps !== undefined) parts.push(`${port.speedMbps} Mbps`)
   return parts.join(' · ')
 }
+
+/** The widest a port is ever drawn, in pixels. */
+const MAX_PORT = 44
 
 const BODY = '#ffffff'
 const BODY_EDGE = '#e4e4e7'

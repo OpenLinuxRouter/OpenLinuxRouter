@@ -5,8 +5,10 @@ import { Link } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Heading } from '@/components/ui/heading'
 import { Skeleton } from '@/components/ui/skeleton'
+import { api } from '@/lib/api'
 
 import { useClientList } from '@/features/clients/queries'
 import { adapterLabel, addressLabel, roleLabels } from '@/features/devices/device'
@@ -15,9 +17,11 @@ import { deviceKeys, useDeviceRead, useDevicesConfig, useReadDevice } from '@/fe
 import type { Device } from '@/features/devices/types'
 import { useInterfaces } from '@/features/link/queries'
 import { DeviceFace } from './device-face'
-import { attachedClients, equipmentFacts, planReads } from './equipment'
+import { addressesByPort, attachedClients, equipmentFacts, planReads, type LearnedAddress } from './equipment'
+import { rememberSweep, usePortSweep } from './sweep'
 import { placeDevice } from './placement'
 import type { ClientRow } from '@/lib/api-types'
+import type { FDBResult } from '@/features/devices/types'
 
 /**
  * The boxes this router reads, and the clients each one reports.
@@ -48,6 +52,7 @@ export function EquipmentBand({ highlight }: { highlight?: string }) {
   const started = useRef(false)
   const [reading, setReading] = useState<string | undefined>(undefined)
   const [failed, setFailed] = useState<Record<string, string>>({})
+  const [sweeping, setSweeping] = useState<{ id: string; done: number; total: number } | undefined>(undefined)
 
   const devices = config.data?.devices ?? []
   const byMac = useMemo(
@@ -83,6 +88,38 @@ export function EquipmentBand({ highlight }: { highlight?: string }) {
     // mutation object is new on every render, and the inventory refetches.
   }, [client, config.data, readDevice])
 
+  const macs = useMemo(
+    () => [...new Set((clients.data?.clients ?? []).map(client => client.mac.toLowerCase()).filter(mac => mac !== ''))],
+    [clients.data],
+  )
+
+  // Which port each known address is on is one lookup per address — the firmware
+  // searches a MAC, it does not dump a table — so this is a deliberate sweep,
+  // never part of opening the page, and its result stays for the session.
+  const mapPorts = useCallback(async (device: Device) => {
+    setSweeping({ id: device.id, done: 0, total: macs.length })
+    const learned: LearnedAddress[] = []
+    let failedLookups = 0
+    for (const [index, mac] of macs.entries()) {
+      try {
+        const result = await api.get<FDBResult>(`/api/devices/${encodeURIComponent(device.id)}/fdb?${new URLSearchParams({ mac })}`)
+        for (const entry of result.entries) learned.push({ mac: entry.mac, port_id: entry.port_id })
+      } catch {
+        failedLookups += 1
+      }
+      setSweeping(current => current?.id === device.id ? { ...current, done: index + 1 } : current)
+    }
+    const byPort = addressesByPort(learned)
+    rememberSweep(device.id, {
+      at: Date.now(),
+      byPort,
+      placed: [...byPort.values()].reduce((sum, count) => sum + count, 0),
+      asked: macs.length,
+      failed: failedLookups,
+    })
+    setSweeping(undefined)
+  }, [macs])
+
   return (
     <section aria-label={t('Network equipment')} className="space-y-4">
       <p className="max-w-prose text-xs leading-5 text-muted-foreground">
@@ -108,6 +145,10 @@ export function EquipmentBand({ highlight }: { highlight?: string }) {
               highlight={highlight === device.id}
               reading={reading !== undefined}
               failed={failed[device.id]}
+              knownAddresses={macs.length}
+              sweeping={sweeping?.id === device.id ? sweeping : undefined}
+              busy={sweeping !== undefined}
+              onMapPorts={() => void mapPorts(device)}
             />
           ))}
         </ul>
@@ -147,6 +188,10 @@ function EquipmentCard({
   highlight,
   reading,
   failed,
+  knownAddresses,
+  sweeping,
+  busy,
+  onMapPorts,
 }: {
   device: Device
   networks: readonly { name: string; subnet?: string }[]
@@ -154,12 +199,30 @@ function EquipmentCard({
   highlight: boolean
   reading: boolean
   failed?: string
+  knownAddresses: number
+  sweeping?: { done: number; total: number }
+  busy: boolean
+  onMapPorts: () => void
 }) {
   useLocale()
   const state = useDeviceRead(device.id)
   const snapshot = state?.data
   const facts = equipmentFacts(snapshot)
   const attached = attachedClients(snapshot, byMac)
+  const sweep = usePortSweep(device.id)
+  // A sweep is fresher than the read that preceded it, so it wins; a reading
+  // that carried the table itself needs no sweep at all.
+  const addresses = useMemo(() => {
+    if (sweep !== undefined) return sweep.byPort
+    if (snapshot === undefined) return undefined
+    const table = snapshot.collections?.fdb
+    const read = table ? table.state === 'ok' : snapshot.fdb !== undefined
+    if (!read || snapshot.fdb === undefined) return undefined
+    return addressesByPort(snapshot.fdb)
+  }, [sweep, snapshot])
+  // A switch is anything we might ask: an explicit switch role, or the adapter
+  // we know implements the lookup even when the operator left roles empty.
+  const sweepable = device.roles?.includes('switch') === true || device.adapter === 'mercury'
   const network = placeDevice(device, networks)
   const subtitle = [
     roleLabels(device).map(role => t(role)).join(' · '),
@@ -200,7 +263,7 @@ function EquipmentCard({
       {/* The box itself, drawn from the ports it reported: one shield per port,
           a lamp per port, lit only where the box said there was a carrier. */}
       {snapshot?.ports !== undefined && snapshot.ports.length > 0 && (
-        <DeviceFace ports={snapshot.ports} />
+        <DeviceFace ports={snapshot.ports} addresses={addresses} />
       )}
 
       {snapshot === undefined ? (
@@ -233,9 +296,50 @@ function EquipmentCard({
               )}
             </ul>
           )}
+          {sweepable && (snapshot.ports?.length ?? 0) > 0 && (
+            <div className="flex items-center gap-2 border-t border-border/60 pt-1.5">
+              <span className="min-w-0 flex-1 text-xs text-muted-foreground">
+                {sweeping !== undefined
+                  ? t('asking {done} of {total}', { done: sweeping.done, total: sweeping.total })
+                  : sweep !== undefined
+                    ? <SweepLine sweep={sweep} />
+                    : knownAddresses === 0
+                      ? t('No address this router knows to ask about')
+                      : t('No port map yet')}
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="shrink-0"
+                onClick={onMapPorts}
+                disabled={busy || knownAddresses === 0}
+              >
+                {sweeping !== undefined ? t('Asking…') : sweep !== undefined ? t('Ask again') : t('Map ports')}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </li>
+  )
+}
+
+/**
+ * What a sweep found, in one line: how many addresses the switch placed, on how
+ * many ports, and when it last answered. Lookups it did not answer are named
+ * rather than folded into the total.
+ */
+function SweepLine({ sweep }: { sweep: ReturnType<typeof usePortSweep> }) {
+  useLocale()
+  if (sweep === undefined) return null
+  const addresses = sweep.placed === 1 ? t('1 address') : t('{count} addresses', { count: sweep.placed })
+  const ports = sweep.byPort.size === 1 ? t('on 1 port') : t('on {count} ports', { count: sweep.byPort.size })
+  return (
+    <span>
+      {addresses} {ports}
+      {sweep.failed > 0 && ` · ${t('{count} unanswered', { count: sweep.failed })}`}
+      {` · ${t('read {when}', { when: readWhen(sweep.at) })}`}
+    </span>
   )
 }
 

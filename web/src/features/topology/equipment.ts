@@ -24,13 +24,27 @@ export interface EquipmentFacts {
   wireless?: number
 }
 
+/**
+ * A port a cable goes into. A bridge, a VLAN, a bond and a radio are interfaces
+ * the firmware lists, and counting them as ports would put a number on a card
+ * that the panel next to it does not draw.
+ */
+export function isPhysical(port: { kind: string }): boolean {
+  return port.kind === 'ethernet' || port.kind === 'fiber'
+}
+
+/** A port that takes a module instead of a plug. */
+export function isFiber(port: { kind: string }): boolean {
+  return port.kind === 'fiber'
+}
+
 export function equipmentFacts(snapshot: Snapshot | undefined): EquipmentFacts | undefined {
   if (snapshot === undefined) return undefined
   const facts: EquipmentFacts = {}
   const model = [snapshot.identity?.manufacturer, snapshot.identity?.model].filter(Boolean).join(' ')
   if (model !== '') facts.model = model
-  const ports = snapshot.ports
-  if (ports !== undefined && ports.length > 0) {
+  const ports = (snapshot.ports ?? []).filter(isPhysical)
+  if (ports.length > 0) {
     facts.ports = { up: ports.filter(port => port.link_up === true).length, total: ports.length }
   }
   // A read that reported the collection as unsupported leaves the array absent,
@@ -76,4 +90,27 @@ export function attachedClients(
  */
 export function planReads(devices: readonly Device[], answered: (id: string) => boolean): Device[] {
   return devices.filter(device => !answered(device.id))
+}
+
+/** One address a switch reported on one port. */
+export interface LearnedAddress {
+  mac: string
+  port_id: string
+}
+
+/**
+ * How many addresses each port learned, keyed by port id.
+ *
+ * A forwarding table names one port per address, so the count is per port — and
+ * an address reported twice is still one address: the last report wins, because
+ * a table that moved an address moved it. This is a count of what the switch
+ * said, not a count of machines: a device behind a second switch is learned on
+ * the uplink, together with everything behind it.
+ */
+export function addressesByPort(entries: readonly LearnedAddress[]): Map<string, number> {
+  const latest = new Map<string, string>()
+  for (const entry of entries) latest.set(entry.mac.toLowerCase(), entry.port_id)
+  const counts = new Map<string, number>()
+  for (const port of latest.values()) counts.set(port, (counts.get(port) ?? 0) + 1)
+  return counts
 }

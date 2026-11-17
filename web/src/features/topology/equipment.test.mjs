@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { attachedClients, equipmentFacts, planReads } from './equipment.ts'
+import { addressesByPort, attachedClients, equipmentFacts, planReads } from './equipment.ts'
 
 /**
  * The card shows what a reading said and nothing it did not. The cases that
@@ -82,4 +82,24 @@ test('the pass keeps inventory order and skips nothing that has no answer', () =
   const boxes = [{ id: 'z' }, { id: 'a' }]
   assert.deepEqual(planReads(boxes, () => false).map(box => box.id), ['z', 'a'])
   assert.deepEqual(planReads([], () => false), [])
+})
+
+test('addresses are counted per port, and a moved address counts once', () => {
+  const counts = addressesByPort([
+    { mac: 'AA:BB:CC:00:00:01', port_id: '2' },
+    { mac: 'aa:bb:cc:00:00:02', port_id: '2' },
+    { mac: 'aa:bb:cc:00:00:03', port_id: '4' },
+  ])
+  assert.deepEqual([...counts], [['2', 2], ['4', 1]])
+  // A second report for the same address is the table's latest word, not a
+  // second address: two ports do not both hold it.
+  const moved = addressesByPort([
+    { mac: 'aa:bb:cc:00:00:01', port_id: '2' },
+    { mac: 'aa:bb:cc:00:00:01', port_id: '5' },
+  ])
+  assert.deepEqual([...moved], [['5', 1]])
+})
+
+test('a table with nothing in it counts nothing', () => {
+  assert.equal(addressesByPort([]).size, 0)
 })

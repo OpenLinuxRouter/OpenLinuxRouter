@@ -14,6 +14,15 @@
  * why the count on the face is always the count in the answer.
  */
 
+import { isFiber, isPhysical } from './equipment.ts'
+
+/**
+ * Rows are physical ports only. A bridge, a VLAN or a radio is an interface the
+ * box reports, not a hole a cable goes into, and drawing one as a jack would
+ * claim a connector the hardware does not have.
+ */
+export { isFiber, isPhysical }
+
 export interface FacePort {
   id: string
   name?: string
@@ -66,18 +75,6 @@ export const FOOT = 10
 /** Ports per row. A 24-port switch really is two rows of twelve. */
 export const ROW_MAX = 12
 
-/**
- * Rows are physical ports only. A bridge, a VLAN or a radio is an interface the
- * box reports, not a hole a cable goes into, and drawing one as a jack would
- * claim a connector the hardware does not have.
- */
-export function isPhysical(port: { kind: string }): boolean {
-  return port.kind === 'ethernet' || port.kind === 'fiber'
-}
-
-export function isFiber(port: { kind: string }): boolean {
-  return port.kind === 'fiber'
-}
 
 /**
  * Lay the physical ports out as the hardware carries them: one row up to
