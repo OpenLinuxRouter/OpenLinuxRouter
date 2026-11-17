@@ -14,6 +14,7 @@ import { readWhen } from '@/features/devices/device-format'
 import { deviceKeys, useDeviceRead, useDevicesConfig, useReadDevice } from '@/features/devices/queries'
 import type { Device } from '@/features/devices/types'
 import { useInterfaces } from '@/features/link/queries'
+import { DeviceFace } from './device-face'
 import { attachedClients, equipmentFacts, planReads } from './equipment'
 import { placeDevice } from './placement'
 import type { ClientRow } from '@/lib/api-types'
@@ -195,6 +196,12 @@ function EquipmentCard({
           <Badge variant="secondary">{network}</Badge>
         )}
       </div>
+
+      {/* The box itself, drawn from the ports it reported: one shield per port,
+          a lamp per port, lit only where the box said there was a carrier. */}
+      {snapshot?.ports !== undefined && snapshot.ports.length > 0 && (
+        <DeviceFace ports={snapshot.ports} />
+      )}
 
       {snapshot === undefined ? (
         <p className="text-xs text-muted-foreground">
