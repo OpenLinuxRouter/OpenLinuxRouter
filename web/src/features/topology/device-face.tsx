@@ -51,6 +51,7 @@ export function DeviceFace({
   ports,
   addresses,
   form = 'switch',
+  labels = 'plain',
   className,
 }: {
   ports?: readonly Port[]
@@ -58,6 +59,11 @@ export function DeviceFace({
   addresses?: ReadonlyMap<string, number>
   /** What kind of box this is; it changes the chassis, never the ports. */
   form?: DeviceForm
+  /**
+   * `card` puts a background behind each port name. A map draws cables under
+   * the names, and a name has to stay readable where one passes behind it.
+   */
+  labels?: 'plain' | 'card'
   className?: string
 }) {
   useLocale()
@@ -80,6 +86,7 @@ export function DeviceFace({
         form={form}
         uid={uid}
         className={className}
+        labels={labels}
         label={t('{up} of {total} ports up', { up, total })}
       />
     )
@@ -144,7 +151,7 @@ export function DeviceFace({
             className="absolute flex -translate-x-1/2 items-center gap-1 whitespace-nowrap tabular-nums"
             style={{ left: `${((rowLeft(chrome) + slot.x + slot.width / 2) / layout.width) * 100}%` }}
           >
-            <span className="text-muted-foreground">{slot.port.id}</span>
+            <span className={labels === 'card' ? 'rounded bg-background px-0.5 text-muted-foreground' : 'text-muted-foreground'}>{slot.port.id}</span>
             {/* Filled means something is on the port; a bare dot for one, a
                 count when the table put more than one address there. */}
             {slot.port.clients !== undefined && slot.port.clients > 0 && (
@@ -359,6 +366,7 @@ function DeviceBox({
   form,
   uid,
   className,
+  labels,
   label,
 }: {
   faces: readonly FacePort[]
@@ -366,6 +374,7 @@ function DeviceBox({
   form: DeviceForm
   uid: string
   className?: string
+  labels: 'plain' | 'card'
   label: string
 }) {
   const s = BOX.scale
@@ -456,7 +465,7 @@ function DeviceBox({
               className="absolute flex -translate-x-1/2 items-center gap-1 whitespace-nowrap tabular-nums"
               style={{ left: `${(cx / w) * 100}%` }}
             >
-              <span className="text-muted-foreground">{port.id}</span>
+              <span className={labels === 'card' ? 'rounded bg-background px-0.5 text-muted-foreground' : 'text-muted-foreground'}>{port.id}</span>
               {port.clients !== undefined && port.clients > 0 && (
                 port.clients === 1
                   ? <span className="size-1.5 shrink-0 rounded-full bg-foreground/45" title={t('{count} address learned here', { count: 1 })} />

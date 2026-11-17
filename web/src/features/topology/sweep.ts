@@ -25,7 +25,7 @@ export interface PortSweep {
   failed: number
 }
 
-const sweeps = new Map<string, PortSweep>()
+let sweeps: ReadonlyMap<string, PortSweep> = new Map()
 const listeners = new Set<() => void>()
 
 function subscribe(listener: () => void): () => void {
@@ -34,11 +34,24 @@ function subscribe(listener: () => void): () => void {
 }
 
 export function rememberSweep(deviceId: string, sweep: PortSweep): void {
-  sweeps.set(deviceId, sweep)
+  // A new map, not a set: the map page reads this store through
+  // useSyncExternalStore, which compares by identity.
+  const next = new Map(sweeps)
+  next.set(deviceId, sweep)
+  sweeps = next
   listeners.forEach(listener => listener())
 }
 
 /** One device's sweep, re-rendering the caller when a sweep lands. */
 export function usePortSweep(deviceId: string): PortSweep | undefined {
   return useSyncExternalStore(subscribe, () => sweeps.get(deviceId))
+}
+
+/** Every sweep this session holds, as a map the map can lay out from. */
+export function allSweeps(): ReadonlyMap<string, PortSweep> {
+  return sweeps
+}
+
+export function useAllSweeps(): ReadonlyMap<string, PortSweep> {
+  return useSyncExternalStore(subscribe, allSweeps, allSweeps)
 }

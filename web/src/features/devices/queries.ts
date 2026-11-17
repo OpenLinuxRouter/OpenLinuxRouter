@@ -203,3 +203,4 @@ export function useDeviceEditor() {
     remove: (id: string) => report(remove.mutateAsync, id, t('{id} forgotten', { id })),
   }
 }
+

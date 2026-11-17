@@ -314,6 +314,23 @@ reach but cannot describe — are therefore **withdrawn, not postponed**. Drawin
 them would be a guess in a line's clothing, and there is nothing on this hardware
 to guess from.
 
+**`/topology` is the boxes, and the cables the boxes will admit to.** The page
+now opens with a map: this router at the top, the boxes it reads below it, and a
+cable for every port whose far end a switch named. The unit of the drawing is a
+port, not a box — this router has two NICs on the same switch — so a box may have
+any number of links and nothing is laid out as a star. Layers are breadth-first
+depth from the router; inside a layer the boxes are ordered by the port that
+reaches them, which is what keeps the cables from crossing. A box nothing has
+placed yet still gets a row; the layout does not invent a parent for it.
+Cables are honest about their ends: where a switch named a port and the far end
+is a box, the cable stops at the box, because the switch knows the box and not
+which socket the wire is in; a wireless association is dashed and belongs to the
+box. Nothing here draws a cable between two boxes, because nothing on the wire
+says two boxes are plugged into each other.
+
+**`/topology` is also the boxes, in detail.** Below the map each box keeps its
+card: the face at full size, what each port leads to, and the read that says so.
+
 **`/topology` is the boxes.** The page is the equipment inventory read out loud:
 a card per box, the network its management address falls inside, its ports that
 have a link, and the clients it reports, by name and signal. A switch is not a

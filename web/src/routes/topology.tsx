@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router'
 import { PageHeading } from '@/components/layout/page-heading'
 
 import { EquipmentBand } from '@/features/topology/equipment-band'
+import { EquipmentMap } from '@/features/topology/equipment-map'
 
 /**
  * The hardware, as this router can read it.
@@ -27,6 +28,9 @@ export function TopologyPage() {
         title={t('Topology')}
         description={t('The boxes this router reads, and the clients each one reports.')}
       />
+      {/* The picture first: what is plugged into what, as far as the boxes
+          themselves will say. The cards below are the same reading in detail. */}
+      <EquipmentMap />
       <EquipmentBand highlight={params.get('device') ?? undefined} />
     </div>
   )
