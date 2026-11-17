@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
+import type { FarEnd } from './equipment.ts'
+
 /**
  * What one sweep of a switch's forwarding table found, kept for this session.
  *
@@ -13,8 +15,8 @@ import { useSyncExternalStore } from 'react'
 export interface PortSweep {
   /** When the last answer in this sweep arrived. */
   at: number
-  /** Addresses per port id. */
-  byPort: ReadonlyMap<string, number>
+  /** What each port has learned, by port id. */
+  byPort: ReadonlyMap<string, readonly FarEnd[]>
   /** Addresses the switch placed on a port, out of the ones asked about. */
   placed: number
   /** Addresses asked about: the client inventory this router knows. */

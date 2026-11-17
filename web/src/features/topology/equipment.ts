@@ -1,4 +1,5 @@
 import type { Device, Snapshot } from '@/features/devices/types'
+import { hostOf } from './placement.ts'
 import type { ClientRow } from '@/lib/api-types'
 
 /**
@@ -99,18 +100,67 @@ export interface LearnedAddress {
 }
 
 /**
- * How many addresses each port learned, keyed by port id.
+ * Which addresses each port learned, keyed by port id.
  *
- * A forwarding table names one port per address, so the count is per port — and
- * an address reported twice is still one address: the last report wins, because
- * a table that moved an address moved it. This is a count of what the switch
- * said, not a count of machines: a device behind a second switch is learned on
- * the uplink, together with everything behind it.
+ * A forwarding table names one port per address, so this is a grouping — and an
+ * address reported twice is still one address: the last report wins, because a
+ * table that moved an address moved it. This is what the switch said, not a
+ * count of machines: a device behind a second switch is learned on the uplink,
+ * together with everything behind it.
  */
-export function addressesByPort(entries: readonly LearnedAddress[]): Map<string, number> {
+export function learnedByPort(entries: readonly LearnedAddress[]): Map<string, string[]> {
   const latest = new Map<string, string>()
   for (const entry of entries) latest.set(entry.mac.toLowerCase(), entry.port_id)
-  const counts = new Map<string, number>()
-  for (const port of latest.values()) counts.set(port, (counts.get(port) ?? 0) + 1)
-  return counts
+  const byPort = new Map<string, string[]>()
+  for (const [mac, port] of latest) {
+    const port_macs = byPort.get(port)
+    if (port_macs === undefined) byPort.set(port, [mac])
+    else port_macs.push(mac)
+  }
+  return byPort
+}
+
+/** What is at the other end of a port, as far as the two ends we know can say. */
+export interface FarEnd {
+  mac: string
+  kind: 'router' | 'device' | 'client'
+  /** The name to show: an interface name, a box, a client, or the address itself. */
+  name: string
+  /** Where it is: this router's interface, a box's role, a client's address. */
+  detail?: string
+  /** A box this console manages, when the address belongs to one. */
+  deviceId?: string
+  /** A client in the inventory, when the address belongs to one. */
+  clientMac?: string
+}
+
+/** The three inventories an address can be recognised in. */
+export interface FarEndSources {
+  /** This router's own interfaces: MAC to interface name. */
+  self: ReadonlyMap<string, string>
+  /** The client inventory, keyed by MAC. */
+  clients: ReadonlyMap<string, { name: string; ip?: string }>
+  /** The managed boxes, so an address that is one of them reads as that box. */
+  devices: readonly Device[]
+}
+
+/**
+ * Who is at the other end of a learned address.
+ *
+ * Three answers, in order of how certain they are: this router's own interface
+ * (we hold that MAC), a box this console manages (its management address is the
+ * client's address — a join, not a reading), or a client from the inventory. An
+ * address in none of them keeps its own MAC rather than borrowing a nearby name.
+ */
+export function farEnd(mac: string, sources: FarEndSources): FarEnd {
+  const key = mac.toLowerCase()
+  const ownInterface = sources.self.get(key)
+  if (ownInterface !== undefined) return { mac: key, kind: 'router', name: ownInterface }
+  const client = sources.clients.get(key)
+  const host = client?.ip
+  const device = host === undefined ? undefined : sources.devices.find(candidate => hostOf(candidate.address) === host)
+  if (device !== undefined) {
+    return { mac: key, kind: 'device', name: device.name || device.id, detail: host, deviceId: device.id }
+  }
+  return { mac: key, kind: 'client', name: client?.name || key, detail: host, clientMac: key }
 }

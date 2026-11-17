@@ -125,10 +125,14 @@ export function DeviceFace({
             style={{ left: `${((PAD + slot.x + slot.width / 2) / layout.width) * 100}%` }}
           >
             <span className="text-muted-foreground">{slot.port.id}</span>
+            {/* Filled means something is on the port; a bare dot for one, a
+                count when the table put more than one address there. */}
             {slot.port.clients !== undefined && slot.port.clients > 0 && (
-              <span className="rounded bg-muted px-1 text-[9px] leading-4 text-foreground/75" title={t('{count} addresses learned here', { count: slot.port.clients })}>
-                {slot.port.clients}
-              </span>
+              slot.port.clients === 1
+                ? <span className="size-1.5 shrink-0 rounded-full bg-foreground/45" title={t('{count} address learned here', { count: 1 })} />
+                : <span className="shrink-0 rounded bg-muted px-1 text-[9px] leading-4 text-foreground/75" title={t('{count} addresses learned here', { count: slot.port.clients })}>
+                    {slot.port.clients}
+                  </span>
             )}
           </span>
         ))}

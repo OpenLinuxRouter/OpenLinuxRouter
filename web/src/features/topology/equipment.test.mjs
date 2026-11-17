@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { addressesByPort, attachedClients, equipmentFacts, planReads } from './equipment.ts'
+import { attachedClients, equipmentFacts, farEnd, learnedByPort, planReads } from './equipment.ts'
 
 /**
  * The card shows what a reading said and nothing it did not. The cases that
@@ -84,22 +84,43 @@ test('the pass keeps inventory order and skips nothing that has no answer', () =
   assert.deepEqual(planReads([], () => false), [])
 })
 
-test('addresses are counted per port, and a moved address counts once', () => {
-  const counts = addressesByPort([
+test('addresses are grouped per port, and a moved address lands once', () => {
+  const byPort = learnedByPort([
     { mac: 'AA:BB:CC:00:00:01', port_id: '2' },
     { mac: 'aa:bb:cc:00:00:02', port_id: '2' },
     { mac: 'aa:bb:cc:00:00:03', port_id: '4' },
   ])
-  assert.deepEqual([...counts], [['2', 2], ['4', 1]])
+  assert.deepEqual([...byPort], [['2', ['aa:bb:cc:00:00:01', 'aa:bb:cc:00:00:02']], ['4', ['aa:bb:cc:00:00:03']]])
   // A second report for the same address is the table's latest word, not a
   // second address: two ports do not both hold it.
-  const moved = addressesByPort([
+  const moved = learnedByPort([
     { mac: 'aa:bb:cc:00:00:01', port_id: '2' },
     { mac: 'aa:bb:cc:00:00:01', port_id: '5' },
   ])
-  assert.deepEqual([...moved], [['5', 1]])
+  assert.deepEqual([...moved], [['5', ['aa:bb:cc:00:00:01']]])
 })
 
-test('a table with nothing in it counts nothing', () => {
-  assert.equal(addressesByPort([]).size, 0)
+test('a table with nothing in it groups nothing', () => {
+  assert.equal(learnedByPort([]).size, 0)
+})
+
+test('an address is named by what it is: this router, a box, or a client', () => {
+  const sources = {
+    self: new Map([['aa:bb:cc:00:00:01', 'ens19']]),
+    clients: new Map([
+      ['aa:bb:cc:00:00:02', { name: 'DS1522plus', ip: '172.16.1.5' }],
+      ['aa:bb:cc:00:00:03', { name: 'lis-mac-mini', ip: '172.16.1.9' }],
+    ]),
+    devices: [{ id: 'ont', name: 'Huawei ONT', adapter: 'huawei', address: 'http://172.16.1.5' }],
+  }
+  assert.deepEqual(farEnd('AA:BB:CC:00:00:01', sources), { mac: 'aa:bb:cc:00:00:01', kind: 'router', name: 'ens19' })
+  const box = farEnd('aa:bb:cc:00:00:02', sources)
+  assert.equal(box.kind, 'device')
+  assert.equal(box.deviceId, 'ont')
+  assert.equal(box.name, 'Huawei ONT')
+  const client = farEnd('aa:bb:cc:00:00:03', sources)
+  assert.equal(client.kind, 'client')
+  assert.equal(client.name, 'lis-mac-mini')
+  // An address nothing knows keeps the address instead of borrowing a name.
+  assert.equal(farEnd('aa:bb:cc:00:00:99', sources).name, 'aa:bb:cc:00:00:99')
 })

@@ -347,14 +347,23 @@ shadows or reflections. Shading a picture this small reads as dirt, and what the
 panel has to say is *which* port — a rendered material competes with that
 instead of carrying it.
 
-Under each shield sits the box's own name for that port, and — when it is known
-— how many addresses the port learned. That number cannot be read out of a
-snapshot: the firmware searches one MAC at a time, so "which address is on which
-port" is one conversation per known address, a sweep of the client inventory
-that takes half a minute. So it is asked for, never done on arrival, and the
-answer stays for the session with the time it arrived (`features/topology/
-sweep.ts`). A reading that carries a real forwarding table paints the same
-numbers without a sweep — but no adapter on this hardware does.
+Under each shield sits the box's own name for that port, with a dot when the
+port has something on it — and below the face, **what each port leads to**: this
+router's own interface, a box this console manages, or a client from the
+inventory, each linking to its page. That is the wiring this page can show, and
+it is the wiring the operator asks about ("what is on port 6"). One end's word:
+the switch says it saw that address arrive on that port. A device behind a
+second switch is learned on the uplink with everything else behind it, which is
+why the rows say *learned*, not *plugged into*, and why no line is drawn between
+two boxes.
+
+The mapping cannot be read out of a snapshot: the firmware searches one MAC at a
+time, so "which address is on which port" is one conversation per known address
+— a sweep of the client inventory plus this router's own interfaces, half a
+minute on a busy LAN. So it is asked for, never done on arrival, and the answer
+stays for the session with the time it arrived (`features/topology/sweep.ts`). A
+reading that carries a real forwarding table is resolved the same way without a
+sweep, but no adapter on this hardware does.
 
 The numbers are HTML, not paths: type has to stay legible while the row of ports
 is only a thumbnail, and text drawn inside the viewBox would shrink with it. A
