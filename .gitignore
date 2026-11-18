@@ -16,6 +16,10 @@
 
 /web/node_modules/
 
+# Scratch worktrees for an agent task: a branch checked out beside the working
+# copy, removed once the task is merged.
+/.worktrees/
+
 # Inspection addon tests import the embedded Python source.
 /internal/inspection/__pycache__/
 
