@@ -119,3 +119,48 @@ test('children sit under their own parent, not under the row centre', () => {
   assert.ok(Math.abs(centre(at('b1')) - centre(at('b'))) < 1, 'b1 under b')
   for (const n of layout.nodes) assert.ok(n.x >= 0)
 })
+
+test('end devices share the bottom row, in their parent port order', () => {
+  const layout = placeMap(
+    [node('self'), node('sw'), node('ap'), node('nas', 80), node('phone', 80)],
+    [
+      { from: 'self', to: 'sw' },
+      { from: 'sw', to: 'ap', fromPort: '4' },
+      { from: 'sw', to: 'nas', fromPort: '7' },
+      { from: 'ap', to: 'phone' },
+    ],
+    'self',
+    {},
+    [],
+    new Set(['nas', 'phone']),
+  )
+  const at = id => layout.nodes.find(n => n.id === id)
+  assert.equal(at('nas').layer, at('phone').layer)
+  assert.ok(at('nas').layer > at('ap').layer)
+  assert.ok(at('phone').x < at('nas').x, 'the phone under port 4 is left of the NAS on port 7')
+})
+
+test('a cable that skips a row runs down a lane clear of the boxes in it', () => {
+  const layout = placeMap(
+    [node('self'), node('sw'), node('ap1'), node('ap2'), node('nas', 80), node('phone', 80)],
+    [
+      { from: 'self', to: 'sw' },
+      { from: 'sw', to: 'ap1', fromPort: '4' },
+      { from: 'sw', to: 'ap2', fromPort: '6' },
+      { from: 'sw', to: 'nas', fromPort: '5' },
+      { from: 'ap1', to: 'phone' },
+    ],
+    'self',
+    {},
+    [],
+    new Set(['nas', 'phone']),
+  )
+  const lane = layout.lanes.get('sw>nas')
+  assert.equal(lane.length, 1)
+  const row = layout.nodes.filter(n => n.id === 'ap1' || n.id === 'ap2')
+  for (const box of row) assert.ok(lane[0].x < box.x || lane[0].x > box.x + box.width, `lane clear of ${box.id}`)
+  const ap1 = layout.nodes.find(n => n.id === 'ap1')
+  const ap2 = layout.nodes.find(n => n.id === 'ap2')
+  assert.ok(ap1.x < lane[0].x && lane[0].x < ap2.x, 'port 5 runs between port 4 and port 6')
+  assert.ok(!layout.nodes.some(n => n.id.includes('lane')), 'lanes are not boxes')
+})

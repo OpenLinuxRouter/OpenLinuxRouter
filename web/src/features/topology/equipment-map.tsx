@@ -1,6 +1,11 @@
 import { useLocale, t } from '@/lib/i18n'
+import { RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
+
+import { Button } from '@/components/ui/button'
+import { Heading } from '@/components/ui/heading'
+import { Skeleton } from '@/components/ui/skeleton'
 
 import { useClientList } from '@/features/clients/queries'
 import { useQueries } from '@tanstack/react-query'
@@ -12,11 +17,13 @@ import { useInterfaces } from '@/features/link/queries'
 
 import { DeviceFace } from './device-face'
 import type { FacePort } from './face'
+import { useEquipmentReads } from './equipment-reads'
 import { formOf, type DeviceForm } from './form'
 import { placeMap, type PlacedNode } from './map-layout'
 import { hostOf } from './placement'
 import { faceGeometry, naturalWidth } from './port-points'
 import { useAllSweeps } from './sweep'
+import { findUpstream } from './upstream'
 import { SELF, wire, type Wire, type WireKind } from './wiring'
 
 /**
@@ -60,8 +67,9 @@ interface Box {
   parent?: string
 }
 
-export function EquipmentMap() {
+export function EquipmentMap({ highlight }: { highlight?: string }) {
   useLocale()
+  const reads = useEquipmentReads()
   const config = useDevicesConfig()
   const clients = useClientList()
   const interfaces = useInterfaces()
@@ -102,19 +110,15 @@ export function EquipmentMap() {
     [interfaces.data],
   )
 
-  // Upstream: the managed box the default route's next hop belongs to, or else
-  // the one the operator called a modem, joined to the interface the route
-  // leaves by when that is one of the router's own ports.
-  const uplink = useMemo(() => {
-    const status = dial.data
-    const via = status?.route?.via ?? status?.default_routes.find(route => route.family === 4)?.via
-    const modem = devices.find(device => via !== undefined && hostOfDevice(device) === via)
-      ?? devices.find(device => formOf(device.adapter, device.roles) === 'ont')
-    if (modem === undefined) return undefined
-    const names = [status?.uplink?.interface, status?.route?.dev].filter((name): name is string => name !== undefined)
-    const port = names.find(name => selfFaces.some(face => face.id === name))
-    return { deviceId: modem.id, port }
-  }, [dial.data, devices, selfFaces])
+  // Upstream: a box between this router and the internet goes above it. The
+  // rule — a private way out, or a bridged ONT off the LAN — is in upstream.ts.
+  const uplink = useMemo(() => findUpstream({
+    devices,
+    route: dial.data?.route,
+    uplinkInterface: dial.data?.uplink?.interface,
+    lan: (interfaces.data?.networks ?? []).map(network => network.subnet).filter((subnet): subnet is string => subnet !== undefined),
+    ports: selfFaces.map(face => face.id),
+  }), [dial.data, devices, interfaces.data, selfFaces])
 
   const wiring = useMemo(() => wire({
     devices: ids,
@@ -187,8 +191,9 @@ export function EquipmentMap() {
       SELF,
       {},
       wiring.above,
+      new Set(terminals.map(box => box.id)),
     ),
-    [all, wires, wiring.above],
+    [all, wires, wiring.above, terminals],
   )
   const byId = useMemo(() => new Map(all.map(box => [box.id, box])), [all])
   const placed = useMemo(() => {
@@ -214,18 +219,48 @@ export function EquipmentMap() {
 
   const asking = [...sweeps.values()].filter(sweep => sweep.partial === true)
 
-  if (devices.length === 0) return null
+  const highlighted = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    highlighted.current?.scrollIntoView({ block: 'nearest', inline: 'center' })
+  }, [highlight, layout])
 
+  if (config.isError) {
+    return (
+      <p className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+        {t('The device inventory could not be read, so no box can be placed here.')}
+      </p>
+    )
+  }
+  if (config.isPending) return <Skeleton className="h-64 w-full rounded-xl" />
+  if (devices.length === 0) return <Empty />
+
+  const failures = Object.keys(reads.failed).length
   return (
     <div className="relative rounded-xl border border-border bg-card">
-      {asking.length > 0 && (
-        <p className="absolute left-3 top-2 z-10 text-xs text-muted-foreground">
-          {t('Finding which port each device is on… {done} of {total}', {
-            done: asking.reduce((sum, sweep) => sum + sweep.asked, 0),
-            total: asking.reduce((sum, sweep) => sum + (sweep.total ?? sweep.asked), 0),
-          })}
-        </p>
-      )}
+      <div className="flex min-h-11 items-center gap-3 border-b border-border/60 px-3 py-1.5 text-xs text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate">
+          {reads.reading !== undefined
+            ? t('Reading {name}…', { name: devices.find(device => device.id === reads.reading)?.name || reads.reading })
+            : asking.length > 0
+              ? t('Finding which port each device is on… {done} of {total}', {
+                done: asking.reduce((sum, sweep) => sum + sweep.asked, 0),
+                total: asking.reduce((sum, sweep) => sum + (sweep.total ?? sweep.asked), 0),
+              })
+              : failures > 0
+                ? t('{count} devices did not answer', { count: failures })
+                : t('Cables are inferred from what each switch and access point reports.')}
+        </span>
+        <Button
+          variant="quiet"
+          size="sm"
+          className="shrink-0"
+          disabled={!reads.readsDone || asking.length > 0}
+          onClick={reads.rescan}
+        >
+          <RefreshCw aria-hidden className="size-3.5" />
+          {t('Ask again')}
+        </Button>
+      </div>
       <div ref={frame} className="w-full overflow-x-auto">
         {/* Sized to the scaled drawing, so centring and scrolling see its real width. */}
         <div className="mx-auto" style={{ width: layout.width * scale, height: layout.height * scale }}>
@@ -245,6 +280,7 @@ export function EquipmentMap() {
                     key={`${w.from}-${w.fromPort ?? ''}-${w.to}-${w.toPort ?? ''}`}
                     from={anchorOf(upper, upperPort, 'bottom')}
                     to={anchorOf(lower, lowerPort, 'top')}
+                    lanes={layout.lanes.get(`${w.from}>${w.to}`)}
                     kind={w.kind}
                   />
                 )
@@ -252,7 +288,12 @@ export function EquipmentMap() {
             </svg>
 
             {[...placed.values()].map(({ node, box }) => (
-              <div key={node.id} className="absolute" style={{ left: node.x, top: node.y, width: node.width }}>
+              <div
+                key={node.id}
+                ref={node.id === highlight ? highlighted : undefined}
+                className={`absolute ${node.id === highlight ? 'rounded-lg ring-2 ring-ring/60 ring-offset-4 ring-offset-card' : ''}`}
+                style={{ left: node.x, top: node.y, width: node.width }}
+              >
                 {box.kind === 'client' ? (
                   <Chip box={box} />
                 ) : box.kind === 'more' ? (
@@ -266,7 +307,7 @@ export function EquipmentMap() {
                     {box.name}
                   </button>
                 ) : (
-                  <Node box={box} />
+                  <Node box={box} failed={reads.failed[box.id]} />
                 )}
               </div>
             ))}
@@ -296,15 +337,18 @@ function Legend() {
 }
 
 /** A box with its face, its caption, and the ports' names underneath. */
-function Node({ box }: { box: Box }) {
+function Node({ box, failed }: { box: Box; failed?: string }) {
   const ports = box.faces.map(face => ({ id: face.id, name: face.name, kind: face.kind, link_up: face.linkUp }))
   return (
     <div>
       {box.faces.length > 0 ? (
         <DeviceFace ports={ports} form={box.form} labels="card" />
       ) : (
-        <div className="flex h-[58px] items-center justify-center rounded-lg border border-dashed border-border bg-card text-[11px] text-muted-foreground">
-          {t('Not read yet')}
+        <div
+          className="flex h-[58px] items-center justify-center rounded-lg border border-dashed border-border bg-card px-2 text-[11px] text-muted-foreground"
+          title={failed}
+        >
+          {failed !== undefined ? t('Did not answer') : t('Not read yet')}
         </div>
       )}
       <div className="mt-1 text-center text-xs leading-4">
@@ -372,15 +416,28 @@ function cableStyle(kind: WireKind) {
   return { stroke: '#c9d1da', strokeWidth: 1.4, strokeDasharray: '1.5 4', strokeLinecap: 'round' as const }
 }
 
-function Cable({ from, to, kind }: { from: { x: number; y: number }; to: { x: number; y: number }; kind: WireKind }) {
-  const dy = Math.max(30, Math.abs(to.y - from.y) * 0.5)
-  return (
-    <path
-      d={`M${from.x} ${from.y} C${from.x} ${from.y + dy} ${to.x} ${to.y - dy} ${to.x} ${to.y}`}
-      fill="none"
-      {...cableStyle(kind)}
-    />
-  )
+/**
+ * One cable: a smooth S between two points, and where it skips rows, straight
+ * down each lane the layout kept for it, with an S between lanes.
+ */
+function Cable({ from, to, lanes = [], kind }: {
+  from: { x: number; y: number }
+  to: { x: number; y: number }
+  lanes?: readonly { x: number; top: number; bottom: number }[]
+  kind: WireKind
+}) {
+  const s = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+    const dy = Math.max(18, Math.abs(b.y - a.y) * 0.5)
+    return `C${a.x} ${a.y + dy} ${b.x} ${b.y - dy} ${b.x} ${b.y}`
+  }
+  let d = `M${from.x} ${from.y}`
+  let at = from
+  for (const lane of lanes) {
+    d += ` ${s(at, { x: lane.x, y: lane.top })} L${lane.x} ${lane.bottom}`
+    at = { x: lane.x, y: lane.bottom }
+  }
+  d += ` ${s(at, to)}`
+  return <path d={d} fill="none" {...cableStyle(kind)} />
 }
 
 function facesOf(snapshot: Snapshot | undefined): FacePort[] {
@@ -395,4 +452,24 @@ function facesOf(snapshot: Snapshot | undefined): FacePort[] {
 
 function hostOfDevice(device: Device): string | undefined {
   return hostOf(device.address.trim())
+}
+
+/**
+ * Nobody has added a box, and the page has nothing to read. It is the one place
+ * in this picture where a person can make it better, so it says what adding one
+ * buys instead of showing an empty frame.
+ */
+function Empty() {
+  useLocale()
+  return (
+    <div className="rounded-xl border border-dashed border-border px-4 py-5">
+      <Heading as="h2" size="sm">{t('No boxes yet')}</Heading>
+      <p className="mt-1 max-w-prose text-xs leading-5 text-muted-foreground">
+        {t('Add a switch or an access point on Devices and this page will read it, place it, and list the clients it reports.')}
+      </p>
+      <p className="mt-3 text-xs">
+        <Link to="/devices" className="font-medium underline-offset-4 hover:underline">{t('Add a device')}</Link>
+      </p>
+    </div>
+  )
 }
