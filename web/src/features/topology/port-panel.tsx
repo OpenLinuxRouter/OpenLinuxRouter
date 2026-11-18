@@ -81,13 +81,18 @@ const GREEN = '#22c55e'
 const AMBER = '#f59e0b'
 const GOLD = '#d4a72c'
 
+/** How tall a lamp is, and how far its halo reaches past it when lit. */
+const LAMP_H = 2.4
+const HALO = 0.8
+
 /** A lamp: a small rounded light, with a soft halo when it is lit. */
 function Lamp({ x, y, width, colour }: { x: number; y: number; width: number; colour: string }) {
-  const h = 3
   return (
     <>
-      {colour !== UNLIT && <rect x={x - 1} y={y - 1} width={width + 2} height={h + 2} rx={2} fill={colour} opacity={0.35} />}
-      <rect x={x} y={y} width={width} height={h} rx={1} fill={colour} />
+      {colour !== UNLIT && (
+        <rect x={x - HALO} y={y - HALO} width={width + HALO * 2} height={LAMP_H + HALO * 2} rx={1.6} fill={colour} opacity={0.35} />
+      )}
+      <rect x={x} y={y} width={width} height={LAMP_H} rx={0.8} fill={colour} />
     </>
   )
 }
@@ -112,8 +117,11 @@ function Jack({ port }: { port: PanelPort }) {
   const slotTop = margin
   const bodyTop = 9
   const bodyBottom = h - margin
-  const lampW = half - latch - 1.4
-  const lampY = (slotTop + bodyTop) / 2 - 1.5
+  // Each lamp, halo included, stays inside the opening's width below it and
+  // clear of the latch slot.
+  const lampW = 2.8
+  const lampInset = 1.2
+  const lampY = (slotTop + bodyTop) / 2 - LAMP_H / 2
   const pitch = 1.8
   const pin = 0.9
   const first = c - (7 * pitch + pin) / 2
@@ -125,8 +133,8 @@ function Jack({ port }: { port: PanelPort }) {
         d={`M${c - latch} ${slotTop} H${c + latch} V${bodyTop} H${c + half} V${bodyBottom} H${c - half} V${bodyTop} H${c - latch} Z`}
         fill={CAVITY}
       />
-      <Lamp x={c - half} y={lampY} width={lampW} colour={port.linkUp === true ? GREEN : UNLIT} />
-      <Lamp x={c + half - lampW} y={lampY} width={lampW} colour={speed === 'fast' ? GREEN : speed === 'slow' ? AMBER : UNLIT} />
+      <Lamp x={c - half + lampInset} y={lampY} width={lampW} colour={port.linkUp === true ? GREEN : UNLIT} />
+      <Lamp x={c + half - lampInset - lampW} y={lampY} width={lampW} colour={speed === 'fast' ? GREEN : speed === 'slow' ? AMBER : UNLIT} />
       {Array.from({ length: 8 }, (_, i) => (
         <rect key={i} x={first + i * pitch} y={bodyBottom - 4} width={pin} height={3.2} fill={GOLD} />
       ))}
@@ -147,7 +155,7 @@ function Cage({ port }: { port: PanelPort }) {
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-label={port.name || port.id} role="img">
       <rect x={0.5} y={0.5} width={w - 1} height={h - 1} rx={3} fill={HOUSING} />
-      <Lamp x={c - 3} y={3.5} width={6} colour={port.linkUp === true ? GREEN : UNLIT} />
+      <Lamp x={c - 2.4} y={4.3} width={4.8} colour={port.linkUp === true ? GREEN : UNLIT} />
       <rect x={c - frame} y={9} width={frame * 2} height={11} rx={1.5} fill="#94a3b8" />
       <rect x={c - frame + 1.5} y={10.5} width={frame * 2 - 3} height={8} rx={0.8} fill={CAVITY} />
     </svg>
