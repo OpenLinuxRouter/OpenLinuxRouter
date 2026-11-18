@@ -397,8 +397,15 @@ export function ServiceDialog({
                     icon: draft.icon || undefined,
                     expose: expose === 'lan' ? undefined : expose,
                     allow_from: expose === 'restricted' ? allowedSources : undefined,
+                    // Named field by field rather than spread from the draft.
+                    // A draft can arrive carrying a key this version does not
+                    // write — a prefill from an older link, a field a later
+                    // release renamed — and the daemon refuses an unknown field
+                    // by name, so spreading one into the body fails the save
+                    // with a message about a field nobody typed.
                     upstream: {
-                      ...draft.upstream,
+                      port: draft.upstream.port,
+                      scheme: draft.upstream.scheme,
                       client: target === MANUAL ? undefined : target,
                       host: target === MANUAL ? (draft.upstream.host ?? '').trim() : undefined,
                       request_headers: draft.upstream.request_headers?.map((h) => ({

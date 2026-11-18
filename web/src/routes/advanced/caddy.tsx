@@ -39,6 +39,7 @@ import {
   type IngressChange,
 } from '@/features/ingress/queries'
 import { NoProxyAlert } from '@/features/ingress/no-proxy'
+import { serviceTargetPrefill } from '@/features/ingress/prefill'
 import { ServiceDialog } from '@/features/ingress/service-dialog'
 import { useIngressApply } from '@/features/ingress/use-apply'
 import type { IngressStatus } from '@/lib/api-types'
@@ -59,10 +60,12 @@ export function CaddyPage() {
   // its address (docs/remote-access.md §3.3), so its page can prefill one and
   // has no MAC to prefill the other with.
   const host = params.get('host')?.trim()
-  const initialUpstream = device ? device.fixed_ip && device.name
-    ? { device: device.mac, port: 0 }
-    : { host: device.fixed_ip || device.ips?.find((ip) => !ip.includes(':')) || device.ips?.[0] || '', port: 0 }
-    : host ? { host, port: 0 } : undefined
+  // The mapping itself lives in the ingress feature so that it can be tested.
+  // Its field names are what the daemon's strict decoder checks, and a prefill
+  // that spelled one of them the old way (`device`, before the two inventories
+  // were told apart) stopped the save with a message about a field nobody had
+  // typed.
+  const initialUpstream = serviceTargetPrefill(device, host)
 
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Service | null>(null)
