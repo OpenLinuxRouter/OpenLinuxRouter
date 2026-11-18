@@ -87,3 +87,35 @@ test('a node keeps its own height in a row of mixed boxes', () => {
   assert.equal(tall.y, short.y, 'same row, same top')
   assert.ok(layout.height > 200)
 })
+
+test('an upstream box sits in a row above the root', () => {
+  const layout = placeMap(
+    [node('self'), node('modem'), node('sw')],
+    [{ from: 'modem', to: 'self' }, { from: 'self', to: 'sw' }],
+    'self',
+    {},
+    ['modem'],
+  )
+  const at = id => layout.nodes.find(n => n.id === id)
+  assert.equal(at('modem').layer, -1)
+  assert.ok(at('modem').y < at('self').y && at('self').y < at('sw').y)
+})
+
+test('children sit under their own parent, not under the row centre', () => {
+  const layout = placeMap(
+    [node('self'), node('a'), node('b'), node('a1', 80), node('a2', 80), node('b1', 80)],
+    [
+      { from: 'self', to: 'a', fromPort: '1' },
+      { from: 'self', to: 'b', fromPort: '2' },
+      { from: 'a', to: 'a1' },
+      { from: 'a', to: 'a2' },
+      { from: 'b', to: 'b1' },
+    ],
+    'self',
+  )
+  const at = id => layout.nodes.find(n => n.id === id)
+  const centre = n => n.x + n.width / 2
+  assert.ok(at('a2').x + at('a2').width <= at('b1').x, 'a family stays left of b family')
+  assert.ok(Math.abs(centre(at('b1')) - centre(at('b'))) < 1, 'b1 under b')
+  for (const n of layout.nodes) assert.ok(n.x >= 0)
+})

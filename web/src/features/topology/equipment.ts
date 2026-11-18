@@ -139,7 +139,7 @@ export interface FarEndSources {
   /** This router's own interfaces: MAC to interface name. */
   self: ReadonlyMap<string, string>
   /** The client inventory, keyed by MAC. */
-  clients: ReadonlyMap<string, { name: string; ip?: string }>
+  clients: ReadonlyMap<string, { name: string; ip?: string; ips?: readonly string[] }>
   /** The managed boxes, so an address that is one of them reads as that box. */
   devices: readonly Device[]
 }
@@ -157,10 +157,16 @@ export function farEnd(mac: string, sources: FarEndSources): FarEnd {
   const ownInterface = sources.self.get(key)
   if (ownInterface !== undefined) return { mac: key, kind: 'router', name: ownInterface }
   const client = sources.clients.get(key)
-  const host = client?.ip
-  const device = host === undefined ? undefined : sources.devices.find(candidate => hostOf(candidate.address) === host)
+  // The inventory carries every address a client holds; any of them can be a
+  // box's management address.
+  const hosts = [...(client?.ip !== undefined ? [client.ip] : []), ...(client?.ips ?? [])]
+  const host = hosts[0]
+  const device = sources.devices.find(candidate => {
+    const address = hostOf(candidate.address)
+    return address !== undefined && hosts.includes(address)
+  })
   if (device !== undefined) {
-    return { mac: key, kind: 'device', name: device.name || device.id, detail: host, deviceId: device.id }
+    return { mac: key, kind: 'device', name: device.name || device.id, detail: hostOf(device.address), deviceId: device.id }
   }
   return { mac: key, kind: 'client', name: client?.name || key, detail: host, clientMac: key }
 }

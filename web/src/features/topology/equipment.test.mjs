@@ -124,3 +124,14 @@ test('an address is named by what it is: this router, a box, or a client', () =>
   // An address nothing knows keeps the address instead of borrowing a name.
   assert.equal(farEnd('aa:bb:cc:00:00:99', sources).name, 'aa:bb:cc:00:00:99')
 })
+
+test('a box is recognised by any address the inventory holds for it', () => {
+  const sources = {
+    self: new Map(),
+    clients: new Map([['aa:bb:cc:00:00:02', { name: 'ap', ips: ['172.16.1.163'] }]]),
+    devices: [{ id: 'xiaomi', name: 'XiaomiBE7000', adapter: 'openwrt', address: 'http://172.16.1.163' }],
+  }
+  const box = farEnd('aa:bb:cc:00:00:02', sources)
+  assert.equal(box.kind, 'device')
+  assert.equal(box.deviceId, 'xiaomi')
+})

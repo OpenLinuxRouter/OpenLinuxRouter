@@ -18,9 +18,9 @@ import type { Device } from '@/features/devices/types'
 import { useInterfaces } from '@/features/link/queries'
 import { DeviceFace } from './device-face'
 import { formOf } from './form'
-import { attachedClients, equipmentFacts, farEnd, learnedByPort, planReads, type FarEndSources, type LearnedAddress } from './equipment'
-import { rememberSweep, usePortSweep } from './sweep'
-import { placeDevice } from './placement'
+import { attachedClients, equipmentFacts, farEnd, learnedByPort, planReads, type FarEndSources } from './equipment'
+import { runSweep, usePortSweep } from './sweep'
+import { hostOf, placeDevice } from './placement'
 import type { ClientRow } from '@/lib/api-types'
 import type { FDBResult } from '@/features/devices/types'
 
@@ -53,9 +53,9 @@ export function EquipmentBand({ highlight }: { highlight?: string }) {
   const started = useRef(false)
   const [reading, setReading] = useState<string | undefined>(undefined)
   const [failed, setFailed] = useState<Record<string, string>>({})
-  const [sweeping, setSweeping] = useState<{ id: string; done: number; total: number } | undefined>(undefined)
+  const [readsDone, setReadsDone] = useState(false)
 
-  const devices = config.data?.devices ?? []
+  const devices = useMemo(() => config.data?.devices ?? [], [config.data])
   const byMac = useMemo(
     () => new Map((clients.data?.clients ?? []).map(client => [client.mac.toLowerCase(), client])),
     [clients.data],
@@ -83,6 +83,7 @@ export function EquipmentBand({ highlight }: { highlight?: string }) {
         if (cancelled) return
       }
       setReading(undefined)
+      setReadsDone(true)
     })()
     return () => { cancelled = true }
     // The ref, not the dependencies, is what keeps this to one pass: the
@@ -93,9 +94,12 @@ export function EquipmentBand({ highlight }: { highlight?: string }) {
   // own interfaces — a switch's port that leads back here is a cable too.
   const sources: FarEndSources = useMemo(() => {
     const self = new Map<string, string>()
-    for (const row of interfaces.data?.interfaces ?? []) {
+    // A bridge carries the MAC of one of its ports; the port's name is the one
+    // the map can draw a cable from, so physical interfaces claim it first.
+    const rows = [...(interfaces.data?.interfaces ?? [])].sort((a, b) => Number(b.physical) - Number(a.physical))
+    for (const row of rows) {
       const mac = row.mac?.toLowerCase()
-      if (mac !== undefined && mac !== '' && mac !== '00:00:00:00:00:00') self.set(mac, row.name)
+      if (mac !== undefined && mac !== '' && mac !== '00:00:00:00:00:00' && !self.has(mac)) self.set(mac, row.name)
     }
     return {
       self,
@@ -104,37 +108,45 @@ export function EquipmentBand({ highlight }: { highlight?: string }) {
     }
   }, [clients.data, config.data, interfaces.data])
 
-  const macs = useMemo(() => [...new Set([
-    ...(clients.data?.clients ?? []).map(client => client.mac.toLowerCase()),
-    ...sources.self.keys(),
-  ].filter(mac => mac !== ''))], [clients.data, sources])
+  // Every address worth asking about: this router's own interfaces first (the
+  // cable back here), then the boxes we manage, then whoever is online now. An
+  // offline client has aged out of any forwarding table, and asking about it is
+  // a lookup that cannot answer.
+  const macs = useMemo(() => {
+    const hosts = new Set(sources.devices.map(device => hostOf(device.address)).filter(host => host !== undefined))
+    const all = clients.data?.clients ?? []
+    return [...new Set([
+      ...sources.self.keys(),
+      ...all.filter(row => (row.ips ?? []).some(ip => hosts.has(ip))).map(row => row.mac.toLowerCase()),
+      ...all.filter(row => row.online).map(row => row.mac.toLowerCase()),
+    ].filter(mac => mac !== ''))]
+  }, [clients.data, sources])
 
-  // Which port each known address is on is one lookup per address — the firmware
-  // searches a MAC, it does not dump a table — so this is a deliberate sweep,
-  // never part of opening the page, and its result stays for the session.
-  const mapPorts = useCallback(async (device: Device) => {
-    setSweeping({ id: device.id, done: 0, total: macs.length })
-    const learned: LearnedAddress[] = []
-    let failedLookups = 0
-    for (const [index, mac] of macs.entries()) {
-      try {
-        const result = await api.get<FDBResult>(`/api/devices/${encodeURIComponent(device.id)}/fdb?${new URLSearchParams({ mac })}`)
-        for (const entry of result.entries) learned.push({ mac: entry.mac, port_id: entry.port_id })
-      } catch {
-        failedLookups += 1
-      }
-      setSweeping(current => current?.id === device.id ? { ...current, done: index + 1 } : current)
+  const sweep = useCallback((device: Device, force: boolean) => runSweep({
+    deviceId: device.id,
+    macs,
+    force,
+    resolve: mac => farEnd(mac, sources),
+    lookup: async mac => {
+      const result = await api.get<FDBResult>(`/api/devices/${encodeURIComponent(device.id)}/fdb?${new URLSearchParams({ mac })}`)
+      return result.entries.map(entry => ({ mac: entry.mac, port_id: entry.port_id }))
+    },
+  }), [macs, sources])
+
+  // Once every box has been read, ask each switch that answered where the
+  // addresses are — without being asked to: what is plugged into what is the
+  // question this page exists for. Switches run side by side; each one is
+  // asked one address at a time, which is all its firmware takes.
+  const swept = useRef(false)
+  useEffect(() => {
+    if (swept.current || !readsDone || clients.data === undefined || interfaces.data === undefined) return
+    swept.current = true
+    for (const device of devices) {
+      if (!isSweepable(device) || failed[device.id] !== undefined) continue
+      if ((client.getQueryData<{ ports?: unknown[] }>(deviceKeys.snapshot(device.id))?.ports?.length ?? 0) === 0) continue
+      void sweep(device, false)
     }
-    const byPort = new Map([...learnedByPort(learned)].map(([port, addresses]) => [port, addresses.map(mac => farEnd(mac, sources))]))
-    rememberSweep(device.id, {
-      at: Date.now(),
-      byPort,
-      placed: [...byPort.values()].reduce((sum, ends) => sum + ends.length, 0),
-      asked: macs.length,
-      failed: failedLookups,
-    })
-    setSweeping(undefined)
-  }, [macs, sources])
+  }, [readsDone, clients.data, interfaces.data, devices, failed, client, sweep])
 
   return (
     <section aria-label={t('Network equipment')} className="space-y-4">
@@ -163,16 +175,15 @@ export function EquipmentBand({ highlight }: { highlight?: string }) {
               failed={failed[device.id]}
               knownAddresses={macs.length}
               sources={sources}
-              sweeping={sweeping?.id === device.id ? sweeping : undefined}
-              busy={sweeping !== undefined}
-              onMapPorts={() => void mapPorts(device)}
+              waiting={!readsDone}
+              onMapPorts={() => void sweep(device, true)}
             />
           ))}
         </ul>
       )}
 
       <p className="max-w-prose text-xs leading-5 text-muted-foreground">
-        {t('What a port leads to is the switch\'s own word: it saw those addresses arrive there. A device behind another switch is learned on the uplink with everything else behind it, and no line is drawn between two boxes, because nothing on this wire reports what it is plugged into.')}
+        {t('The cables are inferred: a switch says which port an address arrived on, an access point says who is on its radio, and the default route says which box is upstream. An address goes under the box nearest to it.')}
       </p>
     </section>
   )
@@ -207,8 +218,7 @@ function EquipmentCard({
   failed,
   knownAddresses,
   sources,
-  sweeping,
-  busy,
+  waiting,
   onMapPorts,
 }: {
   device: Device
@@ -219,8 +229,7 @@ function EquipmentCard({
   failed?: string
   knownAddresses: number
   sources: FarEndSources
-  sweeping?: { done: number; total: number }
-  busy: boolean
+  waiting: boolean
   onMapPorts: () => void
 }) {
   useLocale()
@@ -229,6 +238,7 @@ function EquipmentCard({
   const facts = equipmentFacts(snapshot)
   const attached = attachedClients(snapshot, byMac)
   const sweep = usePortSweep(device.id)
+  const sweeping = sweep?.partial === true ? { done: sweep.asked, total: sweep.total ?? sweep.asked } : undefined
   // What each port has at the other end. A sweep is fresher than the read that
   // preceded it, so it wins; a reading that carried the table itself needs no
   // sweep at all, and the two are resolved the same way.
@@ -249,7 +259,7 @@ function EquipmentCard({
     .sort((a, b) => a.port.localeCompare(b.port, undefined, { numeric: true })), [endpoints])
   // A switch is anything we might ask: an explicit switch role, or the adapter
   // we know implements the lookup even when the operator left roles empty.
-  const sweepable = device.roles?.includes('switch') === true || device.adapter === 'mercury'
+  const sweepable = isSweepable(device)
   const network = placeDevice(device, networks)
   const subtitle = [
     roleLabels(device).map(role => t(role)).join(' · '),
@@ -331,6 +341,8 @@ function EquipmentCard({
                     ? t('asking {done} of {total}', { done: sweeping.done, total: sweeping.total })
                     : sweep !== undefined
                       ? t('plugged in, read {when}', { when: readWhen(sweep.at) })
+                      : waiting
+                        ? t('Waiting for the boxes to be read')
                       : knownAddresses === 0
                         ? t('No address this router knows to ask about')
                         : t('Not asked yet')}
@@ -340,7 +352,7 @@ function EquipmentCard({
                   size="sm"
                   className="shrink-0"
                   onClick={onMapPorts}
-                  disabled={busy || knownAddresses === 0}
+                  disabled={waiting || sweeping !== undefined || knownAddresses === 0}
                 >
                   {sweeping !== undefined ? t('Asking…') : sweep !== undefined ? t('Ask again') : t('Map ports')}
                 </Button>
@@ -373,7 +385,7 @@ function EquipmentCard({
                   )}
                 </ul>
               )}
-              {sweep !== undefined && plugged.length === 0 && (
+              {sweep !== undefined && sweeping === undefined && plugged.length === 0 && (
                 <p className="text-xs text-muted-foreground">{t('The switch placed none of them on a port.')}</p>
               )}
             </div>
@@ -405,4 +417,9 @@ function ReadLine({ facts, at }: { facts: ReturnType<typeof equipmentFacts>; at?
       {at !== undefined && <span className="text-muted-foreground">{t('read {when}', { when: readWhen(at) })}</span>}
     </p>
   )
+}
+
+/** A switch is anything we might ask: an explicit switch role, or the adapter we know implements the lookup. */
+function isSweepable(device: Device): boolean {
+  return device.roles?.includes('switch') === true || device.adapter === 'mercury'
 }

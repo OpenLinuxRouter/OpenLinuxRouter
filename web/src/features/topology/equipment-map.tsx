@@ -5,6 +5,7 @@ import { Link } from 'react-router'
 import { useClientList } from '@/features/clients/queries'
 import { useQueries } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { useDialStatus } from '@/features/dial/queries'
 import { deviceKeys, useDevicesConfig } from '@/features/devices/queries'
 import type { Device, Snapshot } from '@/features/devices/types'
 import { useInterfaces } from '@/features/link/queries'
@@ -12,34 +13,42 @@ import { useInterfaces } from '@/features/link/queries'
 import { DeviceFace } from './device-face'
 import type { FacePort } from './face'
 import { formOf, type DeviceForm } from './form'
-import { placeMap, type MapEdge, type PlacedNode } from './map-layout'
+import { placeMap, type PlacedNode } from './map-layout'
+import { hostOf } from './placement'
 import { faceGeometry, naturalWidth } from './port-points'
 import { useAllSweeps } from './sweep'
-import type { FarEnd } from './equipment'
+import { SELF, wire, type Wire, type WireKind } from './wiring'
 
 /**
- * The boxes and the cables between them, laid out by depth from this router.
+ * The boxes and the cables between them, laid out as a tree from this router:
+ * the modem above it, the switch under it, the access points under the switch,
+ * the clients under whichever box is nearest to them.
  *
  * The unit is a port, not a box: a cable leaves the port a switch named and
- * lands on whatever that port learned. That is the only model that survives a
- * box with several links — this router has two NICs on the same switch — so
- * nothing here assumes a star, and nothing assumes one cable per box.
+ * lands on whatever that port learned. Where the switch named a port and the
+ * far end is a box, the cable ends on the box, not on one of its sockets — the
+ * switch knows the box, not which port the wire is in. Wireless associations
+ * are dashed and belong to the box. How each cable is inferred is in wiring.ts.
  *
- * A cable is drawn only where the evidence is. Where a switch named a port and
- * the far end is a box, the cable ends on the box, not on one of its sockets:
- * the switch knows the box, not which port the wire is in. Wireless
- * associations are dashed and belong to the box, not to a port.
+ * The map draws at its natural size and only shrinks to fit down to a scale
+ * where the names stay readable; past that it scrolls sideways instead.
  */
 const PORT_WIDTH = 44
 const MAX_NODE_WIDTH = 430
 const CHIP_W = 138
-const CHIP_H = 32
+const CHIP_H = 34
+const MORE_W = 92
 const CAPTION_H = 22
 const UNREAD_H = 58
+/** Under this the 11px names fall below legible, so the map scrolls instead. */
+const MIN_SCALE = 0.8
+/** A box with more clients than this shows the first few and a "+N" to open the rest. */
+const FOLD_OVER = 4
+const FOLD_SHOW = 3
 
 interface Box {
   id: string
-  kind: 'self' | 'device' | 'client'
+  kind: 'self' | 'device' | 'client' | 'more'
   name: string
   detail?: string
   form: DeviceForm
@@ -47,6 +56,8 @@ interface Box {
   width: number
   height: number
   href?: string
+  /** For a "+N" chip: the box it opens. */
+  parent?: string
 }
 
 export function EquipmentMap() {
@@ -54,7 +65,9 @@ export function EquipmentMap() {
   const config = useDevicesConfig()
   const clients = useClientList()
   const interfaces = useInterfaces()
+  const dial = useDialStatus()
   const sweeps = useAllSweeps()
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   const devices = useMemo(() => config.data?.devices ?? [], [config.data])
   const ids = useMemo(() => devices.map(device => device.id), [devices])
   // Observers, not fetches: the page reads a box once on arrival, and the map
@@ -89,109 +102,195 @@ export function EquipmentMap() {
     [interfaces.data],
   )
 
+  // Upstream: the managed box the default route's next hop belongs to, or else
+  // the one the operator called a modem, joined to the interface the route
+  // leaves by when that is one of the router's own ports.
+  const uplink = useMemo(() => {
+    const status = dial.data
+    const via = status?.route?.via ?? status?.default_routes.find(route => route.family === 4)?.via
+    const modem = devices.find(device => via !== undefined && hostOfDevice(device) === via)
+      ?? devices.find(device => formOf(device.adapter, device.roles) === 'ont')
+    if (modem === undefined) return undefined
+    const names = [status?.uplink?.interface, status?.route?.dev].filter((name): name is string => name !== undefined)
+    const port = names.find(name => selfFaces.some(face => face.id === name))
+    return { deviceId: modem.id, port }
+  }, [dial.data, devices, selfFaces])
+
+  const wiring = useMemo(() => wire({
+    devices: ids,
+    sweeps: new Map([...sweeps].map(([id, sweep]) => [id, sweep.byPort])),
+    associations: new Map([...snapshots].map(([id, snapshot]) => [id, (snapshot.associations ?? []).map(a => a.mac.toLowerCase())])),
+    uplink,
+  }), [ids, sweeps, snapshots, uplink])
+
   const boxes = useMemo(() => {
-    const self: Box = sized('self', 'this router', selfFaces, 'router', '/devices')
-    const rest = devices.map(device => {
-      const faces = facesOf(snapshots.get(device.id))
-      return sized(device.id, device.name || device.id, faces, formOf(device.adapter, device.roles), `/devices/${encodeURIComponent(device.id)}`, hostOfDevice(device))
-    })
+    const self: Box = { ...sized(SELF, t('this router'), selfFaces, 'router'), kind: 'self', href: '/devices' }
+    const rest = devices.map(device => sized(
+      device.id,
+      device.name || device.id,
+      facesOf(snapshots.get(device.id)),
+      formOf(device.adapter, device.roles),
+      `/devices/${encodeURIComponent(device.id)}`,
+      hostOfDevice(device),
+    ))
     return [self, ...rest]
   }, [devices, snapshots, selfFaces])
 
-  // Every far end a switch placed, and every client an access point reported.
-  const { edges, terminals } = useMemo(() => {
-    const edges: MapEdge[] = []
-    const terminals = new Map<string, Box>()
-    const addClient = (end: FarEnd, dashed: boolean, from: string, port?: string) => {
-      const id = `mac:${end.mac}`
-      if (!terminals.has(id)) {
-        const row = byMac.get(end.mac)
-        terminals.set(id, {
-          id,
+  // Clients, folded per box: a box with many of them shows the first few, in
+  // port order, and a chip that opens the rest.
+  const { terminals, wires } = useMemo(() => {
+    const terminals: Box[] = []
+    const wires: Wire[] = wiring.wires.filter(w => !wiring.clients.has(w.to))
+    const byParent = new Map<string, Wire[]>()
+    for (const w of wiring.wires) {
+      if (!wiring.clients.has(w.to)) continue
+      byParent.set(w.from, [...(byParent.get(w.from) ?? []), w])
+    }
+    for (const [parent, list] of byParent) {
+      const named = list.map(w => {
+        const end = wiring.clients.get(w.to)
+        const mac = end?.mac ?? w.to.slice(4)
+        const row = byMac.get(mac)
+        return { w, mac, name: row?.name || (end?.name !== mac ? end?.name : undefined) || mac, detail: row?.ips?.[0] ?? end?.detail }
+      }).sort((a, b) =>
+        (a.w.fromPort ?? '').localeCompare(b.w.fromPort ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name))
+      const folded = named.length > FOLD_OVER && !open.has(parent)
+      for (const entry of folded ? named.slice(0, FOLD_SHOW) : named) {
+        terminals.push({
+          id: entry.w.to,
           kind: 'client',
-          name: row?.name || end.name,
-          detail: row?.ips?.[0] ?? end.detail,
+          name: entry.name,
+          detail: entry.detail,
           form: 'generic',
           faces: [],
           width: CHIP_W,
           height: CHIP_H,
-          href: `/clients/${encodeURIComponent(end.mac)}`,
+          href: `/clients/${encodeURIComponent(entry.mac)}`,
         })
+        wires.push(entry.w)
       }
-      edges.push({ from, to: id, fromPort: port, dashed })
-    }
-
-    for (const device of devices) {
-      const sweep = sweeps.get(device.id)
-      for (const [port, ends] of sweep?.byPort ?? []) {
-        for (const end of ends) {
-          if (end.kind === 'router') edges.push({ from: device.id, to: 'self', fromPort: port, toPort: end.name })
-          else if (end.kind === 'device' && end.deviceId !== undefined) edges.push({ from: device.id, to: end.deviceId, fromPort: port })
-          else if (end.kind === 'client') addClient(end, false, device.id, port)
-        }
-      }
-      for (const association of snapshots.get(device.id)?.associations ?? []) {
-        addClient({ mac: association.mac, kind: 'client', name: association.mac }, true, device.id)
+      if (folded) {
+        const id = `more:${parent}`
+        const hidden = named.slice(FOLD_SHOW)
+        terminals.push({ id, kind: 'more', name: `+${hidden.length}`, form: 'generic', faces: [], width: MORE_W, height: CHIP_H, parent })
+        wires.push({ from: parent, to: id, kind: hidden.every(entry => entry.w.kind === 'wireless') ? 'wireless' : 'wired' })
       }
     }
-    return { edges, terminals: [...terminals.values()] }
-  }, [devices, sweeps, snapshots, byMac])
+    return { terminals, wires }
+  }, [wiring, byMac, open])
 
   const all = useMemo(() => [...boxes, ...terminals], [boxes, terminals])
   const layout = useMemo(
-    () => placeMap(all.map(box => ({ id: box.id, width: box.width, height: box.height })), edges, 'self'),
-    [all, edges],
+    () => placeMap(
+      all.map(box => ({ id: box.id, width: box.width, height: box.height })),
+      wires.map(w => ({ from: w.from, to: w.to, fromPort: w.fromPort, toPort: w.toPort, dashed: w.kind !== 'wired' })),
+      SELF,
+      {},
+      wiring.above,
+    ),
+    [all, wires, wiring.above],
   )
   const byId = useMemo(() => new Map(all.map(box => [box.id, box])), [all])
+  const placed = useMemo(() => {
+    const map = new Map<string, { node: PlacedNode; box: Box }>()
+    for (const node of layout.nodes) {
+      const box = byId.get(node.id)
+      if (box !== undefined) map.set(node.id, { node, box })
+    }
+    return map
+  }, [layout, byId])
+
   const frame = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
   useEffect(() => {
     const element = frame.current
     if (element === null) return
-    const measure = () => setScale(Math.min(1, element.clientWidth / Math.max(1, layout.width)))
+    const measure = () => setScale(Math.max(MIN_SCALE, Math.min(1, element.clientWidth / Math.max(1, layout.width))))
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(element)
     return () => observer.disconnect()
   }, [layout.width])
-  const placed = useMemo(
-    () => layout.nodes.flatMap(node => {
-      const box = byId.get(node.id)
-      return box === undefined ? [] : [{ node, box }]
-    }),
-    [layout, byId],
-  )
+
+  const asking = [...sweeps.values()].filter(sweep => sweep.partial === true)
 
   if (devices.length === 0) return null
 
   return (
-    <div ref={frame} className="w-full">
-      <div
-        className="relative mx-auto origin-top"
-        style={{ width: layout.width, height: layout.height, transform: `scale(${scale})`, marginBottom: layout.height * (scale - 1) }}
-      >
-        <svg className="absolute inset-0" width={layout.width} height={layout.height} aria-hidden>
-          {edges.map((edge, index) => {
-            const from = placed.find(entry => entry.node.id === edge.from)
-            const to = placed.find(entry => entry.node.id === edge.to)
-            if (from === undefined || to === undefined) return null
-            return (
-              <Cable
-                key={`${edge.from}-${edge.fromPort ?? index}-${edge.to}`}
-                from={anchorOf(from, edge.fromPort, 'bottom')}
-                to={anchorOf(to, edge.toPort, 'top')}
-                dashed={edge.dashed === true}
-              />
-            )
+    <div className="relative rounded-xl border border-border bg-card">
+      {asking.length > 0 && (
+        <p className="absolute left-3 top-2 z-10 text-xs text-muted-foreground">
+          {t('Finding which port each device is on… {done} of {total}', {
+            done: asking.reduce((sum, sweep) => sum + sweep.asked, 0),
+            total: asking.reduce((sum, sweep) => sum + (sweep.total ?? sweep.asked), 0),
           })}
-        </svg>
+        </p>
+      )}
+      <div ref={frame} className="w-full overflow-x-auto">
+        {/* Sized to the scaled drawing, so centring and scrolling see its real width. */}
+        <div className="mx-auto" style={{ width: layout.width * scale, height: layout.height * scale }}>
+          <div className="relative origin-top-left" style={{ width: layout.width, height: layout.height, transform: `scale(${scale})` }}>
+            <svg className="absolute inset-0 overflow-visible" width={layout.width} height={layout.height} aria-hidden>
+              {wires.map(w => {
+                const a = placed.get(w.from)
+                const b = placed.get(w.to)
+                if (a === undefined || b === undefined) return null
+                // The cable runs from the upper box down to the lower one,
+                // whichever end the evidence came from.
+                const [upper, upperPort, lower, lowerPort] = a.node.layer <= b.node.layer
+                  ? [a, w.fromPort, b, w.toPort]
+                  : [b, w.toPort, a, w.fromPort]
+                return (
+                  <Cable
+                    key={`${w.from}-${w.fromPort ?? ''}-${w.to}-${w.toPort ?? ''}`}
+                    from={anchorOf(upper, upperPort, 'bottom')}
+                    to={anchorOf(lower, lowerPort, 'top')}
+                    kind={w.kind}
+                  />
+                )
+              })}
+            </svg>
 
-        {placed.map(({ node, box }) => (
-          <div key={node.id} className="absolute" style={{ left: node.x, top: node.y, width: node.width }}>
-            {box.kind === 'client' ? <Chip box={box} /> : <Node box={box} />}
+            {[...placed.values()].map(({ node, box }) => (
+              <div key={node.id} className="absolute" style={{ left: node.x, top: node.y, width: node.width }}>
+                {box.kind === 'client' ? (
+                  <Chip box={box} />
+                ) : box.kind === 'more' ? (
+                  <button
+                    type="button"
+                    onClick={() => setOpen(current => new Set([...current, box.parent ?? '']))}
+                    className="flex w-full items-center justify-center rounded-full border border-dashed border-border bg-card text-xs text-muted-foreground hover:bg-accent/40"
+                    style={{ height: box.height }}
+                    title={t('Show all')}
+                  >
+                    {box.name}
+                  </button>
+                ) : (
+                  <Node box={box} />
+                )}
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
+      <Legend />
+    </div>
+  )
+}
+
+function Legend() {
+  useLocale()
+  const item = (kind: WireKind, label: string) => (
+    <span className="flex items-center gap-1.5">
+      <svg width="22" height="6" aria-hidden><line x1="1" y1="3" x2="21" y2="3" {...cableStyle(kind)} /></svg>
+      {label}
+    </span>
+  )
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border/60 px-3 py-2 text-[11px] text-muted-foreground">
+      {item('wired', t('Cable'))}
+      {item('wireless', t('Wireless'))}
+      {item('unknown', t('Not placed yet'))}
     </div>
   )
 }
@@ -204,14 +303,14 @@ function Node({ box }: { box: Box }) {
       {box.faces.length > 0 ? (
         <DeviceFace ports={ports} form={box.form} labels="card" />
       ) : (
-        <div className="flex h-[58px] items-center justify-center rounded-lg border border-dashed border-border text-[11px] text-muted-foreground">
+        <div className="flex h-[58px] items-center justify-center rounded-lg border border-dashed border-border bg-card text-[11px] text-muted-foreground">
           {t('Not read yet')}
         </div>
       )}
-      <div className="mt-1 text-center text-[11px] leading-4">
-        <span className="rounded bg-background px-1">
-        <Link to={box.href ?? '#'} className="font-medium underline-offset-4 hover:underline">{box.name}</Link>
-        {box.detail !== undefined && <span className="ml-1 text-muted-foreground">{box.detail}</span>}
+      <div className="mt-1 text-center text-xs leading-4">
+        <span className="rounded bg-card px-1">
+          <Link to={box.href ?? '#'} className="font-medium underline-offset-4 hover:underline">{box.name}</Link>
+          {box.detail !== undefined && <span className="ml-1 text-muted-foreground">{box.detail}</span>}
         </span>
       </div>
     </div>
@@ -224,9 +323,10 @@ function Chip({ box }: { box: Box }) {
       to={box.href ?? '#'}
       className="flex flex-col justify-center rounded-full border border-border bg-card px-3 text-center text-[11px] leading-4 hover:bg-accent/40"
       style={{ height: box.height }}
+      title={box.detail === undefined ? box.name : `${box.name} · ${box.detail}`}
     >
       <span className="truncate">{box.name}</span>
-      {box.detail !== undefined && <span className="truncate text-[9px] text-muted-foreground">{box.detail}</span>}
+      {box.detail !== undefined && <span className="truncate text-[10px] leading-3 text-muted-foreground">{box.detail}</span>}
     </Link>
   )
 }
@@ -236,7 +336,7 @@ function sized(
   name: string,
   faces: FacePort[],
   form: DeviceForm,
-  href: string,
+  href?: string,
   detail?: string,
 ): Box {
   const width = faces.length > 0 ? Math.min(MAX_NODE_WIDTH, naturalWidth(faces, form, PORT_WIDTH)) : 220
@@ -254,20 +354,31 @@ function anchorOf(
   if (port !== undefined && box.faces.length > 0) {
     const geometry = faceGeometry(box.faces, box.form, entry.node.width)
     const point = geometry.ports.find(candidate => candidate.id === port)
-    if (point !== undefined) return { x: entry.node.x + point.x, y: entry.node.y + point.y }
+    // Into the lower box at the port itself, behind its face; out of the upper
+    // box in the port's column but under its caption, so a cable never runs
+    // across the names.
+    if (point !== undefined) return { x: entry.node.x + point.x, y: entry.node.y + (side === 'top' ? point.y : entry.node.height) }
   }
-  return { x: entry.node.x + entry.node.width / 2, y: entry.node.y + (side === 'top' ? 0 : entry.node.height) }
+  // A box without a named port: under the face for the upper end (the caption
+  // is below it and the cable passes behind its background), the top edge for
+  // the lower one.
+  const faceBottom = box.faces.length > 0 ? entry.node.height - CAPTION_H - 16 : entry.node.height
+  return { x: entry.node.x + entry.node.width / 2, y: entry.node.y + (side === 'top' ? 0 : faceBottom) }
 }
 
-function Cable({ from, to, dashed }: { from: { x: number; y: number }; to: { x: number; y: number }; dashed: boolean }) {
-  const dy = Math.max(36, Math.abs(to.y - from.y) * 0.45)
+function cableStyle(kind: WireKind) {
+  if (kind === 'wired') return { stroke: '#7d95ad', strokeWidth: 1.8 }
+  if (kind === 'wireless') return { stroke: '#a9b8c7', strokeWidth: 1.4, strokeDasharray: '5 4' }
+  return { stroke: '#c9d1da', strokeWidth: 1.4, strokeDasharray: '1.5 4', strokeLinecap: 'round' as const }
+}
+
+function Cable({ from, to, kind }: { from: { x: number; y: number }; to: { x: number; y: number }; kind: WireKind }) {
+  const dy = Math.max(30, Math.abs(to.y - from.y) * 0.5)
   return (
     <path
       d={`M${from.x} ${from.y} C${from.x} ${from.y + dy} ${to.x} ${to.y - dy} ${to.x} ${to.y}`}
       fill="none"
-      stroke={dashed ? '#b6c2cf' : '#8fa6bd'}
-      strokeWidth={dashed ? 1.4 : 1.7}
-      strokeDasharray={dashed ? '5 4' : undefined}
+      {...cableStyle(kind)}
     />
   )
 }
@@ -283,6 +394,5 @@ function facesOf(snapshot: Snapshot | undefined): FacePort[] {
 }
 
 function hostOfDevice(device: Device): string | undefined {
-  const match = /^[a-z][a-z0-9+.-]*:\/\/([^/]+)/i.exec(device.address.trim())
-  return match?.[1]
+  return hostOf(device.address.trim())
 }
