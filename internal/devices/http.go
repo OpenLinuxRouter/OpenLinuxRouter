@@ -10,9 +10,10 @@ import (
 )
 
 type HTTP struct {
-	Service *Service
-	Lock    *core.Lock
-	Events  *core.Events
+	Service  *Service
+	Surveyor *Surveyor
+	Lock     *core.Lock
+	Events   *core.Events
 }
 type ExecuteRequest struct {
 	Operation    Operation `json:"operation"`
@@ -26,6 +27,7 @@ func (h HTTP) Routes() []core.Route {
 		{Method: "PATCH", Path: "/config", Body: core.BodyRelaxed, Mutating: true, Summary: "Update network equipment inventory without modifying remote equipment.", Handler: h.patchConfig},
 		{Method: "PUT", Path: "/{id}", Mutating: true, Summary: "Add or replace one managed network device without modifying remote equipment.", Handler: h.putDevice},
 		{Method: "DELETE", Path: "/{id}", Mutating: true, Summary: "Forget managed network equipment without modifying it.", Handler: h.deleteDevice},
+		{Method: "GET", Path: "/survey", Tool: "show survey", Summary: "Show the last survey of all equipment — readings and switch port tables — and refresh it in the background when it is stale.", Handler: h.getSurvey},
 		{Method: "GET", Path: "/contract", Tool: "show contract", Summary: "Show versioned network equipment data and operation schemas.", Handler: h.getContract},
 		{Method: "GET", Path: "/{id}/snapshot", Tool: "show snapshot", Summary: "Read one network device with per-section collection status and capabilities.", Handler: h.getSnapshot},
 		{Method: "GET", Path: "/{id}/capabilities", Tool: "show capabilities", Summary: "Inspect current read and operation capabilities of one network device.", Handler: h.getCapabilities},
@@ -176,6 +178,13 @@ func (h HTTP) scan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	core.WriteJSON(w, 200, result)
+}
+func (h HTTP) getSurvey(w http.ResponseWriter, r *http.Request) {
+	if h.Surveyor == nil {
+		writeError(w, ErrUnsupported)
+		return
+	}
+	core.WriteJSON(w, 200, h.Surveyor.Current())
 }
 func (h HTTP) getFDB(w http.ResponseWriter, r *http.Request) {
 	q := FDBQuery{MAC: r.URL.Query().Get("mac")}

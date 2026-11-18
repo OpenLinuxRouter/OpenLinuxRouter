@@ -192,7 +192,7 @@ func TestOpenWrtRead(t *testing.T) {
 	if bridge.RXBytes == nil || *bridge.RXBytes != 9007199254740993 || !reflect.DeepEqual(bridge.Members, []string{"lan1", "lan2"}) || !reflect.DeepEqual(bridge.Addresses, []string{"192.0.2.1/24", "2001:db8::1/64"}) {
 		t.Fatalf("bridge: %+v", bridge)
 	}
-	if ports["eth0.20"].ParentID != "eth0" || ports["eth0.20"].Kind != "vlan" || ports["lan1"].Kind != "other" || ports["phy0-ap0"].Kind != "wireless" {
+	if ports["eth0.20"].ParentID != "eth0" || ports["eth0.20"].Kind != "vlan" || ports["lan1"].Kind != "ethernet" || ports["phy0-ap0"].Kind != "wireless" {
 		t.Fatal("missing parent or incorrect normalized port kind")
 	}
 	if ports["lan1"].SpeedMbps == nil || *ports["lan1"].SpeedMbps != 1000 || ports["lan1"].Duplex != "full" {
@@ -1005,5 +1005,25 @@ func TestOpenWrtUsesAStoredCredential(t *testing.T) {
 	snap, err := o.Read(context.Background(), d)
 	if err != nil || snap.Identity.Model == "" {
 		t.Fatalf("read with stored credential: %+v %v", snap.Identity, err)
+	}
+}
+
+func TestOpenWrtPhysicalPortsNamesDSAPortsEthernet(t *testing.T) {
+	ports := []Port{
+		{ID: "br-lan", Kind: "bridge", Members: []string{"lan1", "lan2", "phy0-ap0", "wan"}},
+		{ID: "lan1", Kind: "other"},
+		{ID: "lan2", Kind: "other"},
+		{ID: "lan3", Kind: "other"},
+		{ID: "wan", Kind: "other"},
+		{ID: "lo", Kind: "other"},
+		{ID: "phy0-ap0", Kind: "wireless"},
+		{ID: "wg0", Kind: "other"},
+	}
+	openwrtPhysicalPorts(ports)
+	want := map[string]string{"br-lan": "bridge", "lan1": "ethernet", "lan2": "ethernet", "lan3": "ethernet", "wan": "ethernet", "lo": "other", "phy0-ap0": "wireless", "wg0": "other"}
+	for _, p := range ports {
+		if p.Kind != want[p.ID] {
+			t.Errorf("%s: kind %q, want %q", p.ID, p.Kind, want[p.ID])
+		}
 	}
 }

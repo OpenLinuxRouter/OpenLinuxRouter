@@ -60,10 +60,11 @@ export function PortPanel({
               <div key={port.id} className="flex flex-col items-center" style={{ width: port.kind === 'fiber' ? PANEL.fiberW : PANEL.jackW }}>
                 {port.kind === 'fiber' ? <Cage port={port} /> : <Jack port={port} />}
                 <span
+                  title={port.name || port.id}
                   className="w-full truncate text-center text-[10px] text-muted-foreground"
                   style={{ marginTop: PANEL.labelGap, lineHeight: `${PANEL.labelH}px` }}
                 >
-                  {port.name || port.id}
+                  {shortName(port)}
                 </span>
               </div>
             ))}
@@ -182,4 +183,9 @@ function textMeasurer(): (text: string, font: string) => number {
     canvas.font = `${font} ${family}`
     return canvas.measureText(text).width
   }
+}
+
+/** A port's label under its jack: "Port 3" is just "3" when the panel is the switch. */
+function shortName(port: PanelPort): string {
+  return (port.name || port.id).replace(/^port\s*/i, '')
 }

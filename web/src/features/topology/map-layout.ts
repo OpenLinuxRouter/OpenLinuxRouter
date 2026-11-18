@@ -109,12 +109,20 @@ export function placeMap(
   for (const [id, at] of layer) if (!leaves.has(id)) deepest = Math.max(deepest, at)
   for (const node of nodes) if (leaves.has(node.id)) layer.set(node.id, deepest + 1)
 
+  const orderOf = (port: string | undefined): number => {
+    if (port === undefined) return 10_000
+    const numeric = Number(port)
+    return Number.isFinite(numeric) ? numeric : 5_000
+  }
+
   // A cable that skips rows gets a lane in each row it crosses: a narrow
   // placeholder ordered with the boxes there, so the row leaves a gap for it
   // where its port says it belongs, and the cable runs down that gap.
   const all: MapNode[] = [...nodes]
   const graph: MapEdge[] = []
   const chains = new Map<string, string[]>()
+  // Where each lane's cable lands on the box below, as a port order.
+  const landing = new Map<string, { box: string; port: number }>()
   for (const edge of edges) {
     if (!byId.has(edge.from) || !byId.has(edge.to)) continue
     const la = layer.get(edge.from) ?? 1
@@ -140,6 +148,8 @@ export function placeMap(
     }
     graph.push({ from: previous, to: down })
     chains.set(`${edge.from}>${edge.to}`, chain)
+    const downPort = down === edge.from ? edge.fromPort : edge.toPort
+    for (const id of chain) landing.set(id, { box: down, port: orderOf(downPort) })
   }
   const chainIds = new Set([...chains.values()].flat())
   neighbours.clear()
@@ -148,11 +158,6 @@ export function placeMap(
     link(edge.to, edge.from)
   }
 
-  const orderOf = (port: string | undefined): number => {
-    if (port === undefined) return 10_000
-    const numeric = Number(port)
-    return Number.isFinite(numeric) ? numeric : 5_000
-  }
 
   const rows = new Map<number, MapNode[]>()
   for (const node of all) {
@@ -246,6 +251,26 @@ export function placeMap(
     }
   }
 
+  // A lane goes on the side of its row's boxes that matches where it lands:
+  // a cable into port 5 of the switch runs to the right of a box whose own
+  // cables go into ports 2 and 3, so the two never cross.
+  for (const { row } of placedRows) {
+    for (const lane of row.filter(node => landing.has(node.id))) {
+      const target = landing.get(lane.id) as { box: string; port: number }
+      for (const other of row) {
+        if (other === lane || landing.has(other.id)) continue
+        const ports = edges
+          .filter(edge => (edge.from === other.id && edge.to === target.box) || (edge.to === other.id && edge.from === target.box))
+          .map(edge => orderOf(edge.to === target.box ? edge.toPort : edge.fromPort))
+        if (ports.length === 0) continue
+        const laneX = x.get(lane.id) ?? 0
+        const otherX = x.get(other.id) ?? 0
+        if (target.port > Math.max(...ports) && laneX < otherX) x.set(lane.id, otherX + other.width + gapX)
+        else if (target.port < Math.min(...ports) && laneX > otherX) x.set(lane.id, otherX - gapX - lane.width)
+      }
+    }
+  }
+
   // Rows without a parent (the root, the row above it) centre on the whole.
   let min = Infinity
   let max = -Infinity
@@ -268,6 +293,7 @@ export function placeMap(
       left += node.width + gapX
     }
   }
+
 
   min = Infinity
   max = -Infinity

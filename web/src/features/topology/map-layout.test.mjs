@@ -164,3 +164,20 @@ test('a cable that skips a row runs down a lane clear of the boxes in it', () =>
   assert.ok(ap1.x < lane[0].x && lane[0].x < ap2.x, 'port 5 runs between port 4 and port 6')
   assert.ok(!layout.nodes.some(n => n.id.includes('lane')), 'lanes are not boxes')
 })
+
+test('a lane past the root sits on the side its port is on', () => {
+  const layout = placeMap(
+    [node('self'), node('modem'), node('sw', 400)],
+    [
+      { from: 'self', to: 'sw', fromPort: 'ens19', toPort: '2' },
+      { from: 'sw', to: 'modem', fromPort: '5' },
+    ],
+    'self',
+    {},
+    ['modem'],
+  )
+  const self = layout.nodes.find(n => n.id === 'self')
+  const lane = layout.lanes.get('sw>modem')
+  assert.equal(lane.length, 1)
+  assert.ok(lane[0].x > self.x + self.width, 'port 5 is right of port 2, so the lane is right of the router')
+})

@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -581,6 +582,7 @@ func (o *OpenWrt) Read(ctx context.Context, d Device) (Snapshot, error) {
 			snap.Ports = append(snap.Ports, Port{ID: w.InterfaceID, Name: w.InterfaceID, Kind: "wireless", MAC: w.BSSID})
 		}
 	}
+	openwrtPhysicalPorts(snap.Ports)
 	sort.Slice(snap.Ports, func(i, j int) bool { return snap.Ports[i].ID < snap.Ports[j].ID })
 	snap.Collections["wireless"] = openwrtCollection(now, wirelessCollectionErr)
 	snap.Collections["associations"] = openwrtCollection(now, associationErr)
@@ -637,6 +639,33 @@ type openwrtDevice struct {
 		TXErrors  *uint64 `json:"tx_errors"`
 	} `json:"statistics"`
 }
+
+// openwrtPhysicalPorts names the switch ports of a DSA device as ethernet.
+//
+// netifd reports a DSA user port (lan1, wan) with the same generic "Network
+// device" type it gives every virtual device, so the type alone cannot tell
+// a socket from a tunnel. Two facts can: the port is enslaved to a bridge, or
+// it carries the name every OpenWrt board file gives a front-panel port. Radios
+// are classified before this runs and are left alone, as is loopback.
+func openwrtPhysicalPorts(ports []Port) {
+	bridged := map[string]bool{}
+	for _, p := range ports {
+		for _, member := range p.Members {
+			bridged[member] = true
+		}
+	}
+	for i := range ports {
+		p := &ports[i]
+		if p.Kind != "other" || p.ID == "lo" {
+			continue
+		}
+		if bridged[p.ID] || openwrtPanelName.MatchString(p.ID) {
+			p.Kind = "ethernet"
+		}
+	}
+}
+
+var openwrtPanelName = regexp.MustCompile(`^(lan[0-9]+|wan[0-9]*|eth[0-9]+)$`)
 
 func openwrtPortKind(kind string) string {
 	switch strings.ToLower(kind) {

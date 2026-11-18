@@ -20,7 +20,11 @@ import type { FarEnd } from './equipment.ts'
  *   learned the fewest addresses: the port behind a cascade sees everything
  *   downstream, the port the client is plugged into sees only the client.
  * - **The modem is above.** The box the default route leads to is drawn above
- *   this router, joined to the interface the route leaves by.
+ *   this router, because traffic comes from there — even when a switch saw
+ *   it on one of its ports (the router's uplink often runs through the switch
+ *   on a VLAN). Then the cable the switch reported is kept, and it runs up
+ *   past the router to the modem; otherwise the modem is joined straight to
+ *   the interface the route leaves by.
  * - **A box nothing places is still shown as unplaced.** It gets a cable to this
  *   router marked as unknown, so it is never drawn as if it hung in the air.
  */
@@ -116,11 +120,9 @@ export function wire({ devices, sweeps, associations, uplink }: WiringInput): Wi
 
   const above: string[] = []
   if (uplink !== undefined && known.has(uplink.deviceId)) {
+    above.push(uplink.deviceId)
     const placed = [...boxWires.values()].some(w => w.from === uplink.deviceId || w.to === uplink.deviceId)
-    if (!placed) {
-      addBox({ from: uplink.deviceId, to: SELF, toPort: uplink.port, kind: 'wired' })
-      above.push(uplink.deviceId)
-    }
+    if (!placed) addBox({ from: uplink.deviceId, to: SELF, toPort: uplink.port, kind: 'wired' })
   }
 
   // Anything not reachable from this router through the cables above is shown

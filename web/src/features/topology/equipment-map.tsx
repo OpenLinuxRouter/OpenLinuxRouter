@@ -1,27 +1,23 @@
 import { useLocale, t } from '@/lib/i18n'
-import { RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 
-import { Button } from '@/components/ui/button'
 import { Heading } from '@/components/ui/heading'
 import { Skeleton } from '@/components/ui/skeleton'
 
 import { useClientList } from '@/features/clients/queries'
-import { useQueries } from '@tanstack/react-query'
-import { api } from '@/lib/api'
 import { useDialStatus } from '@/features/dial/queries'
-import { deviceKeys, useDevicesConfig } from '@/features/devices/queries'
+import { readWhen } from '@/features/devices/device-format'
+import { useDevicesConfig } from '@/features/devices/queries'
 import type { Device, Snapshot } from '@/features/devices/types'
 import { useInterfaces } from '@/features/link/queries'
 
-import { isPhysical } from './equipment'
-import { useEquipmentReads } from './equipment-reads'
+import { farEnd, isPhysical, learnedByPort, type FarEnd, type FarEndSources } from './equipment'
 import { placeMap, type PlacedNode } from './map-layout'
 import { hostOf } from './placement'
 import { panelGeometry, type PanelGeometry, type PanelPort } from './panel'
 import { PortPanel, headWidth } from './port-panel'
-import { useAllSweeps } from './sweep'
+import { useSurvey } from './survey'
 import { findUpstream } from './upstream'
 import { SELF, wire, type Wire, type WireKind } from './wiring'
 
@@ -65,32 +61,23 @@ interface Box {
 
 export function EquipmentMap({ highlight }: { highlight?: string }) {
   useLocale()
-  const reads = useEquipmentReads()
+  const survey = useSurvey()
   const config = useDevicesConfig()
   const clients = useClientList()
   const interfaces = useInterfaces()
   const dial = useDialStatus()
-  const sweeps = useAllSweeps()
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   const devices = useMemo(() => config.data?.devices ?? [], [config.data])
   const ids = useMemo(() => devices.map(device => device.id), [devices])
-  // Observers, not fetches: the page reads a box once on arrival, and the map
-  // draws whatever that read has already put in the cache.
-  const observations = useQueries({
-    queries: ids.map(id => ({
-      queryKey: deviceKeys.snapshot(id),
-      queryFn: () => api.get<Snapshot>(`/api/devices/${encodeURIComponent(id)}/snapshot`),
-      enabled: false,
-      gcTime: Infinity,
-    })),
-  })
+  // Everything about the boxes comes from the router's stored survey: drawn at
+  // once, refreshed behind.
   const snapshots = useMemo(() => {
     const map = new Map<string, Snapshot>()
-    observations.forEach((observation, index) => {
-      if (observation.data !== undefined) map.set(ids[index], observation.data)
-    })
+    for (const [id, entry] of Object.entries(survey.data?.devices ?? {})) {
+      if (entry.snapshot !== undefined) map.set(id, entry.snapshot)
+    }
     return map
-  }, [observations, ids])
+  }, [survey.data])
   const byMac = useMemo(
     () => new Map((clients.data?.clients ?? []).map(client => [client.mac.toLowerCase(), client])),
     [clients.data],
@@ -106,6 +93,29 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
     [interfaces.data],
   )
 
+  // Who each learned address is: this router's own interface, a managed box,
+  // or a client. A bridge carries the MAC of one of its ports; the port's name
+  // is the one a cable can be drawn from, so physical interfaces claim it first.
+  const sources: FarEndSources = useMemo(() => {
+    const self = new Map<string, string>()
+    const rows = [...(interfaces.data?.interfaces ?? [])].sort((a, b) => Number(b.physical) - Number(a.physical))
+    for (const row of rows) {
+      const mac = row.mac?.toLowerCase()
+      if (mac !== undefined && mac !== '' && mac !== '00:00:00:00:00:00' && !self.has(mac)) self.set(mac, row.name)
+    }
+    return { self, clients: byMac, devices }
+  }, [interfaces.data, byMac, devices])
+
+  // Each switch's table, by port, as far ends.
+  const sweeps = useMemo(() => {
+    const map = new Map<string, ReadonlyMap<string, readonly FarEnd[]>>()
+    for (const [id, entry] of Object.entries(survey.data?.devices ?? {})) {
+      if (entry.fdb === undefined) continue
+      map.set(id, new Map([...learnedByPort(entry.fdb)].map(([port, macs]) => [port, macs.map(mac => farEnd(mac, sources))])))
+    }
+    return map
+  }, [survey.data, sources])
+
   // Upstream: a box between this router and the internet goes above it. The
   // rule — a private way out, or a bridged ONT off the LAN — is in upstream.ts.
   const uplink = useMemo(() => findUpstream({
@@ -118,7 +128,7 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
 
   const wiring = useMemo(() => wire({
     devices: ids,
-    sweeps: new Map([...sweeps].map(([id, sweep]) => [id, sweep.byPort])),
+    sweeps,
     associations: new Map([...snapshots].map(([id, snapshot]) => [id, (snapshot.associations ?? []).map(a => a.mac.toLowerCase())])),
     uplink,
   }), [ids, sweeps, snapshots, uplink])
@@ -214,7 +224,10 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
     return () => observer.disconnect()
   }, [layout.width])
 
-  const asking = [...sweeps.values()].filter(sweep => sweep.partial === true)
+  const entries = Object.values(survey.data?.devices ?? {})
+  const asked = entries.reduce((sum, entry) => sum + (entry.fdb_asked ?? 0), 0)
+  const total = entries.reduce((sum, entry) => sum + (entry.fdb_total ?? 0), 0)
+  const running = survey.data?.running === true
 
   const highlighted = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
@@ -231,33 +244,21 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
   if (config.isPending) return <Skeleton className="h-64 w-full rounded-xl" />
   if (devices.length === 0) return <Empty />
 
-  const failures = Object.keys(reads.failed).length
+  const failures = entries.filter(entry => entry.read_error !== undefined).length
+  const finished = survey.data?.finished_at
+  // One quiet line under the drawing says how fresh it is. There is no button:
+  // the router refreshes the survey itself, and the page follows.
+  const status = running
+    ? total > 0
+      ? t('Refreshing — finding which port each device is on, {done} of {total}', { done: asked, total })
+      : t('Refreshing…')
+    : failures > 0
+      ? t('{count} devices did not answer', { count: failures })
+      : finished !== undefined
+        ? t('Updated {when}', { when: readWhen(Date.parse(finished)) })
+        : ''
   return (
-    <div className="relative rounded-xl border border-border bg-card">
-      <div className="flex min-h-11 items-center gap-3 border-b border-border/60 px-3 py-1.5 text-xs text-muted-foreground">
-        <span className="min-w-0 flex-1 truncate">
-          {reads.reading !== undefined
-            ? t('Reading {name}…', { name: devices.find(device => device.id === reads.reading)?.name || reads.reading })
-            : asking.length > 0
-              ? t('Finding which port each device is on… {done} of {total}', {
-                done: asking.reduce((sum, sweep) => sum + sweep.asked, 0),
-                total: asking.reduce((sum, sweep) => sum + (sweep.total ?? sweep.asked), 0),
-              })
-              : failures > 0
-                ? t('{count} devices did not answer', { count: failures })
-                : t('Cables are inferred from what each switch and access point reports.')}
-        </span>
-        <Button
-          variant="quiet"
-          size="sm"
-          className="shrink-0"
-          disabled={!reads.readsDone || asking.length > 0}
-          onClick={reads.rescan}
-        >
-          <RefreshCw aria-hidden className="size-3.5" />
-          {t('Ask again')}
-        </Button>
-      </div>
+    <div className="relative">
       <div ref={frame} className="w-full overflow-x-auto">
         {/* Sized to the scaled drawing, so centring and scrolling see its real width. */}
         <div className="mx-auto" style={{ width: layout.width * scale, height: layout.height * scale }}>
@@ -304,19 +305,19 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
                     {box.name}
                   </button>
                 ) : (
-                  <Node box={box} failed={reads.failed[box.id]} />
+                  <Node box={box} failed={survey.data?.devices[box.id]?.read_error} reading={running} />
                 )}
               </div>
             ))}
           </div>
         </div>
       </div>
-      <Legend />
+      <Legend status={status} />
     </div>
   )
 }
 
-function Legend() {
+function Legend({ status }: { status: string }) {
   useLocale()
   const item = (kind: WireKind, label: string) => (
     <span className="flex items-center gap-1.5">
@@ -325,19 +326,20 @@ function Legend() {
     </span>
   )
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border/60 px-3 py-2 text-[11px] text-muted-foreground">
+    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
       {item('wired', t('Cable'))}
       {item('wireless', t('Wireless'))}
       {item('unknown', t('Not placed yet'))}
-      <span className="basis-full sm:ml-auto sm:basis-auto">
+      <span>
         {t('Port lamps: left of the latch is the link, right is the speed — green at a gigabit and up, amber below. A fiber port has one lamp, for the link.')}
       </span>
+      {status !== '' && <span className="sm:ml-auto">{status}</span>}
     </div>
   )
 }
 
 /** A box with its face, its caption, and the ports' names underneath. */
-function Node({ box, failed }: { box: Box; failed?: string }) {
+function Node({ box, failed, reading }: { box: Box; failed?: string; reading: boolean }) {
   useLocale()
   if (box.geometry === undefined) return null
   return (
@@ -346,7 +348,7 @@ function Node({ box, failed }: { box: Box; failed?: string }) {
       detail={box.detail}
       ports={box.ports}
       geometry={box.geometry}
-      empty={failed !== undefined ? t('Did not answer') : t('Not read yet')}
+      empty={failed !== undefined ? t('Did not answer') : reading ? t('Reading…') : t('Not read yet')}
       title={failed}
     />
   )
@@ -380,10 +382,10 @@ function sized(
 }
 
 /**
- * Where a cable leaves or enters a box. Into the lower box at its port, behind
- * the chassis, so it seems to plug in from above; out of the upper box under
- * its port's column, from the bottom edge. A box with no named port: the
- * middle of the edge.
+ * Where a cable leaves or enters a box: straight above or below its port, at
+ * the chassis edge — the top edge of the lower box, the bottom edge of the
+ * upper one — so the line visibly meets the port it belongs to. A box with no
+ * named port: the middle of the edge.
  */
 function anchorOf(
   entry: { node: PlacedNode; box: Box },
@@ -392,8 +394,7 @@ function anchorOf(
 ): { x: number; y: number } {
   const point = port === undefined ? undefined : entry.box.geometry?.ports.find(candidate => candidate.id === port)
   const x = entry.node.x + (point?.x ?? entry.node.width / 2)
-  if (side === 'bottom') return { x, y: entry.node.y + entry.node.height }
-  return { x, y: entry.node.y + (point?.y ?? 0) }
+  return { x, y: entry.node.y + (side === 'bottom' ? entry.node.height : 0) }
 }
 
 function cableStyle(kind: WireKind) {

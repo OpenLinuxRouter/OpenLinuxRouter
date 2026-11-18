@@ -68,15 +68,16 @@ test('a box nothing places is joined to the router as unknown', () => {
   assert.deepEqual(result.wires.map(key), ['self>ap unknown'])
 })
 
-test('a modem the sweep already placed is not lifted above the router', () => {
+test('a modem a switch saw is still drawn above, with the cable the switch reported', () => {
   const result = wire({
     devices: ['sw', 'modem'],
     sweeps: new Map([['sw', new Map([['1', [router('ens19')]], ['8', [box('modem')]]])]]),
     associations: new Map(),
     uplink: { deviceId: 'modem', port: 'ens18' },
   })
-  assert.deepEqual(result.above, [])
-  assert.ok(result.wires.some(w => w.from === 'sw' && w.to === 'modem'))
+  assert.deepEqual(result.above, ['modem'])
+  assert.ok(result.wires.some(w => w.from === 'sw' && w.fromPort === '8' && w.to === 'modem'))
+  assert.ok(!result.wires.some(w => w.to === 'self' && w.from === 'modem'), 'no second, invented cable')
 })
 
 test('two NICs on the same switch are two cables', () => {

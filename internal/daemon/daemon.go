@@ -449,8 +449,14 @@ func run(args []string) error {
 	}.Routes(), clients.Config{})
 
 	// Remote equipment is observed on demand; inventory writes never alter it.
+	// The topology page reads every box and sweeps every switch; the router
+	// keeps the last answer so the page can draw at once and refresh behind.
+	surveyor := &devices.Surveyor{
+		Service:   devicesService,
+		Addresses: surveyAddresses{clients: clientsApplier, devices: devicesService}.Addresses,
+	}
 	srv.Mount(devices.ModuleName, devices.HTTP{
-		Service: devicesService, Lock: srv.ApplyLock(), Events: srv.Events(),
+		Service: devicesService, Surveyor: surveyor, Lock: srv.ApplyLock(), Events: srv.Events(),
 	}.Routes(), devices.Config{})
 
 	bootID, bootErr := os.ReadFile("/proc/sys/kernel/random/boot_id")
