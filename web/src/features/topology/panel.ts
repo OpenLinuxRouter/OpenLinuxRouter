@@ -30,7 +30,7 @@ export const PANEL = {
   padBottom: 10,
   jackW: 30,
   jackH: 24,
-  fiberW: 44,
+  fiberW: 40,
   portGap: 6,
   labelGap: 3,
   labelH: 11,

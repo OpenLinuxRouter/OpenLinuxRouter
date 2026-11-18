@@ -7,9 +7,10 @@ import { PANEL, panelRows, speedLamp, type PanelGeometry, type PanelPort } from 
  * A box on the map: its name across the top, its ports in a bay underneath.
  *
  * Every port is drawn the same whatever its state — a jack does not change
- * colour when the cable comes out. State is in the two lamps built into the
- * jack, as on the hardware: the left one is the link, the right one the speed
- * (green at a gigabit and up, amber below, dark when the box did not say).
+ * colour when the cable comes out. State is in the lamps: an RJ45 jack has two
+ * beside its latch slot, as on the hardware — the left one the link, the right
+ * one the speed (green at a gigabit and up, amber below, dark when the box did
+ * not say); a fiber cage has one, for the link.
  * The panel is sized by `geometry`, which the map also uses to start cables at
  * the ports, so the two cannot disagree.
  */
@@ -78,66 +79,77 @@ const CAVITY = '#0b1220'
 const UNLIT = '#4b5563'
 const GREEN = '#22c55e'
 const AMBER = '#f59e0b'
+const GOLD = '#d4a72c'
 
-/** The two lamps in the top corners of a jack or cage. */
-function Lamps({ port, width }: { port: PanelPort; width: number }) {
-  const speed = speedLamp(port)
-  const link = port.linkUp === true ? GREEN : UNLIT
-  const rate = speed === 'fast' ? GREEN : speed === 'slow' ? AMBER : UNLIT
+/** A lamp: a small rounded light, with a soft halo when it is lit. */
+function Lamp({ x, y, width, colour }: { x: number; y: number; width: number; colour: string }) {
+  const h = 3
   return (
     <>
-      <Lamp x={3} colour={link} />
-      <Lamp x={width - 8} colour={rate} />
-    </>
-  )
-}
-
-function Lamp({ x, colour }: { x: number; colour: string }) {
-  const lit = colour !== UNLIT
-  return (
-    <>
-      {lit && <rect x={x - 1} y={1.5} width={7} height={5} rx={2} fill={colour} opacity={0.35} />}
-      <rect x={x} y={2.5} width={5} height={3} rx={1} fill={colour} />
+      {colour !== UNLIT && <rect x={x - 1} y={y - 1} width={width + 2} height={h + 2} rx={2} fill={colour} opacity={0.35} />}
+      <rect x={x} y={y} width={width} height={h} rx={1} fill={colour} />
     </>
   )
 }
 
 /**
- * An RJ45 jack, 30 × 24. The opening and its eight contacts are laid out from
- * the jack's centre line, so they are centred by construction.
+ * An RJ45 jack, 30 × 24, latch up: the narrow latch slot on top, the wide
+ * opening under it with the eight contacts along its bottom, and the two
+ * lamps either side of the latch slot — link on the left, speed on the right.
+ *
+ * Everything is laid out from the vertical centre line `c`, and the opening
+ * sits with the same margin above the slot as below the opening, so the jack
+ * is centred and balanced by construction. The lamps share the slot's band
+ * and line up with the opening's outer edges.
  */
 function Jack({ port }: { port: PanelPort }) {
   const w = PANEL.jackW
   const h = PANEL.jackH
   const c = w / 2
+  const margin = 4 // housing edge to cavity, top and bottom
+  const half = 9 // half the opening's width
+  const latch = 4 // half the latch slot's width
+  const slotTop = margin
+  const bodyTop = 9
+  const bodyBottom = h - margin
+  const lampW = half - latch - 1.4
+  const lampY = (slotTop + bodyTop) / 2 - 1.5
   const pitch = 1.8
   const pin = 0.9
   const first = c - (7 * pitch + pin) / 2
+  const speed = speedLamp(port)
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-label={port.name || port.id} role="img">
       <rect x={0.5} y={0.5} width={w - 1} height={h - 1} rx={3} fill={HOUSING} />
-      <Lamps port={port} width={w} />
-      <path d={`M${c - 9} 7.5 H${c + 9} V17 H${c + 4} V20.5 H${c - 4} V17 H${c - 9} Z`} fill={CAVITY} />
+      <path
+        d={`M${c - latch} ${slotTop} H${c + latch} V${bodyTop} H${c + half} V${bodyBottom} H${c - half} V${bodyTop} H${c - latch} Z`}
+        fill={CAVITY}
+      />
+      <Lamp x={c - half} y={lampY} width={lampW} colour={port.linkUp === true ? GREEN : UNLIT} />
+      <Lamp x={c + half - lampW} y={lampY} width={lampW} colour={speed === 'fast' ? GREEN : speed === 'slow' ? AMBER : UNLIT} />
       {Array.from({ length: 8 }, (_, i) => (
-        <rect key={i} x={first + i * pitch} y={8.3} width={pin} height={3.2} fill="#d4a72c" />
+        <rect key={i} x={first + i * pitch} y={bodyBottom - 4} width={pin} height={3.2} fill={GOLD} />
       ))}
     </svg>
   )
 }
 
-/** A fiber cage, 44 × 24: a metal frame with two LC sleeves, centred the same way. */
+/**
+ * A fiber port, 40 × 24: an empty cage — a metal frame round a dark slot. A
+ * cage has no lamps of its own; the panel beside it usually has one, for the
+ * link, so there is one, above the slot.
+ */
 function Cage({ port }: { port: PanelPort }) {
   const w = PANEL.fiberW
   const h = PANEL.jackH
   const c = w / 2
+  const frame = 13 // half the frame's width
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-label={port.name || port.id} role="img">
       <rect x={0.5} y={0.5} width={w - 1} height={h - 1} rx={3} fill={HOUSING} />
-      <Lamps port={port} width={w} />
-      <rect x={c - 16} y={7} width={32} height={14} rx={1.5} fill="#94a3b8" />
-      <rect x={c - 14} y={9} width={28} height={10} rx={1} fill={CAVITY} />
-      <rect x={c - 10} y={11} width={8} height={6} rx={1} fill="#1e293b" stroke="#64748b" strokeWidth={0.6} />
-      <rect x={c + 2} y={11} width={8} height={6} rx={1} fill="#1e293b" stroke="#64748b" strokeWidth={0.6} />
+      <Lamp x={c - 3} y={3.5} width={6} colour={port.linkUp === true ? GREEN : UNLIT} />
+      <rect x={c - frame} y={9} width={frame * 2} height={11} rx={1.5} fill="#94a3b8" />
+      <rect x={c - frame + 1.5} y={10.5} width={frame * 2 - 3} height={8} rx={0.8} fill={CAVITY} />
     </svg>
   )
 }

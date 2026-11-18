@@ -330,7 +330,7 @@ function Legend() {
       {item('wireless', t('Wireless'))}
       {item('unknown', t('Not placed yet'))}
       <span className="basis-full sm:ml-auto sm:basis-auto">
-        {t('Port lamps: left is the link, right is the speed — green at a gigabit and up, amber below.')}
+        {t('Port lamps: left of the latch is the link, right is the speed — green at a gigabit and up, amber below. A fiber port has one lamp, for the link.')}
       </span>
     </div>
   )

@@ -716,7 +716,7 @@ export const zhCN: Record<string, string> = {
   'Cable': '有线',
   'Not placed yet': '位置未确认',
   '{up} of {total} up': '{up}/{total} 口在线',
-  'Port lamps: left is the link, right is the speed — green at a gigabit and up, amber below.': '网口指示灯：左灯表示链路，右灯表示速率（绿色千兆及以上，黄色低于千兆）。',
+  'Port lamps: left of the latch is the link, right is the speed — green at a gigabit and up, amber below. A fiber port has one lamp, for the link.': '网口指示灯：卡扣左侧灯表示链路，右侧灯表示速率（绿色千兆及以上，黄色低于千兆）；光口只有一个灯，表示链路。',
   'Reading {name}…': '正在读取 {name}…',
   '{count} devices did not answer': '{count} 台设备没有应答',
   'Cables are inferred from what each switch and access point reports.': '连线根据交换机和 AP 上报的信息推断。',
