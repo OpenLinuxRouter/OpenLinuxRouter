@@ -100,12 +100,12 @@ export function AppShell() {
         <FooterLine />
 
         <nav aria-label={t('Sections')} className="fixed inset-x-0 bottom-0 z-20 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
-          <ul className="grid grid-cols-7">
+          <ul className="grid grid-cols-6">
             {/* Objects first, then configuration, so the bar and the rail tell the
                 same story even though the table interleaves them by module. */}
             {[...network, ...configuration].map(({ to, label, icon: Icon, end }) => (
-              // Seven names across 375px: the one place below 12px, because at 12px
-              // the labels run into each other (docs/ui-style-guide.md).
+              // Six names across a 375px phone: the one place below 12px, so the
+              // longest label still fits its cell (docs/ui-style-guide.md).
               <li key={to} className="min-w-0">
                 <NavLink to={to} end={end} className={({ isActive }) => cn(
                   'flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-ring',

@@ -30,49 +30,6 @@ export function roleLabels(device: Device): string[] {
   return order.filter((role) => device.roles?.includes(role)).map(roleLabel)
 }
 
-/**
- * The management address as a list reads it: the scheme and a trailing slash
- * are how it is stored, not part of the box's address.
- */
-export function addressLabel(address: string): string {
-  const trimmed = address.trim()
-  const bare = trimmed.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').replace(/\/+$/, '')
-  return bare || trimmed
-}
-
-/**
- * An address reduced to the host two addresses can be compared on: no scheme,
- * path, port, prefix mask or IPv6 brackets. Used only to answer "is this the
- * local box", never for display.
- */
-export function hostKey(address: string): string {
-  const trimmed = address.trim()
-  if (!trimmed) return ''
-  const withoutScheme = trimmed.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '')
-  const authority = withoutScheme.split('/')[0].split('@').pop() ?? ''
-  const bracketed = authority.match(/^\[([^\]]+)\]/)
-  if (bracketed) return bracketed[1].toLowerCase()
-  // A bare IPv6 address has more than one colon; splitting it on ":" would
-  // reduce it to its first group. One colon is a port.
-  if ((authority.match(/:/g)?.length ?? 0) > 1) return authority.toLowerCase()
-  return (authority.split(':')[0] ?? '').toLowerCase()
-}
-
-/**
- * Whether this entry is the box serving the console: it routes, and its
- * management address is one of this machine's own. Both halves matter — a
- * router role is something an operator can put on any upstream box.
- */
-export function isThisRouter(device: Device, localHosts: Iterable<string>): boolean {
-  if (!device.roles?.includes('router')) return false
-  const host = hostKey(device.address)
-  if (!host) return false
-  for (const local of localHosts) {
-    if (hostKey(local) === host) return true
-  }
-  return false
-}
-
 /** The pictures an inventory entry can wear; all four exist in the catalogue. */
 export type PortraitCategory = 'switch' | 'accesspoint' | 'modem' | 'router'
 

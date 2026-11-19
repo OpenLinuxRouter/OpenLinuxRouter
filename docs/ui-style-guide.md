@@ -127,7 +127,7 @@ use 16px and shadow-md. Card spacing and title size are independent variants.
 
 Desktop navigation becomes a rail in the order the
 [console direction](ui-console-direction.md) sets out — Network (Overview,
-Topology, Devices) then Configuration (Gateway, Wireless, Access, Advanced) —
+Topology) then Configuration (Gateway, Wireless, Access, Advanced) —
 until then the top bar keeps Overview, Gateway, Wireless, Access and Advanced in
 that order. Wireless shows a managed access point's radios,
 findings and associated clients; it is read-only in this increment.

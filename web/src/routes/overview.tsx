@@ -342,7 +342,7 @@ function NetworkPanel() {
       <p className="text-xs text-muted-foreground tabular-nums">
         <Link to="/gateway/dhcp" className="underline-offset-4 hover:text-foreground hover:underline">{countOf(networks, 'network', 'networks')}</Link>
         <span aria-hidden className="mx-1.5 opacity-45">·</span>
-        <Link to="/devices" className="underline-offset-4 hover:text-foreground hover:underline">{countOf(managed, 'device', 'devices')}</Link>
+        <Link to="/topology" className="underline-offset-4 hover:text-foreground hover:underline">{countOf(managed, 'device', 'devices')}</Link>
         <span aria-hidden className="mx-1.5 opacity-45">·</span>
         <Link to="/access/wireguard" className="underline-offset-4 hover:text-foreground hover:underline">{countOf(peers, 'tunnel peer', 'tunnel peers')}</Link>
       </p>

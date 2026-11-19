@@ -1,5 +1,5 @@
 import { t } from '@/lib/i18n'
-import { Activity, ArrowLeftRight, EthernetPort, Share2, Shield, SlidersHorizontal, Waypoints, Wifi, Wrench } from 'lucide-react'
+import { Activity, ArrowLeftRight, Share2, Shield, SlidersHorizontal, Waypoints, Wifi, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 /**
@@ -195,22 +195,13 @@ export const SECTIONS: Section[] = [
   },
   {
     // The picture the Overview ends with, given a page of its own: the one screen
-    // that answers "what is on my network" without a counter beside it.
+    // that answers "what is on my network" without a counter beside it. The
+    // boxes olr reads are drawn here, and they are added from here; there is no
+    // list of them beside the map.
     to: '/topology',
     get label() { return t('Topology') },
     icon: Share2,
     end: true,
-    group: 'network',
-    groups: [],
-  },
-  {
-    // The devices olr reads but does not configure: switches, access points and
-    // routers. Not `/network`: in this product a network is a subnet Gateway
-    // serves, and that is what `/gateway/networks` already means.
-    to: '/devices',
-    get label() { return t('Devices') },
-    icon: EthernetPort,
-    end: false,
     group: 'network',
     groups: [],
   },
@@ -290,9 +281,12 @@ export const SECTIONS: Section[] = [
 /** Overview detail pages share the section's navigation highlight. */
 const OVERVIEW_PAGES = new Set(['/latency', '/map', '/quality'])
 
+/** A box's page is opened from the map, so it keeps Topology selected. */
+const DEVICE_PAGE = /^\/devices\/[^/]+$/
+
 /** The section a path belongs to, section landing pages and sub-pages alike. */
 export function sectionOf(pathname: string): Section | undefined {
-  const path = OVERVIEW_PAGES.has(pathname) ? '/' : pathname
+  const path = OVERVIEW_PAGES.has(pathname) ? '/' : DEVICE_PAGE.test(pathname) ? '/topology' : pathname
   return [...SECTIONS].reverse().find(({ to, end }) =>
     end ? path === to : path === to || path.startsWith(`${to}/`),
   )

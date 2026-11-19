@@ -90,13 +90,12 @@ The page layout and constructor order were captured from an OptiXstar V271-20 on
 
 ## Web page
 
-`/devices` is the inventory in the WebUI: one row per managed box, with its
-adapter, management origin and roles, and one page per device at
-`/devices/{id}`. Adding, editing and forgetting happen there, through the same
-dialog the Wireless page uses for its access point; the empty state offers a
-switch or an access point and stores the management password in the
-configuration, so onboarding never requires setting a variable in `olrd`'s
-environment.
+The inventory has no list page: `/topology` draws each managed box as a node,
+with the clients it reports, and `/devices` redirects there. "Add a device"
+above the map opens the same dialog the Wireless page uses for its access point;
+it stores the management password in the configuration, so onboarding never
+requires setting a variable in `olrd`'s environment. Editing and forgetting stay
+on the box's page at `/devices/{id}`, which the node links to.
 
 The page below `/devices/{id}` is read-only, and which page it is follows the
 **adapter** — the inventory's device type. Each type answers the questions that

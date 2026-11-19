@@ -56,7 +56,7 @@ export function DevicePage() {
   const forget = async () => {
     if (!(await editor.remove(device.id))) return
     setDialog(false)
-    navigate('/devices', { replace: true })
+    navigate('/topology', { replace: true })
   }
   const model = snapshot.data?.identity.model
   const readAt = snapshot.dataUpdatedAt
@@ -71,7 +71,7 @@ export function DevicePage() {
         <DevicePortrait device={device} large />
         <div className="min-w-0 flex-1 space-y-3">
           <PageHeading
-            breadcrumbs={[{ to: '/devices', label: t('Devices') }]}
+            breadcrumbs={[{ to: '/topology', label: t('Topology') }]}
             title={device.name || model || device.id}
             description={
               <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">

@@ -1,9 +1,12 @@
 import { useLocale, t } from '@/lib/i18n'
 import type { VendorKey } from '@/lib/api-types'
 import type { ClientCategory } from '@/lib/config-types'
+import { useQueryClient } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 
+import { Button } from '@/components/ui/button'
 import { Heading } from '@/components/ui/heading'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -11,7 +14,8 @@ import { DeviceIcon } from '@/features/clients/client-icon'
 import { useClientList } from '@/features/clients/queries'
 import { useDialStatus } from '@/features/dial/queries'
 import { portraitCategory } from '@/features/devices/device'
-import { useDevicesConfig } from '@/features/devices/queries'
+import { DeviceDialog, type DeviceDraft, type DeviceType } from '@/features/devices/device-dialog'
+import { useDeviceEditor, useDevicesConfig } from '@/features/devices/queries'
 import type { Device, Snapshot } from '@/features/devices/types'
 import { useInterfaces } from '@/features/link/queries'
 
@@ -20,7 +24,7 @@ import { placeMap, type PlacedNode } from './map-layout'
 import { hostOf } from './placement'
 import { panelGeometry, type PanelGeometry, type PanelPort } from './panel'
 import { PortPanel, headWidth } from './port-panel'
-import { useSurvey } from './survey'
+import { surveyKey, useSurvey } from './survey'
 import { findUpstream } from './upstream'
 import { SELF, wire, type Wire, type WireKind } from './wiring'
 
@@ -66,13 +70,39 @@ interface Box {
 
 export function EquipmentMap({ highlight }: { highlight?: string }) {
   useLocale()
+  const navigate = useNavigate()
+  const client = useQueryClient()
   const survey = useSurvey()
   const config = useDevicesConfig()
   const clients = useClientList()
   const interfaces = useInterfaces()
   const dial = useDialStatus()
+  const editor = useDeviceEditor()
+  const [dialog, setDialog] = useState<'add' | null>(null)
   const devices = useMemo(() => config.data?.devices ?? [], [config.data])
   const ids = useMemo(() => devices.map(device => device.id), [devices])
+  // The shapes a box can be added as. A type is the adapter plus the roles the
+  // box plays, which is what decides the page it gets once it is read.
+  const types: DeviceType[] = [
+    { label: t('Huawei fiber ONT'), adapter: 'huawei', roles: ['ont'] },
+    { label: t('Mercury switch'), adapter: 'mercury', roles: ['switch'] },
+    { label: t('OpenWrt access point'), adapter: 'openwrt', roles: ['ap'] },
+    { label: t('OpenWrt router'), adapter: 'openwrt', roles: ['router'] },
+  ]
+
+  /**
+   * Adding a box is the only write this page offers, and it is the start of
+   * looking at it: the map redraws with the new node and the highlight lands
+   * on it. The survey is asked again because it carries the reading, and an
+   * entry added a moment ago has none until the router visits it.
+   */
+  const submit = async (draft: DeviceDraft) => {
+    if (!(await editor.save(draft))) return
+    setDialog(null)
+    void client.invalidateQueries({ queryKey: surveyKey })
+    navigate(`/topology?device=${encodeURIComponent(draft.id)}`)
+  }
+
   // Everything about the boxes comes from the router's stored survey: drawn at
   // once, refreshed behind.
   const snapshots = useMemo(() => {
@@ -142,7 +172,7 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
     const lanAddress = (interfaces.data?.interfaces ?? [])
       .find(row => row.network !== undefined && row.address !== undefined)?.address?.split('/')[0]
     const self: Box = {
-      ...sized(SELF, 'Open Linux Router', selfFaces, '/devices', lanAddress, 'router'),
+      ...sized(SELF, 'Open Linux Router', selfFaces, '/gateway/interfaces', lanAddress, 'router'),
       kind: 'self',
     }
     const rest = devices.map(device => sized(
@@ -246,6 +276,17 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
     highlighted.current?.scrollIntoView({ block: 'nearest', inline: 'center' })
   }, [highlight, layout])
 
+  const dialogElement = dialog === null ? null : (
+    <DeviceDialog
+      open
+      onOpenChange={open => { if (!open) setDialog(null) }}
+      types={types}
+      existing={ids}
+      busy={editor.busy}
+      onSubmit={submit}
+    />
+  )
+
   if (config.isError) {
     return (
       <p className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
@@ -254,51 +295,71 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
     )
   }
   if (config.isPending) return <Skeleton className="h-64 w-full rounded-xl" />
-  if (devices.length === 0) return <Empty />
+  if (devices.length === 0) {
+    return (
+      <div className="space-y-6">
+        <Empty onAdd={() => setDialog('add')} />
+        {dialogElement}
+      </div>
+    )
+  }
 
   return (
-    <div ref={frame} className="w-full overflow-x-auto">
-      {/* Sized to the scaled drawing, so centring and scrolling see its real width. */}
-      <div className="mx-auto" style={{ width: layout.width * scale, height: layout.height * scale }}>
-        <div className="relative origin-top-left" style={{ width: layout.width, height: layout.height, transform: `scale(${scale})` }}>
-          <svg className="absolute inset-0 overflow-visible" width={layout.width} height={layout.height} aria-hidden>
-            {wires.map(w => {
-              const a = placed.get(w.from)
-              const b = placed.get(w.to)
-              if (a === undefined || b === undefined) return null
-              // The cable runs from the upper box down to the lower one,
-              // whichever end the evidence came from.
-              const [upper, upperPort, lower, lowerPort] = a.node.layer <= b.node.layer
-                ? [a, w.fromPort, b, w.toPort]
-                : [b, w.toPort, a, w.fromPort]
-              return (
-                <Cable
-                  key={`${w.from}-${w.fromPort ?? ''}-${w.to}-${w.toPort ?? ''}`}
-                  from={anchorOf(upper, upperPort, 'bottom')}
-                  to={anchorOf(lower, lowerPort, 'top')}
-                  lanes={layout.lanes.get(`${w.from}>${w.to}`)}
-                  kind={w.kind}
-                />
-              )
-            })}
-          </svg>
+    <div className="space-y-3">
+      {/* The page is the drawing, so the one action it needs sits above it
+          rather than in a title block that would repeat the rail's name. */}
+      <div className="flex justify-end">
+        <Button onClick={() => setDialog('add')}>
+          <Plus />
+          {t('Add a device')}
+        </Button>
+      </div>
 
-          {[...placed.values()].map(({ node, box }) => (
-            <div
-              key={node.id}
-              ref={node.id === highlight ? highlighted : undefined}
-              className={`absolute ${node.id === highlight ? 'rounded-lg ring-2 ring-ring/60 ring-offset-4 ring-offset-card' : ''}`}
-              style={{ left: node.x, top: node.y, width: node.width }}
-            >
-              {box.kind === 'client' ? (
-                <Chip box={box} />
-              ) : (
-                <Node box={box} failed={survey.data?.devices[box.id]?.read_error} reading={running} />
-              )}
-            </div>
-          ))}
+      <div ref={frame} className="w-full overflow-x-auto">
+        {/* Sized to the scaled drawing, so centring and scrolling see its real width. */}
+        <div className="mx-auto" style={{ width: layout.width * scale, height: layout.height * scale }}>
+          <div className="relative origin-top-left" style={{ width: layout.width, height: layout.height, transform: `scale(${scale})` }}>
+            <svg className="absolute inset-0 overflow-visible" width={layout.width} height={layout.height} aria-hidden>
+              {wires.map(w => {
+                const a = placed.get(w.from)
+                const b = placed.get(w.to)
+                if (a === undefined || b === undefined) return null
+                // The cable runs from the upper box down to the lower one,
+                // whichever end the evidence came from.
+                const [upper, upperPort, lower, lowerPort] = a.node.layer <= b.node.layer
+                  ? [a, w.fromPort, b, w.toPort]
+                  : [b, w.toPort, a, w.fromPort]
+                return (
+                  <Cable
+                    key={`${w.from}-${w.fromPort ?? ''}-${w.to}-${w.toPort ?? ''}`}
+                    from={anchorOf(upper, upperPort, 'bottom')}
+                    to={anchorOf(lower, lowerPort, 'top')}
+                    lanes={layout.lanes.get(`${w.from}>${w.to}`)}
+                    kind={w.kind}
+                  />
+                )
+              })}
+            </svg>
+
+            {[...placed.values()].map(({ node, box }) => (
+              <div
+                key={node.id}
+                ref={node.id === highlight ? highlighted : undefined}
+                className={`absolute ${node.id === highlight ? 'rounded-lg ring-2 ring-ring/60 ring-offset-4 ring-offset-card' : ''}`}
+                style={{ left: node.x, top: node.y, width: node.width }}
+              >
+                {box.kind === 'client' ? (
+                  <Chip box={box} />
+                ) : (
+                  <Node box={box} failed={survey.data?.devices[box.id]?.read_error} reading={running} />
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
+
+      {dialogElement}
     </div>
   )
 }
@@ -419,17 +480,18 @@ function hostOfDevice(device: Device): string | undefined {
  * in this picture where a person can make it better, so it says what adding one
  * buys instead of showing an empty frame.
  */
-function Empty() {
+function Empty({ onAdd }: { onAdd: () => void }) {
   useLocale()
   return (
     <div className="rounded-xl border border-dashed border-border px-4 py-5">
       <Heading as="h2" size="sm">{t('No boxes yet')}</Heading>
-      <p className="mt-1 max-w-prose text-xs leading-5 text-muted-foreground">
-        {t('Add a switch or an access point on Devices and this page will read it, place it, and list the clients it reports.')}
+      <p className="mt-1 max-w-prose text-sm leading-6 text-muted-foreground">
+        {t('Add a switch or an access point and this page will read it, place it, and list the clients it reports.')}
       </p>
-      <p className="mt-3 text-xs">
-        <Link to="/devices" className="font-medium underline-offset-4 hover:underline">{t('Add a device')}</Link>
-      </p>
+      <Button className="mt-4" onClick={onAdd}>
+        <Plus />
+        {t('Add a device')}
+      </Button>
     </div>
   )
 }

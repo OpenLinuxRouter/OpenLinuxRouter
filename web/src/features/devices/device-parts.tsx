@@ -380,7 +380,7 @@ export function Missing({ id }: { id: string }) {
     <div className="space-y-3 py-16 text-center">
       <Heading as="h1" size="lg">{t('Device not found')}</Heading>
       <p className="text-sm text-muted-foreground">{t('{id} is not in the device inventory. It may have been forgotten.', { id })}</p>
-      <Button variant="secondary" nativeButton={false} render={<Link to="/devices">{t('Back to devices')}</Link>} />
+      <Button variant="secondary" nativeButton={false} render={<Link to="/topology">{t('Back to topology')}</Link>} />
     </div>
   )
 }

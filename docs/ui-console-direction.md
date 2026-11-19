@@ -179,7 +179,7 @@ background: linear-gradient(90deg, var(--brand-a), var(--brand-b));
 ### 6.1 Two layers, one rail
 
 ```
-Network        Overview · Topology · Devices
+Network        Overview · Topology
 Configuration  Gateway · Wireless · Access · Advanced
 ```
 
@@ -416,9 +416,19 @@ the router already knows.
 
 ### 6.5 Devices, including this one
 
-The router running OLR is a device too. It appears in the same list with the same
-row shape, marked as local, because the operator's question — "is everything here
-accounted for" — does not have a special case for the box under the desk.
+**Update, 19 November 2026: the list became the map.** The inventory has no
+section and no list page any more. `/devices` redirects to `/topology`, the
+boxes are drawn on the map, "Add a device" sits above the drawing, and a box's
+page at `/devices/{id}` is opened by clicking its node; the page keeps Topology
+selected. The router is still a box on the same drawing, placed by its own LAN
+address. What follows records the list as it was designed; the per-session
+status column described in §6.6 now belongs to the node ("Not read yet",
+"Reading…", "Did not answer") and to the box's own page.
+
+The router running OLR is a device too. It is the node the drawing is rooted
+at, placed by its own LAN address and marked as local, because the operator's
+question — "is everything here accounted for" — does not have a special case for
+the box under the desk.
 
 Clients do not get a section. The current reasoning stands: the client list is a
 body, and a statically-addressed printer that has never held a lease does not

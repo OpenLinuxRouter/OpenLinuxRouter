@@ -10,7 +10,7 @@ Two words are kept apart, in English and in Chinese:
 
 | Word | Means | Does not mean |
 | --- | --- | --- |
-| **device** / 设备 | Network equipment olr manages: switches, access points and routers. `/devices`, `olr devices`, the device inventory. | A laptop, phone or printer on the LAN. |
+| **device** / 设备 | Network equipment olr manages: switches, access points and routers. `/topology` draws them, `/devices/{id}` is one box, `olr devices` is the inventory. | A laptop, phone or printer on the LAN. |
 | **client** / 客户端 | A thing on the LAN, keyed by MAC: identity, presence, groups, the target of a policy. `/clients`, the client inventory. | The equipment olr reaches over a management interface. |
 
 Both used to be called "device", which is why a page that says "device" no

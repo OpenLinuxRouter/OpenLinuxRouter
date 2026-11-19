@@ -1,10 +1,10 @@
 import { t, useLocale } from '@/lib/i18n'
-import { Link, Navigate, Route, Routes, useLocation } from 'react-router'
+import { Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router'
 import { Heading } from '@/components/ui/heading'
 
 import { AppShell } from '@/components/layout/app-shell'
 import { SubPage } from '@/components/layout/sub-page'
-import { DevicePage, DevicesPage } from '@/routes/devices'
+import { DevicePage } from '@/routes/devices'
 import { WirelessPage } from '@/routes/wireless'
 import { Button } from '@/components/ui/button'
 import { AuthGate } from '@/components/layout/auth-gate'
@@ -105,7 +105,10 @@ export function App() {
           </Route>
           <Route path="wireless" element={<WirelessPage />} />
           <Route path="topology" element={<TopologyPage />} />
-          <Route path="devices" element={<DevicesPage />} />
+          {/* The inventory has no list of its own: the topology map is where a
+              box is added and where the boxes are shown. Detail pages remain,
+              because reading a switch is what opening it is for. */}
+          <Route path="devices" element={<Navigate to="/topology" replace />} />
           <Route path="devices/:id" element={<DevicePage />} />
           <Route path="firewall" element={<SubPage section="/advanced" slug="firewall"><FirewallPage /></SubPage>} />
           <Route path="firewall/rules" element={<FirewallRulesPage />} />
@@ -157,8 +160,8 @@ export function App() {
           <Route path="access/remote" element={<RedirectWithState to="/access/wireguard" />} />
           <Route path="ingress" element={<RedirectWithState to="/advanced/caddy" />} />
           <Route path="advanced/ingress" element={<RedirectWithState to="/advanced/caddy" />} />
-          <Route path="equipment" element={<Navigate to="/devices" replace />} />
-          <Route path="equipment/:id" element={<RedirectWithState to="/devices" />} />
+          <Route path="equipment" element={<Navigate to="/topology" replace />} />
+          <Route path="equipment/:id" element={<EquipmentDeviceRedirect />} />
           <Route path="dhcp/interfaces" element={<Navigate to="/gateway/interfaces" replace />} />
           <Route path="dhcp/*" element={<LegacySectionRedirect />} />
           <Route path="dns/*" element={<LegacySectionRedirect />} />
@@ -193,4 +196,10 @@ function RedirectWithState({ to }: { to: string }) {
   useLocale()
   const { search, hash } = useLocation()
   return <Navigate to={`${to}${search}${hash}`} replace />
+}
+
+/** An old equipment URL named the box; the device page still does. */
+function EquipmentDeviceRedirect() {
+  const { id = '' } = useParams()
+  return <Navigate to={`/devices/${encodeURIComponent(id)}`} replace />
 }
