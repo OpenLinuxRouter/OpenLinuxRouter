@@ -40,6 +40,9 @@ const artworkSizes = {
   'features/clients/client-icon.tsx': ['0.6rem', '0.7rem'],
   'features/gateway/latency-site-icon.tsx': ['10px'],
   'features/topology/nodes.tsx': ['10px'],
+  // The port panel is a drawing of a faceplate: its jacks, their labels and
+  // the name above them are sized to the bay, not to a reading column.
+  'features/topology/port-panel.tsx': ['13px', '11px', '10px'],
   'routes/credits.tsx': ['0.6875rem'],
   'components/layout/launcher.tsx': ['28px'],
   'features/tools/speed-dial.tsx': ['40px', '12px'],

@@ -1,12 +1,16 @@
 import { useLocale, t } from '@/lib/i18n'
+import type { VendorKey } from '@/lib/api-types'
+import type { ClientCategory } from '@/lib/config-types'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 
 import { Heading } from '@/components/ui/heading'
 import { Skeleton } from '@/components/ui/skeleton'
 
+import { DeviceIcon } from '@/features/clients/client-icon'
 import { useClientList } from '@/features/clients/queries'
 import { useDialStatus } from '@/features/dial/queries'
+import { portraitCategory } from '@/features/devices/device'
 import { useDevicesConfig } from '@/features/devices/queries'
 import type { Device, Snapshot } from '@/features/devices/types'
 import { useInterfaces } from '@/features/link/queries'
@@ -34,18 +38,14 @@ import { SELF, wire, type Wire, type WireKind } from './wiring'
  * The map draws at its natural size and only shrinks to fit down to a scale
  * where the names stay readable; past that it scrolls sideways instead.
  */
-const CHIP_W = 138
+const CHIP_W = 150
 const CHIP_H = 34
-const MORE_W = 92
 /** Under this the 11px names fall below legible, so the map scrolls instead. */
 const MIN_SCALE = 0.8
-/** A box with more clients than this shows the first few and a "+N" to open the rest. */
-const FOLD_OVER = 4
-const FOLD_SHOW = 3
 
 interface Box {
   id: string
-  kind: 'self' | 'device' | 'client' | 'more'
+  kind: 'self' | 'device' | 'client'
   name: string
   detail?: string
   ports: PanelPort[]
@@ -54,8 +54,10 @@ interface Box {
   width: number
   height: number
   href?: string
-  /** For a "+N" chip: the box it opens. */
-  parent?: string
+  /** What kind of box this is, for its picture: a role, not an adapter. */
+  category?: ClientCategory
+  /** A client's own picture, when the inventory knows the device behind the MAC. */
+  client?: { icon?: string; category: ClientCategory; vendor?: string; vendorKey?: VendorKey }
 }
 
 export function EquipmentMap({ highlight }: { highlight?: string }) {
@@ -65,7 +67,6 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
   const clients = useClientList()
   const interfaces = useInterfaces()
   const dial = useDialStatus()
-  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   const devices = useMemo(() => config.data?.devices ?? [], [config.data])
   const ids = useMemo(() => devices.map(device => device.id), [devices])
   // Everything about the boxes comes from the router's stored survey: drawn at
@@ -136,19 +137,25 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
     // This router by the address its LAN knows it by.
     const lanAddress = (interfaces.data?.interfaces ?? [])
       .find(row => row.network !== undefined && row.address !== undefined)?.address?.split('/')[0]
-    const self: Box = { ...sized(SELF, 'Open Linux Router', selfFaces, '/devices', lanAddress), kind: 'self' }
+    const self: Box = {
+      ...sized(SELF, 'Open Linux Router', selfFaces, '/devices', lanAddress, 'router'),
+      kind: 'self',
+    }
     const rest = devices.map(device => sized(
       device.id,
       device.name || device.id,
       portsOf(snapshots.get(device.id)),
       `/devices/${encodeURIComponent(device.id)}`,
       hostOfDevice(device),
+      portraitCategory(device),
     ))
     return [self, ...rest]
   }, [devices, snapshots, selfFaces, interfaces.data])
 
-  // Clients, folded per box: a box with many of them shows the first few, in
-  // port order, and a chip that opens the rest.
+  // Every client a box reports is drawn, in the box's port order: nothing on
+  // the map stands for a client that is not there. A chip carries its own
+  // picture and name, never its address — the map is about what is where, and
+  // the client's page has the addresses.
   const { terminals, wires } = useMemo(() => {
     const terminals: Box[] = []
     const wires: Wire[] = wiring.wires.filter(w => !wiring.clients.has(w.to))
@@ -157,37 +164,35 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
       if (!wiring.clients.has(w.to)) continue
       byParent.set(w.from, [...(byParent.get(w.from) ?? []), w])
     }
-    for (const [parent, list] of byParent) {
+    for (const list of byParent.values()) {
       const named = list.map(w => {
         const end = wiring.clients.get(w.to)
         const mac = end?.mac ?? w.to.slice(4)
         const row = byMac.get(mac)
-        return { w, mac, name: row?.name || (end?.name !== mac ? end?.name : undefined) || mac, detail: row?.ips?.[0] ?? end?.detail }
+        return { w, mac, row, name: row?.name || (end?.name !== mac ? end?.name : undefined) || mac }
       }).sort((a, b) =>
         (a.w.fromPort ?? '').localeCompare(b.w.fromPort ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name))
-      const folded = named.length > FOLD_OVER && !open.has(parent)
-      for (const entry of folded ? named.slice(0, FOLD_SHOW) : named) {
+      for (const entry of named) {
         terminals.push({
           id: entry.w.to,
           kind: 'client',
           name: entry.name,
-          detail: entry.detail,
           ports: [],
           width: CHIP_W,
           height: CHIP_H,
           href: `/clients/${encodeURIComponent(entry.mac)}`,
+          client: {
+            icon: entry.row?.icon,
+            category: entry.row?.category ?? 'unknown',
+            vendor: entry.row?.vendor,
+            vendorKey: entry.row?.vendor_key,
+          },
         })
         wires.push(entry.w)
       }
-      if (folded) {
-        const id = `more:${parent}`
-        const hidden = named.slice(FOLD_SHOW)
-        terminals.push({ id, kind: 'more', name: `+${hidden.length}`, ports: [], width: MORE_W, height: CHIP_H, parent })
-        wires.push({ from: parent, to: id, kind: hidden.every(entry => entry.w.kind === 'wireless') ? 'wireless' : 'wired' })
-      }
     }
     return { terminals, wires }
-  }, [wiring, byMac, open])
+  }, [wiring, byMac])
 
   const all = useMemo(() => [...boxes, ...terminals], [boxes, terminals])
   const layout = useMemo(
@@ -276,16 +281,6 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
             >
               {box.kind === 'client' ? (
                 <Chip box={box} />
-              ) : box.kind === 'more' ? (
-                <button
-                  type="button"
-                  onClick={() => setOpen(current => new Set([...current, box.parent ?? '']))}
-                  className="flex w-full items-center justify-center rounded-full border border-dashed border-border bg-card text-xs text-muted-foreground hover:bg-accent/40"
-                  style={{ height: box.height }}
-                  title={t('Show all')}
-                >
-                  {box.name}
-                </button>
               ) : (
                 <Node box={box} failed={survey.data?.devices[box.id]?.read_error} reading={running} />
               )}
@@ -305,6 +300,7 @@ function Node({ box, failed, reading }: { box: Box; failed?: string; reading: bo
     <PortPanel
       name={<Link to={box.href ?? '#'} className="underline-offset-4 hover:underline">{box.name}</Link>}
       detail={box.detail}
+      category={box.category}
       ports={box.ports}
       geometry={box.geometry}
       empty={failed !== undefined ? t('Did not answer') : reading ? t('Reading…') : t('Not read yet')}
@@ -317,12 +313,19 @@ function Chip({ box }: { box: Box }) {
   return (
     <Link
       to={box.href ?? '#'}
-      className="flex flex-col justify-center rounded-full border border-border bg-card px-3 text-center text-[11px] leading-4 hover:bg-accent/40"
+      className="flex items-center gap-1.5 rounded-full border border-border bg-card pl-1.5 pr-3 text-xs leading-4 hover:bg-accent/40"
       style={{ height: box.height }}
-      title={box.detail === undefined ? box.name : `${box.name} · ${box.detail}`}
+      title={box.name}
     >
+      <DeviceIcon
+        icon={box.client?.icon}
+        category={box.client?.category ?? 'unknown'}
+        vendor={box.client?.vendor}
+        vendorKey={box.client?.vendorKey}
+        size="sm"
+        className="size-6"
+      />
       <span className="truncate">{box.name}</span>
-      {box.detail !== undefined && <span className="truncate text-[10px] leading-3 text-muted-foreground">{box.detail}</span>}
     </Link>
   )
 }
@@ -333,11 +336,10 @@ function sized(
   ports: PanelPort[],
   href?: string,
   detail?: string,
+  category?: ClientCategory,
 ): Box {
-  const up = ports.filter(port => port.linkUp === true).length
-  const stat = ports.length > 0 ? t('{up} of {total} up', { up, total: ports.length }) : undefined
-  const geometry = panelGeometry(ports, headWidth(name, detail, stat))
-  return { id, kind: 'device', name, detail, ports, geometry, width: geometry.width, height: geometry.height, href }
+  const geometry = panelGeometry(ports, headWidth(name, detail))
+  return { id, kind: 'device', name, detail, category, ports, geometry, width: geometry.width, height: geometry.height, href }
 }
 
 /**

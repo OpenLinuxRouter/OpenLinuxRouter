@@ -1,28 +1,33 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { PANEL, panelGeometry, panelRows, speedLamp } from './panel.ts'
+import { HEAD_INSET, PANEL, panelGeometry, panelRows, speedLamp } from './panel.ts'
 
 /**
  * The panel's geometry is what the cables start from, so these tests pin it:
- * ports in order and evenly spaced, centred in the bay, a fiber cage wider
- * than a jack, and the lamps saying only what the reading said.
+ * ports in order and evenly spaced, centred in the bay's port columns (the
+ * picture keeps a column of its own at the left), a fiber cage wider than a
+ * jack, and the lamps saying only what the reading said.
  */
 const eth = (id, over = {}) => ({ id, kind: 'ethernet', ...over })
+
+/** The middle of the area the ports are laid out in, to the right of the picture. */
+const columnsCentre = (g) => (PANEL.padX + HEAD_INSET + g.width - PANEL.padX - PANEL.bayPadX) / 2
 
 test('ports run left to right, evenly spaced and centred in the panel', () => {
   const g = panelGeometry([eth('1'), eth('2'), eth('3')], 100)
   const xs = g.ports.map(p => p.x)
   assert.equal(xs[1] - xs[0], PANEL.jackW + PANEL.portGap)
   assert.equal(xs[2] - xs[1], PANEL.jackW + PANEL.portGap)
-  assert.ok(Math.abs((xs[0] + xs[2]) / 2 - g.width / 2) < 0.01, 'the row is centred')
+  assert.ok(Math.abs((xs[0] + xs[2]) / 2 - columnsCentre(g)) < 0.01, 'the row is centred')
+  assert.ok(xs[0] - PANEL.jackW / 2 >= PANEL.padX + HEAD_INSET, 'the picture keeps the left column')
 })
 
 test('a long name widens the panel, and the ports stay centred under it', () => {
   const narrow = panelGeometry([eth('1')], 50)
   const wide = panelGeometry([eth('1')], 400)
   assert.ok(wide.width > narrow.width)
-  assert.ok(Math.abs(wide.ports[0].x - wide.width / 2) < 0.01)
+  assert.ok(Math.abs(wide.ports[0].x - columnsCentre(wide)) < 0.01)
 })
 
 test('a fiber cage is wider than a jack', () => {

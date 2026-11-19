@@ -712,7 +712,6 @@ export const zhCN: Record<string, string> = {
   'The cables are inferred: a switch says which port an address arrived on, an access point says who is on its radio, and the default route says which box is upstream. An address goes under the box nearest to it.': '连线是推断出来的：交换机告诉我们某个地址从哪个口进来，AP 告诉我们谁连着它的无线，默认路由告诉我们上游是哪台设备。每个地址挂在离它最近的那台设备下。',
   'Finding which port each device is on… {done} of {total}': '正在识别各设备所在的端口… {done}/{total}',
   'Waiting for the boxes to be read': '等设备读取完成后自动识别',
-  '{up} of {total} up': '{up}/{total} 口在线',
   'Reading {name}…': '正在读取 {name}…',
   'Cables are inferred from what each switch and access point reports.': '连线根据交换机和 AP 上报的信息推断。',
   'Did not answer': '没有应答',

@@ -1,10 +1,18 @@
-import { t, useLocale } from '@/lib/i18n'
-import type { ReactNode } from 'react'
+import { useLocale } from '@/lib/i18n'
+import type { ClientCategory } from '@/lib/config-types'
+import { createElement, type ReactNode } from 'react'
 
-import { PANEL, panelRows, speedLamp, type PanelGeometry, type PanelPort } from './panel'
+import { deviceGlyph } from '@/features/clients/icons'
+
+import { HEAD_INSET, PANEL, panelRows, speedLamp, type PanelGeometry, type PanelPort } from './panel'
 
 /**
- * A box on the map: its name across the top, its ports in a bay underneath.
+ * A box on the map: its picture and its ports in a bay, its name above them.
+ *
+ * The picture is the glyph for what kind of box this is, drawn at the bay's
+ * full height, and the name starts over the ports rather than at the chassis
+ * edge — which is what makes the picture read as part of the box instead of a
+ * sticker on it.
  *
  * Every port is drawn the same whatever its state — a jack does not change
  * colour when the cable comes out. State is in the lamps: an RJ45 jack has two
@@ -17,6 +25,7 @@ import { PANEL, panelRows, speedLamp, type PanelGeometry, type PanelPort } from 
 export function PortPanel({
   name,
   detail,
+  category,
   ports,
   geometry,
   empty,
@@ -24,6 +33,8 @@ export function PortPanel({
 }: {
   name: ReactNode
   detail?: string
+  /** What kind of box this is, for its picture. */
+  category?: ClientCategory
   ports: readonly PanelPort[]
   geometry: PanelGeometry
   /** What the bay says when there are no ports to draw. */
@@ -31,45 +42,55 @@ export function PortPanel({
   title?: string
 }) {
   useLocale()
-  const up = ports.filter(port => port.linkUp === true).length
   const bayH = geometry.height - PANEL.padTop - PANEL.headH - PANEL.headGap - PANEL.padBottom
+  // The picture fills the bay up to the width of its column: a two-row bay is
+  // taller than the column is wide, and a stretched glyph reads as a different
+  // drawing, so it stays square and centred instead.
+  const face = Math.min(PANEL.iconW, bayH - PANEL.bayPadTop - PANEL.bayPadBottom)
   return (
     <div
       className="rounded-xl bg-card shadow-[0_0_0_1px_var(--color-border),0_1px_2px_rgb(15_23_42/0.05),0_4px_14px_rgb(15_23_42/0.06)]"
       style={{ width: geometry.width, height: geometry.height, padding: `${PANEL.padTop}px ${PANEL.padX}px 0` }}
       title={title}
     >
-      <div className="flex items-baseline gap-2 whitespace-nowrap" style={{ height: PANEL.headH, marginBottom: PANEL.headGap }}>
+      <div
+        className="flex items-baseline gap-2 whitespace-nowrap"
+        style={{ height: PANEL.headH, marginBottom: PANEL.headGap, paddingLeft: HEAD_INSET }}
+      >
         <span className="text-[13px] font-semibold leading-[18px]">{name}</span>
         {detail !== undefined && <span className="text-[11px] tabular-nums text-muted-foreground">{detail}</span>}
-        {ports.length > 0 && (
-          <span className="ml-auto pl-3 text-[10.5px] text-muted-foreground">
-            {t('{up} of {total} up', { up, total: ports.length })}
-          </span>
-        )}
       </div>
       <div
-        className="flex flex-col items-center rounded-lg bg-muted/80 shadow-[inset_0_1px_2px_rgb(15_23_42/0.08)]"
-        style={{ height: bayH, paddingTop: PANEL.bayPadTop, gap: PANEL.rowGap }}
+        className="flex items-stretch rounded-lg bg-muted/80 shadow-[inset_0_1px_2px_rgb(15_23_42/0.08)]"
+        style={{
+          height: bayH,
+          padding: `${PANEL.bayPadTop}px ${PANEL.bayPadX}px ${PANEL.bayPadBottom}px`,
+          gap: PANEL.iconGap,
+        }}
       >
-        {ports.length === 0 ? (
-          <span className="flex h-full items-center pb-1 text-[11px] text-muted-foreground">{empty}</span>
-        ) : panelRows(ports).map((row, index) => (
-          <div key={index} className="flex" style={{ gap: PANEL.portGap }}>
-            {row.map(port => (
-              <div key={port.id} className="flex flex-col items-center" style={{ width: port.kind === 'fiber' ? PANEL.fiberW : PANEL.jackW }}>
-                {port.kind === 'fiber' ? <Cage port={port} /> : <Jack port={port} />}
-                <span
-                  title={port.name || port.id}
-                  className="w-full truncate text-center text-[10px] text-muted-foreground"
-                  style={{ marginTop: PANEL.labelGap, lineHeight: `${PANEL.labelH}px` }}
-                >
-                  {shortName(port)}
-                </span>
-              </div>
-            ))}
-          </div>
-        ))}
+        <div className="flex shrink-0 items-center justify-center" style={{ width: PANEL.iconW }}>
+          {category !== undefined && <Face category={category} size={face} />}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col items-center" style={{ gap: PANEL.rowGap }}>
+          {ports.length === 0 ? (
+            <span className="flex h-full items-center pb-1 text-[11px] text-muted-foreground">{empty}</span>
+          ) : panelRows(ports).map((row, index) => (
+            <div key={index} className="flex" style={{ gap: PANEL.portGap }}>
+              {row.map(port => (
+                <div key={port.id} className="flex flex-col items-center" style={{ width: port.kind === 'fiber' ? PANEL.fiberW : PANEL.jackW }}>
+                  {port.kind === 'fiber' ? <Cage port={port} /> : <Jack port={port} />}
+                  <span
+                    title={port.name || port.id}
+                    className="w-full truncate text-center text-[10px] text-muted-foreground"
+                    style={{ marginTop: PANEL.labelGap, lineHeight: `${PANEL.labelH}px` }}
+                  >
+                    {shortName(port)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -163,14 +184,31 @@ function Cage({ port }: { port: PanelPort }) {
   )
 }
 
+/**
+ * What kind of box this is, drawn at the height of its bay.
+ *
+ * The category glyph rather than a photograph: a cut-out picture of a wide
+ * switch is only a few pixels tall once it fits the column, while the glyph
+ * fills it and still tells a switch from an access point at a glance. The
+ * photographs belong to the clients below, where every chip is a different
+ * object; two switches are not.
+ */
+function Face({ category, size }: { category: ClientCategory; size: number }) {
+  return createElement(deviceGlyph(category), {
+    width: size,
+    height: size,
+    className: 'text-muted-foreground',
+    'aria-hidden': true,
+  })
+}
+
 /** How wide a panel's header is, measured in the font it will be drawn in. */
-export function headWidth(name: string, detail: string | undefined, stat: string | undefined): number {
+export function headWidth(name: string, detail: string | undefined): number {
   const measure = textMeasurer()
   let width = measure(name, '600 13px')
   if (detail !== undefined) width += 8 + measure(detail, '400 11px')
-  if (stat !== undefined) width += 12 + 8 + measure(stat, '400 10.5px')
   // Canvas and layout disagree by a few pixels across fonts and CJK fallback;
-  // a little room is cheaper than a clipped count.
+  // a little room is cheaper than a clipped name.
   return width + 16
 }
 
