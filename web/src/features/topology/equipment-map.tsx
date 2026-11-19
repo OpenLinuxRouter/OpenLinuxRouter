@@ -7,7 +7,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 import { useClientList } from '@/features/clients/queries'
 import { useDialStatus } from '@/features/dial/queries'
-import { readWhen } from '@/features/devices/device-format'
 import { useDevicesConfig } from '@/features/devices/queries'
 import type { Device, Snapshot } from '@/features/devices/types'
 import { useInterfaces } from '@/features/link/queries'
@@ -224,9 +223,6 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
     return () => observer.disconnect()
   }, [layout.width])
 
-  const entries = Object.values(survey.data?.devices ?? {})
-  const asked = entries.reduce((sum, entry) => sum + (entry.fdb_asked ?? 0), 0)
-  const total = entries.reduce((sum, entry) => sum + (entry.fdb_total ?? 0), 0)
   const running = survey.data?.running === true
 
   const highlighted = useRef<HTMLDivElement | null>(null)
@@ -244,96 +240,59 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
   if (config.isPending) return <Skeleton className="h-64 w-full rounded-xl" />
   if (devices.length === 0) return <Empty />
 
-  const failures = entries.filter(entry => entry.read_error !== undefined).length
-  const finished = survey.data?.finished_at
-  // One quiet line under the drawing says how fresh it is. There is no button:
-  // the router refreshes the survey itself, and the page follows.
-  const status = running
-    ? total > 0
-      ? t('Refreshing — finding which port each device is on, {done} of {total}', { done: asked, total })
-      : t('Refreshing…')
-    : failures > 0
-      ? t('{count} devices did not answer', { count: failures })
-      : finished !== undefined
-        ? t('Updated {when}', { when: readWhen(Date.parse(finished)) })
-        : ''
   return (
-    <div className="relative">
-      <div ref={frame} className="w-full overflow-x-auto">
-        {/* Sized to the scaled drawing, so centring and scrolling see its real width. */}
-        <div className="mx-auto" style={{ width: layout.width * scale, height: layout.height * scale }}>
-          <div className="relative origin-top-left" style={{ width: layout.width, height: layout.height, transform: `scale(${scale})` }}>
-            <svg className="absolute inset-0 overflow-visible" width={layout.width} height={layout.height} aria-hidden>
-              {wires.map(w => {
-                const a = placed.get(w.from)
-                const b = placed.get(w.to)
-                if (a === undefined || b === undefined) return null
-                // The cable runs from the upper box down to the lower one,
-                // whichever end the evidence came from.
-                const [upper, upperPort, lower, lowerPort] = a.node.layer <= b.node.layer
-                  ? [a, w.fromPort, b, w.toPort]
-                  : [b, w.toPort, a, w.fromPort]
-                return (
-                  <Cable
-                    key={`${w.from}-${w.fromPort ?? ''}-${w.to}-${w.toPort ?? ''}`}
-                    from={anchorOf(upper, upperPort, 'bottom')}
-                    to={anchorOf(lower, lowerPort, 'top')}
-                    lanes={layout.lanes.get(`${w.from}>${w.to}`)}
-                    kind={w.kind}
-                  />
-                )
-              })}
-            </svg>
+    <div ref={frame} className="w-full overflow-x-auto">
+      {/* Sized to the scaled drawing, so centring and scrolling see its real width. */}
+      <div className="mx-auto" style={{ width: layout.width * scale, height: layout.height * scale }}>
+        <div className="relative origin-top-left" style={{ width: layout.width, height: layout.height, transform: `scale(${scale})` }}>
+          <svg className="absolute inset-0 overflow-visible" width={layout.width} height={layout.height} aria-hidden>
+            {wires.map(w => {
+              const a = placed.get(w.from)
+              const b = placed.get(w.to)
+              if (a === undefined || b === undefined) return null
+              // The cable runs from the upper box down to the lower one,
+              // whichever end the evidence came from.
+              const [upper, upperPort, lower, lowerPort] = a.node.layer <= b.node.layer
+                ? [a, w.fromPort, b, w.toPort]
+                : [b, w.toPort, a, w.fromPort]
+              return (
+                <Cable
+                  key={`${w.from}-${w.fromPort ?? ''}-${w.to}-${w.toPort ?? ''}`}
+                  from={anchorOf(upper, upperPort, 'bottom')}
+                  to={anchorOf(lower, lowerPort, 'top')}
+                  lanes={layout.lanes.get(`${w.from}>${w.to}`)}
+                  kind={w.kind}
+                />
+              )
+            })}
+          </svg>
 
-            {[...placed.values()].map(({ node, box }) => (
-              <div
-                key={node.id}
-                ref={node.id === highlight ? highlighted : undefined}
-                className={`absolute ${node.id === highlight ? 'rounded-lg ring-2 ring-ring/60 ring-offset-4 ring-offset-card' : ''}`}
-                style={{ left: node.x, top: node.y, width: node.width }}
-              >
-                {box.kind === 'client' ? (
-                  <Chip box={box} />
-                ) : box.kind === 'more' ? (
-                  <button
-                    type="button"
-                    onClick={() => setOpen(current => new Set([...current, box.parent ?? '']))}
-                    className="flex w-full items-center justify-center rounded-full border border-dashed border-border bg-card text-xs text-muted-foreground hover:bg-accent/40"
-                    style={{ height: box.height }}
-                    title={t('Show all')}
-                  >
-                    {box.name}
-                  </button>
-                ) : (
-                  <Node box={box} failed={survey.data?.devices[box.id]?.read_error} reading={running} />
-                )}
-              </div>
-            ))}
-          </div>
+          {[...placed.values()].map(({ node, box }) => (
+            <div
+              key={node.id}
+              ref={node.id === highlight ? highlighted : undefined}
+              className={`absolute ${node.id === highlight ? 'rounded-lg ring-2 ring-ring/60 ring-offset-4 ring-offset-card' : ''}`}
+              style={{ left: node.x, top: node.y, width: node.width }}
+            >
+              {box.kind === 'client' ? (
+                <Chip box={box} />
+              ) : box.kind === 'more' ? (
+                <button
+                  type="button"
+                  onClick={() => setOpen(current => new Set([...current, box.parent ?? '']))}
+                  className="flex w-full items-center justify-center rounded-full border border-dashed border-border bg-card text-xs text-muted-foreground hover:bg-accent/40"
+                  style={{ height: box.height }}
+                  title={t('Show all')}
+                >
+                  {box.name}
+                </button>
+              ) : (
+                <Node box={box} failed={survey.data?.devices[box.id]?.read_error} reading={running} />
+              )}
+            </div>
+          ))}
         </div>
       </div>
-      <Legend status={status} />
-    </div>
-  )
-}
-
-function Legend({ status }: { status: string }) {
-  useLocale()
-  const item = (kind: WireKind, label: string) => (
-    <span className="flex items-center gap-1.5">
-      <svg width="22" height="6" aria-hidden><line x1="1" y1="3" x2="21" y2="3" {...cableStyle(kind)} /></svg>
-      {label}
-    </span>
-  )
-  return (
-    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-      {item('wired', t('Cable'))}
-      {item('wireless', t('Wireless'))}
-      {item('unknown', t('Not placed yet'))}
-      <span>
-        {t('Port lamps: left of the latch is the link, right is the speed — green at a gigabit and up, amber below. A fiber port has one lamp, for the link.')}
-      </span>
-      {status !== '' && <span className="sm:ml-auto">{status}</span>}
     </div>
   )
 }
