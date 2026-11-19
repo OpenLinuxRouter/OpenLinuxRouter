@@ -140,6 +140,23 @@ test('end devices share the bottom row, in their parent port order', () => {
   assert.ok(at('phone').x < at('nas').x, 'the phone under port 4 is left of the NAS on port 7')
 })
 
+test('end devices wrap into more rows instead of growing past the width', () => {
+  const chip = id => node(id, 80, 34)
+  const chips = ['a', 'b', 'c', 'd', 'e']
+  const layout = placeMap(
+    [node('self'), node('sw'), ...chips.map(chip)],
+    [{ from: 'self', to: 'sw' }, ...chips.map((id, index) => ({ from: 'sw', to: id, fromPort: String(index + 1) }))],
+    'self',
+    { endRowWidth: 400 },
+    [],
+    new Set(chips),
+  )
+  const at = id => layout.nodes.find(n => n.id === id)
+  assert.equal(at('a').layer, at('c').layer, 'three chips fit a row of 400')
+  assert.ok(at('d').layer > at('c').layer, 'the fourth starts the next row')
+  assert.deepEqual(layout.lanes.get('sw>d'), [], 'a client row takes no lane for the cable over it')
+})
+
 test('a cable that skips a row runs down a lane clear of the boxes in it', () => {
   const layout = placeMap(
     [node('self'), node('sw'), node('ap1'), node('ap2'), node('nas', 80), node('phone', 80)],

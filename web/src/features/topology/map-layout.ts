@@ -57,9 +57,14 @@ export interface MapSpacing {
   gapX: number
   gapY: number
   padding: number
+  /**
+   * How wide an end-device row may get before the next one starts. Infinity
+   * draws them all in one row, as the first layout did.
+   */
+  endRowWidth: number
 }
 
-const DEFAULT: MapSpacing = { gapX: 32, gapY: 78, padding: 24 }
+const DEFAULT: MapSpacing = { gapX: 32, gapY: 78, padding: 24, endRowWidth: Infinity }
 
 export function placeMap(
   nodes: readonly MapNode[],
@@ -69,7 +74,7 @@ export function placeMap(
   above: readonly string[] = [],
   leaves: ReadonlySet<string> = new Set(),
 ): MapLayout {
-  const { gapX, gapY, padding } = { ...DEFAULT, ...spacing }
+  const { gapX, gapY, padding, endRowWidth } = { ...DEFAULT, ...spacing }
   const byId = new Map(nodes.map(node => [node.id, node]))
 
   // Who is next to whom, and through which port — for ordering and layering.
@@ -102,12 +107,31 @@ export function placeMap(
   }
   // Every box not reached sits on the first row under the root.
   for (const node of nodes) if (!layer.has(node.id) && !leaves.has(node.id)) layer.set(node.id, 1)
-  // End devices share one row under all the equipment, whatever they hang
+  // End devices share the rows under all the equipment, whatever they hang
   // off: top to bottom is the way traffic runs, and a laptop on the switch is
-  // as far down that path as a phone on an access point.
+  // as far down that path as a phone on an access point. They wrap into as
+  // many rows as their number needs, so a box with thirty clients makes the
+  // map taller rather than twice as wide.
   let deepest = 0
   for (const [id, at] of layer) if (!leaves.has(id)) deepest = Math.max(deepest, at)
-  for (const node of nodes) if (leaves.has(node.id)) layer.set(node.id, deepest + 1)
+  const endRows: MapNode[][] = []
+  let endRow: MapNode[] = []
+  let endWidth = 0
+  for (const node of nodes) {
+    if (!leaves.has(node.id)) continue
+    const next = endRow.length === 0 ? node.width : endWidth + gapX + node.width
+    if (endRow.length > 0 && next > endRowWidth) {
+      endRows.push(endRow)
+      endRow = []
+      endWidth = 0
+    }
+    endWidth = endRow.length === 0 ? node.width : endWidth + gapX + node.width
+    endRow.push(node)
+  }
+  if (endRow.length > 0) endRows.push(endRow)
+  endRows.forEach((row, index) => {
+    for (const node of row) layer.set(node.id, deepest + 1 + index)
+  })
 
   const orderOf = (port: string | undefined): number => {
     if (port === undefined) return 10_000
@@ -136,6 +160,11 @@ export function placeMap(
     let previous = up
     let previousPort = upPort
     for (let depth = Math.min(la, lb) + 1; depth < Math.max(la, lb); depth++) {
+      // Rows of end devices are packed tight, so a cable crossing one is drawn
+      // over it rather than reserving a lane the row would have to leave a gap
+      // for — thirty clients would otherwise push the first row apart. A row of
+      // boxes still keeps its lanes clear of the ports.
+      if (depth > deepest) continue
       const id = `\u0000lane:${edge.from}>${edge.to}@${depth}`
       const lane = { id, width: LANE, height: 0 }
       all.push(lane)

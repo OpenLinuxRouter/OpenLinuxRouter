@@ -42,6 +42,10 @@ const CHIP_W = 150
 const CHIP_H = 34
 /** Under this the 11px names fall below legible, so the map scrolls instead. */
 const MIN_SCALE = 0.8
+/** The narrowest a row of clients may be packed to before it wraps instead. */
+const MIN_ROW = 480
+/** A console's worth of room, for the first paint before the frame is measured. */
+const FIRST_ROW = 1200
 
 interface Box {
   id: string
@@ -195,16 +199,21 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
   }, [wiring, byMac])
 
   const all = useMemo(() => [...boxes, ...terminals], [boxes, terminals])
+  const frame = useRef<HTMLDivElement>(null)
+  // How wide the drawing may get before the clients below wrap. Measured from
+  // the frame rather than assumed, because the same page is a 1280px console
+  // and a phone; the first paint has no frame yet, so it guesses a console.
+  const [frameWidth, setFrameWidth] = useState(0)
   const layout = useMemo(
     () => placeMap(
       all.map(box => ({ id: box.id, width: box.width, height: box.height })),
       wires.map(w => ({ from: w.from, to: w.to, fromPort: w.fromPort, toPort: w.toPort, dashed: w.kind !== 'wired' })),
       SELF,
-      {},
+      { endRowWidth: Math.max(MIN_ROW, frameWidth || FIRST_ROW) },
       wiring.above,
       new Set(terminals.map(box => box.id)),
     ),
-    [all, wires, wiring.above, terminals],
+    [all, wires, wiring.above, terminals, frameWidth],
   )
   const byId = useMemo(() => new Map(all.map(box => [box.id, box])), [all])
   const placed = useMemo(() => {
@@ -216,12 +225,14 @@ export function EquipmentMap({ highlight }: { highlight?: string }) {
     return map
   }, [layout, byId])
 
-  const frame = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
   useEffect(() => {
     const element = frame.current
     if (element === null) return
-    const measure = () => setScale(Math.max(MIN_SCALE, Math.min(1, element.clientWidth / Math.max(1, layout.width))))
+    const measure = () => {
+      setFrameWidth(element.clientWidth)
+      setScale(Math.max(MIN_SCALE, Math.min(1, element.clientWidth / Math.max(1, layout.width))))
+    }
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(element)
