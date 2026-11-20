@@ -251,23 +251,15 @@ none. Preserve existing redirects and deep links when moving settings.
 The spacing vocabulary is 4, 8, 12, 16, 24 and 32px. Use 32px between major
 sections, 16–24px inside cards and 8px between label and control. Basic corner
 radii are 8px for controls/small inset surfaces, 12px for panels and 16px for
-larger enclosing surfaces. Avoid arbitrary one-off radii. Overview metric cards
-use 12px padding on phones and 16px on larger screens, an 8px heading gap,
-36px metric rows and 4px between rows. Interactive rows retain 44px targets on
-phones; site latency items use unfilled 32px rows with 6px vertical gaps.
-Only download/upload rates use inset meter surfaces
-in Overview cards. Status, public addresses, latency, totals and uptime use plain
-rows; monitored sites retain their icons without capsule backgrounds.
-Cumulative traffic rows use Download and Upload labels with plain byte values.
-On desktop, Overview cards share title and primary metric boundaries. Totals
-and site probes follow their primary metrics without divider lines. Status
-flows naturally. Below desktop, cards use their own content height.
-Site probes use two columns on phones and three from 640px. Overview shows only
-sites pinned from /latency; no site is pinned by default. Internet and DNS keep
-their existing rows. With no pins, omit the site grid and its padding. Base the
-card's expanded height on the number of pinned sites rather than the full catalog.
-Internet target selection and monitored-site configuration remain API/CLI
-operations; /latency presents measurements, test actions and Overview pin toggles.
+larger enclosing surfaces. Avoid arbitrary one-off radii.
+
+Overview readouts use the shared small card: one label, one figure, one
+qualifier, with a meter only where the figure is a share. The 24-hour traffic
+plot is full width with a 240px plot; the rhythm heat map and latency plot share
+a row above 1024px and stack below. On phones the heat map narrows its cells
+rather than scrolling sideways. Pinned latency sites are read-only chips in the
+health card; /latency owns pinning, probing and target selection.
+
 The /latency page is a test view, not an editor. Show all sites in one list
 panel, divided into plain 16px semibold category headings: no band, rule or
 count, a 40px heading row, and 16px between one group and the next. The heading
@@ -323,8 +315,9 @@ the left and status values aligned right. Keep module details as plain rows.
 Plots are drawn with shadcn's chart primitive (`components/ui/chart.tsx`, which
 is Recharts underneath) rather than by hand: `ChartContainer` measures the box,
 `ChartConfig` names each series once, and `ChartTooltip` gives every bucket a
-readable value. Today that is the Overview traffic plot and the quality radar;
-keep it registry-shaped so the CLI can still update it.
+readable value. Today that is the Overview traffic bars, rhythm heat map and
+latency plot, and the quality radar; keep it registry-shaped so the CLI can
+still update it.
 
 A series takes its colour from the chart config — `--color-receive` and
 `--color-transmit` for the two traffic directions, `--color-primary` for the
@@ -386,7 +379,7 @@ it.
 Tool directory entries use Lucide
 outline icons with a 1.75px stroke in a themed 56px surface (48px on phones),
 an 18px name and one directional chevron. Avoid raster illustrations with baked-in
-backgrounds. Overview metric headings have the same 24px line box; auxiliary
+backgrounds. Card headings have the same 24px line box; auxiliary
 icons extend their hit area without increasing the heading height. Descriptions and instructions
 belong on the individual tool page. No decorative glows or additional gradients are needed.
 Use Lucide consistently for functional icons, normally 16–20px. The two-color
@@ -432,7 +425,7 @@ tooltips appear immediately. A divider separates the
 title from two columns of 36px desktop / 44px mobile minimum-height label/value rows: stable identity
 and settings on the left, routing, priority and traffic on the right. Group uses
 a clickable tag with a muted surface that opens its edit dialog.
-Device traffic reuses Overview meters with visible direction labels.
+Device traffic reuses the card meters with visible direction labels.
 At desktop widths both halves share five grid rows: Vendor/Uplink,
 MAC/Priority, IP/Download, Group/Upload and Services/Total. The hardware address
 is a mono fact row, not a chip beside the title; the dialed-in page puts its
@@ -526,24 +519,20 @@ and a relevant next action where one exists.
 
 ## Responsive behavior and motion
 
-Overview has four desktop cards: Status, Traffic, Latency and Quality.
-Clicking the Latency heading links to /latency; omit an add icon.
-Map and Quality chart content use half the normal card side and bottom gutters
-(6px on phones, 8px on larger screens), while headings retain their normal inset.
-Desktop cards target 4:3 proportions with a 240px minimum height and grow for
-disclosures or extra probes. Use one column on phones, two from 640px and
-four from 1280px so values and units remain on one line.
-Traffic's title-right map icon toggles its statistics and embedded map views.
-Keep both mounted as the front and back of one card to preserve height and map
-continuity. Rotate the whole card 180 degrees around its vertical axis over
-600ms, with 1200px perspective and hidden backfaces. Each face has its own
-title and toggle so the map appears on the back of the card. Reduced motion
-switches faces immediately. Make the inactive face inert and hidden to assistive
-technology. Do not add a Map details row; clicking the map links to /map.
-The Quality heading and radar link to /quality; omit a
-separate Test button on the card. Retain measured scores without age-based fading or hiding.
-Network quality uses a five-axis radar with theme-aware primary fill and border
-grid lines. It occupies one card at every breakpoint. Only measured, current
+Overview leads with a compact status line, then four readouts — throughput now
+with both directions in one card, online clients, quality and uptime — a
+full-width 24-hour stacked traffic chart, a 7×24 rhythm heat map beside a today
+latency chart, and System, DNS and Network cards. Use two readout columns on
+phones and four from 1280px; stack the two charts below 1024px and the three
+bottom cards: two from 768px and three from 1280px. The traffic plot keeps a 240px plot height. On phones
+the heat map narrows its cells to fit the card rather than scrolling sideways.
+Do not put a device list, topology map, radar or plan-speed dialog on Overview;
+clients are a count linking to /topology.
+The Overview Quality readout and the /quality radar link to /quality;
+retain measured scores without age-based fading or hiding.
+On /quality, network quality uses a five-axis radar with theme-aware primary
+fill and border grid lines. It occupies the summary card at every breakpoint.
+Only measured, current
 axes have points; missing/stale axes show dashes and prevent a filled polygon,
 except Wireless, which defaults to 80 for display. Omit the title-right total
 and below-plot scope caption. /latency, /quality and /map are normal detail pages
@@ -572,12 +561,11 @@ Scoring formulas, per-service samples and NAT observations sit in collapsed
 Measurement details disclosures, so raw evidence never pushes the result below
 the fold. Keep long errors and addresses wrapping inside the view.
 Accessible chart descriptions identify partial and missing measurements.
-Uptime is
-the first plain disclosure row in Status, above system health. Both rows use
+On a module's Status strip, uptime is
+the first plain disclosure row, above system health. Both rows use
 aligned 16px Lucide CircleCheck icons in success color when healthy. Uptime
 opens a dialog with CPU, memory and root disk used/total values. Map has no information icon,
-direction legend or top-ten summary. The
-grayscale preview fills Traffic's remaining content area. /map contains the
+direction legend or top-ten summary. /map contains the
 same grayscale map — one land tone above one sea tone, white country hairlines,
 gray administrative boundaries — in a bounded responsive panel
 below the page heading, with pan/zoom. Keep direction labels, status, credit and

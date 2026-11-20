@@ -66,19 +66,18 @@ to improve density while preserving values, units and mobile interaction targets
 Section landing pages omit titles duplicated by navigation, retaining a visually
 hidden page title. Detail and operation pages keep their identifying titles.
 
-- Overview shows Status, Traffic, Latency and Quality cards. Traffic's
-  title-right map icon toggles statistics and map views in place. Its pressed
-  state identifies the active map, and its accessible label names the next view.
-  The detailed map has its own /map address. The
-  quality radar shows Speed, Latency, Stability, Wireless and Functionality
-  on a 0–100 higher-is-better scale. Wireless defaults to 80 when unmeasured or
-  stale; explain this display-only default in details and the accessible chart
-  description. Other missing or stale axes show a dash. Draw a polygon when all
-  five axes have display scores. Omit the card total and measured-category caption.
-  Details show the total out of 100 using normalized weights of current scored
-  categories and components. Missing tests never reduce the score; measured
-  failures still count. Clicking Quality or its chart links to the assessment page at /quality. It leads
-  with the overall score, one display grade, the count of scored categories and
+- Overview leads with a compact status line — headline, uptime and place, faults,
+  and one technical-details disclosure — then four readouts: throughput now
+  (download and upload together in one card), online clients, quality and
+  uptime. Below them, a positive stacked bar chart shows the last 24 hours by
+  clock hour, with the total, the direction legend and the peak hour; a 7×24
+  heat map shows when the week is busy; a today latency chart follows the
+  selected target probe; System, DNS and Network cards carry host capacity,
+  relay counts and WAN/DHCP/tunnel counts. Do not put a device list, topology
+  map or plan-speed dialog on Overview; clients are a count with a link to
+  /topology. Keep the "counted, not link throughput" caveat under the traffic
+  chart. Clicking Quality or its chart links to the assessment page at /quality.
+  It leads with the overall score, one display grade, the count of scored categories and
   the measured coverage, with the reference transfer's download and upload rates
   beside them: the numbers a reader can check lead, and the score stands next to
   what produced it. Categories follow in one panel; each names the score in a
@@ -100,10 +99,10 @@ hidden page title. Detail and operation pages keep their identifying titles.
   separate plus button. Internet target selection remains available through the
   API and CLI; failure never silently switches the chosen target. Show the latest
   single HTTPS latency sample, with `<1 ms` for sub-millisecond values; keep
-  DNS lookup simple and omit bandwidth tests. Overview's Internet readout carries
-  only pinned sites, as chips under the sample, with none selected by default;
-  the Internet figure and the DNS lookup stay visible. The word Internet opens
-  /latency to manage pins. The pin is a small
+  DNS lookup simple and omit bandwidth tests. Overview's Internet health card
+  charts the selected target's today history, with pinned sites as chips under
+  it; the current figure and the DNS lookup stay visible. The word Internet
+  opens /latency to manage pins. The pin is a small
   button before the site mark; an unpinned pin is hidden until its row is hovered
   or the button is focused, while a coarse pointer keeps it visible. Only the pin
   toggles Overview visibility — the mark and name are not a control. It indicates
