@@ -1,6 +1,6 @@
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
-import { Card } from '@/components/ui/card'
+import { OverviewCard } from './card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { Heading } from '@/components/ui/heading'
 import { MetricValue } from '@/components/ui/metric-value'
@@ -50,8 +50,8 @@ export function TrafficCard() {
     up: { label: t('Upload'), color: 'var(--transmit)' },
   } satisfies ChartConfig
 
-  return <Card className="gap-0 py-0">
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 pt-3.5">
+  return <OverviewCard>
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <Heading as="h2" size="sm">{t('Traffic')}</Heading>
       <span className="text-xs text-muted-foreground">{t('last {hours} hours', { hours: 24 })}</span>
       {peak && <span className="ml-auto text-xs text-muted-foreground tabular-nums">
@@ -59,8 +59,8 @@ export function TrafficCard() {
       </span>}
     </div>
 
-    <div className="px-4 pt-2 pb-3.5">
-      <div className="mb-1 flex flex-wrap items-baseline gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex flex-wrap items-baseline gap-2">
         <MetricValue value={series.isPending ? undefined : total} unit={series.isPending ? undefined : totalUnit} size="lg" />
         <span className="text-xs text-muted-foreground">{t('down + up')}</span>
         <span className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
@@ -99,5 +99,5 @@ export function TrafficCard() {
         {t('Counted for clients this router can name. Traffic it cannot attribute is not in this chart, so the link carried at least this much.')}
       </p>
     </div>
-  </Card>
+  </OverviewCard>
 }

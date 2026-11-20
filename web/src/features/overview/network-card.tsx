@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 
-import { Card } from '@/components/ui/card'
+import { OverviewCard } from './card'
 import { Heading } from '@/components/ui/heading'
 import { useClientList } from '@/features/clients/queries'
 import { useDhcpLeases } from '@/features/dhcp/queries'
@@ -34,7 +34,7 @@ export function NetworkCard() {
   const peers = remote.data?.peers?.length
   const isp = addresses.data?.ipv4?.isp || addresses.data?.ipv4?.organization
 
-  return <Card className="gap-3">
+  return <OverviewCard>
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <Heading as="h2" size="sm">{t('Network')}</Heading>
       {isp && <span className="ml-auto text-xs text-muted-foreground">{isp}</span>}
@@ -47,5 +47,5 @@ export function NetworkCard() {
       <Row label={t('Clients online')} to="/topology" value={online == null ? '—' : String(online)} />
       <Row label={t('Tunnel peers')} to="/access/wireguard" value={peers == null ? '—' : String(peers)} />
     </div>
-  </Card>
+  </OverviewCard>
 }

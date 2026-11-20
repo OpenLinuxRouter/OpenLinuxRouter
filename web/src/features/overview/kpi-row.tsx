@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 
-import { Card } from '@/components/ui/card'
+import { OverviewCard } from './card'
 import { MetricValue } from '@/components/ui/metric-value'
 import { StatusDot } from '@/components/ui/status'
 import { useClientList } from '@/features/clients/queries'
@@ -34,13 +34,13 @@ function KpiCard({ label, value, unit, note, to, size = 'lg', children }: {
   size?: 'md' | 'lg'
   children?: ReactNode
 }) {
-  const card = <Card size="sm" className="flex h-full min-w-0 flex-col gap-2 transition-colors group-hover:bg-accent/40 group-focus-visible:bg-accent/40">
+  const card = <OverviewCard className="transition-colors group-hover:bg-accent/40 group-focus-visible:bg-accent/40" bodyClassName="gap-2">
     <p className="truncate text-xs leading-4 font-medium text-muted-foreground">{label}</p>
     <MetricValue value={value} unit={unit} size={size} />
     {note && <p className="text-xs leading-4 text-muted-foreground">{note}</p>}
     {children && <div className="mt-auto min-w-0 pt-1">{children}</div>}
-  </Card>
-  return <div className="min-w-0">
+  </OverviewCard>
+  return <div className="h-full min-w-0">
     {to
       ? <Link to={to} className="group block h-full rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">{card}</Link>
       : card}
@@ -90,9 +90,9 @@ export function KpiRow({ traffic, trafficFailed, flows }: {
         : !flows.rated ? t('Waiting for a sample')
           : undefined
 
-  return <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+  return <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
     <div className="col-span-2 min-w-0 xl:col-span-1">
-      <Card size="sm" className="flex h-full min-w-0 flex-col gap-2">
+      <OverviewCard bodyClassName="gap-2">
         <p className="truncate text-xs leading-4 font-medium text-muted-foreground">{t('Throughput now')}</p>
         <div className="flex min-w-0 items-start gap-4">
           <div className="min-w-0">
@@ -107,7 +107,7 @@ export function KpiRow({ traffic, trafficFailed, flows }: {
         {throughputNote
           ? <p className="mt-auto text-xs leading-4 text-muted-foreground">{throughputNote}</p>
           : <p className="mt-auto inline-flex items-center gap-1.5 text-xs leading-4 text-muted-foreground"><StatusDot tone="ok" />{t('Live')}</p>}
-      </Card>
+      </OverviewCard>
     </div>
 
     <KpiCard label={t('Clients')} value={online} unit={t('online')} to="/topology"

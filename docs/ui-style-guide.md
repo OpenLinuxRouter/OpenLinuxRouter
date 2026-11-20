@@ -253,10 +253,13 @@ sections, 16–24px inside cards and 8px between label and control. Basic corner
 radii are 8px for controls/small inset surfaces, 12px for panels and 16px for
 larger enclosing surfaces. Avoid arbitrary one-off radii.
 
-Overview readouts use the shared small card: one label, one figure, one
-qualifier, with a meter only where the figure is a share. The 24-hour traffic
-plot is full width with a 240px plot; the rhythm heat map and latency plot share
-a row above 1024px and stack below. On phones the heat map narrows its cells
+Overview cards use one card shell with 16px padding on every side, at every
+breakpoint, so readouts, charts and status lists share the same inner edge; do
+not mix that shell with the Card primitive's vertical-only spacing or add a
+second horizontal gutter. A readout is one label, one figure, one qualifier,
+with a meter only where the figure is a share. The 24-hour traffic plot is full
+width with a 240px plot; the rhythm heat map and latency plot share a row above
+1024px and stack below. On phones the heat map narrows its cells
 rather than scrolling sideways. Pinned latency sites are read-only chips in the
 health card; /latency owns pinning, probing and target selection.
 

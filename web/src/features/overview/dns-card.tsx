@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 
-import { Card } from '@/components/ui/card'
+import { OverviewCard } from './card'
 import { Heading } from '@/components/ui/heading'
 import { MetricValue } from '@/components/ui/metric-value'
 import { useDnsStatus } from '@/features/dns/queries'
@@ -16,7 +16,7 @@ export function DnsCard() {
   const blockedShare = stats && stats.queries > 0 ? (stats.blocked / stats.queries) * 100 : undefined
   const answered = stats ? Math.max(0, stats.queries - stats.blocked) : 0
 
-  return <Card className="gap-3">
+  return <OverviewCard>
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <Heading as="h2" size="sm"><Link to="/gateway/dns" className="underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{t('DNS')}</Link></Heading>
       {stats && <span className="ml-auto text-xs text-muted-foreground tabular-nums">{t('started {ago}', { ago: formatAgo(stats.since) })}</span>}
@@ -48,5 +48,5 @@ export function DnsCard() {
               {stats.dropped > 0 ? ` · ${t('{count} dropped', { count: stats.dropped.toLocaleString() })}` : ''}
             </p>
           </>}
-  </Card>
+  </OverviewCard>
 }

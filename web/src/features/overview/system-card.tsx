@@ -1,4 +1,4 @@
-import { Card } from '@/components/ui/card'
+import { OverviewCard } from './card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Heading } from '@/components/ui/heading'
 import { useHostMetrics } from '@/features/system/queries'
@@ -36,7 +36,7 @@ export function SystemCard() {
   const memory = data ? percent(data.memory_used_bytes, data.memory_total_bytes) : undefined
   const disk = data ? percent(data.disk_used_bytes, data.disk_total_bytes) : undefined
 
-  return <Card className="gap-3">
+  return <OverviewCard>
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <Heading as="h2" size="sm">{t('System')}</Heading>
       {data && <span className="ml-auto text-xs text-muted-foreground tabular-nums">{t('{count} cores', { count: data.cpu_cores })}</span>}
@@ -51,5 +51,5 @@ export function SystemCard() {
             <Row label={t('Memory')} value={memory} note={data ? `${formatBytes(data.memory_used_bytes)} / ${formatBytes(data.memory_total_bytes)}` : '—'} />
             <Row label={t('Disk')} value={disk} note={data?.disk_total_bytes ? `${formatBytes(data.disk_used_bytes ?? 0)} / ${formatBytes(data.disk_total_bytes)}` : '—'} />
           </>}
-  </Card>
+  </OverviewCard>
 }

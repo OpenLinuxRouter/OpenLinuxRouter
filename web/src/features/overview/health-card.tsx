@@ -1,7 +1,7 @@
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { Link } from 'react-router'
 
-import { Card } from '@/components/ui/card'
+import { OverviewCard } from './card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { Heading } from '@/components/ui/heading'
 import { MetricValue } from '@/components/ui/metric-value'
@@ -46,15 +46,15 @@ export function HealthCard() {
     ms: { label: t('Latency'), color: 'var(--foreground)' },
   } satisfies ChartConfig
 
-  return <Card className="gap-0 py-0">
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 pt-3.5">
+  return <OverviewCard>
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <Heading as="h2" size="sm"><Link to="/latency" className="underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{t('Internet health')}</Link></Heading>
       <span className="text-xs text-muted-foreground">{t('today')}{target ? ` · ${target.name}` : ''}</span>
       <span className="ml-auto text-xs text-muted-foreground tabular-nums">{latency.data?.state === 'unreachable' ? t('No response') : measuring ? t('Measuring…') : current == null ? t('Unavailable') : `${Math.round(current)} ms`}</span>
     </div>
 
-    <div className="px-4 pt-2 pb-3.5">
-      <div className="mb-1 flex flex-wrap items-baseline gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex flex-wrap items-baseline gap-2">
         <MetricValue value={current == null ? undefined : Math.round(current)} unit={current == null ? undefined : 'ms'} size="lg" />
         <span className="text-xs text-muted-foreground">{t('DNS lookup')} {latency.data?.dns_milliseconds == null ? '—' : `${Math.round(latency.data.dns_milliseconds)} ms`}</span>
       </div>
@@ -78,17 +78,17 @@ export function HealthCard() {
               </AreaChart>
             </ChartContainer>}
 
-      <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
         <span>{t('p95')} <span className="tabular-nums text-foreground">{today?.p95 == null ? '—' : `${Math.round(today.p95)} ms`}</span></span>
         <span>{t('Max')} <span className="tabular-nums text-foreground">{today?.max == null ? '—' : `${Math.round(today.max)} ms`}</span></span>
         <span className="ml-auto">{t('{count} hours measured', { count: today?.samples ?? 0 })}</span>
       </div>
-      {pinned.length > 0 && <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
+      {pinned.length > 0 && <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
         {pinned.map(site => <Link key={site.name} to="/latency" className="inline-flex items-center gap-1.5 underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring">
           {site.name}
           <span className="tabular-nums text-foreground">{site.milliseconds == null ? '—' : `${Math.round(site.milliseconds)} ms`}</span>
         </Link>)}
       </div>}
     </div>
-  </Card>
+  </OverviewCard>
 }

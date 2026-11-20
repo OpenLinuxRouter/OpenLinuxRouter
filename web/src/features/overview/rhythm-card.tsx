@@ -1,4 +1,4 @@
-import { Card } from '@/components/ui/card'
+import { OverviewCard } from './card'
 import { Heading } from '@/components/ui/heading'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useActivitySeries } from '@/features/gateway/queries'
@@ -30,14 +30,14 @@ export function RhythmCard() {
   const weekday = (date: Date) => date.toLocaleDateString(undefined, { weekday: 'short' })
   const label = t('Traffic rhythm for the last {days} days, busiest at {hour}:00', { days: 7, hour: rhythm.peakHour })
 
-  return <Card className="gap-0 py-0">
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 pt-3.5">
+  return <OverviewCard>
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <Heading as="h2" size="sm">{t('Traffic rhythm')}</Heading>
       <span className="text-xs text-muted-foreground">{t('last {days} days', { days: 7 })}</span>
       <span className="ml-auto text-xs text-muted-foreground tabular-nums">{t('peak {time}', { time: `${String(rhythm.peakHour).padStart(2, '0')}:00` })}</span>
     </div>
 
-    <div className="px-4 pt-3 pb-3.5">
+    <div className="flex min-w-0 flex-col gap-2">
       {series.isPending
         ? <Skeleton className="h-[180px] w-full" />
         : !series.data || rhythm.totalGiB === 0
@@ -74,14 +74,14 @@ export function RhythmCard() {
               </div>
             </div>}
 
-      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span>{t('Less')}</span>
         {[0.14, 0.3, 0.5, 0.7, 0.9].map(level => <i key={level} className="h-1.5 w-3 rounded-[2px]" style={{ backgroundColor: `color-mix(in srgb, var(--receive) ${level * 100}%, var(--muted))` }} />)}
         <span>{t('More')}</span>
         <span className="ml-auto">{t('GiB per hour')}</span>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
         <span>{t('Week total')}</span>
         <span className="tabular-nums text-foreground">{formatBytes(rhythm.totalGiB * GIB)}</span>
         {peak && <>
@@ -90,5 +90,5 @@ export function RhythmCard() {
         </>}
       </div>
     </div>
-  </Card>
+  </OverviewCard>
 }
