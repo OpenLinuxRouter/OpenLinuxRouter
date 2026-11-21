@@ -19,7 +19,7 @@ function splitUnit(value: string): [string, string?] {
   return at < 0 ? [value] : [value.slice(0, at), value.slice(at + 1)]
 }
 
-function Bar({ percent, className = 'bg-foreground' }: { percent: number; className?: string }) {
+function Bar({ percent, className = 'bg-foreground/50' }: { percent: number; className?: string }) {
   return <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
     <div className={`h-full rounded-full ${className}`} style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} />
   </div>
@@ -112,7 +112,7 @@ export function KpiRow({ traffic, trafficFailed, flows }: {
 
     <KpiCard label={t('Clients')} value={online} unit={t('online')} to="/topology"
       note={clients.isPending ? t('Checking…') : online == null || known == null ? t('Unavailable') : t('{online} of {known} known', { online, known })}>
-      <Bar percent={known ? (online ?? 0) / known * 100 : 0} className="bg-foreground/50" />
+      <Bar percent={known ? (online ?? 0) / known * 100 : 0} />
     </KpiCard>
 
     <KpiCard label={t('Quality')} value={score == null || measuring ? undefined : scoreText(score)}

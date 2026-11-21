@@ -101,7 +101,12 @@ tone. The interaction colour stays `--primary`; the brand never has to be
 readable as text, which is why it can stay at full saturation.
 [Console direction §5](ui-console-direction.md) is the full rule.
 
-Use `primary-fill` with `primary-foreground` for filled actions. Use `primary`
+Use `primary-fill` with `primary-foreground` for filled actions. A filled action
+that is disabled does not fade: 50% of a saturated fill leaves white text at
+about 2:1, which reads as a broken control rather than an unavailable one. The
+`primary` and `danger` ranks drop to `muted` with `muted-foreground` text
+instead, which keeps "not yet" legible in both themes; the quiet ranks keep the
+opacity because they have no fill to wash out. Use `primary`
 for links and selected navigation. The desktop rail is shadcn's Sidebar
 (`components/ui/sidebar.tsx`), used as shipped apart from three local choices:
 the selected section is a 32px `primary/10` tinted pill (`primary/15` dark) with
@@ -327,6 +332,18 @@ A series takes its colour from the chart config — `--color-receive` and
 radar — so light and dark themes follow the tokens instead of a second palette
 in the chart. A chart with more than one series still names each one in a
 legend, and the name carries the meaning when the hue is hard to tell apart.
+
+The plot owns its axis. Recharts picks ticks from the data's domain and the
+chart labels them, so rounding those labels to whole numbers prints the same
+value twice: a plot that reaches 2.4 labels 0.6, 1.2 and 1.8 as “1” and “2”, and
+an axis reading 0, 1, 1, 2, 2 is three positions wearing two labels. Ticks come
+from `web/src/lib/chart-ticks.ts` instead: the smallest round step that covers
+the data, spaced evenly from zero, with the decimals that step needs, so every
+position has its own label and the steps are equal (41 ms gives 0/15/30/45, not
+0/15/30/60). Grid lines are solid hairlines at the border tone, never dashed
+library defaults; a bar chart draws a baseline at zero; and a legend swatch takes
+the shape of its mark — a square beside a bar series, a short rule only beside a
+line.
 
 Charts stay decorative for assistive technology where a caption already
 describes them: the traffic plot is `aria-hidden` with its total above and its

@@ -135,6 +135,24 @@ function Step({
   action: { label: string; to?: string; onClick?: () => void; busy?: boolean }
 }) {
   useLocale()
+  const control = !done && (action.to ? (
+    <Button nativeButton={false} size="sm" variant={blocked ? 'quiet' : 'secondary'} disabled={blocked} render={
+      <Link to={action.to}>
+        {action.label}
+        <ChevronRight className="size-3.5" aria-hidden />
+      </Link>
+    } />
+  ) : (
+    <Button
+      size="sm"
+      variant={blocked ? 'quiet' : 'secondary'}
+      disabled={blocked || action.busy}
+      onClick={action.onClick}
+    >
+      {action.label}
+    </Button>
+  ))
+
   return (
     <div className="flex items-start gap-3 py-2">
       <span
@@ -151,31 +169,18 @@ function Step({
         {done ? <Check className="size-3.5" /> : n}
       </span>
 
-      <div className="min-w-0 flex-1">
-        <div className={cn('text-sm font-medium', blocked && !done && 'text-muted-foreground')}>
-          {title}
+      {/* The step's action sits beside its text on a desktop and under it on a
+          phone. Sharing one line on a 390px screen squeezed the title until it
+          wrapped and left three different action edges down the panel. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+        <div className="min-w-0 flex-1">
+          <div className={cn('text-sm font-medium', blocked && !done && 'text-muted-foreground')}>
+            {title}
+          </div>
+          <p className="text-xs text-muted-foreground">{detail}</p>
         </div>
-        <p className="text-xs text-muted-foreground">{detail}</p>
+        {control && <div className="self-start sm:ml-auto sm:shrink-0">{control}</div>}
       </div>
-
-      {!done &&
-        (action.to ? (
-          <Button nativeButton={false} size="sm" variant={blocked ? 'quiet' : 'secondary'} disabled={blocked} render={
-            <Link to={action.to}>
-              {action.label}
-              <ChevronRight className="size-3.5" aria-hidden />
-            </Link>
-          } />
-        ) : (
-          <Button
-            size="sm"
-            variant={blocked ? 'quiet' : 'secondary'}
-            disabled={blocked || action.busy}
-            onClick={action.onClick}
-          >
-            {action.label}
-          </Button>
-        ))}
     </div>
   )
 }

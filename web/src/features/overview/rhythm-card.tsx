@@ -65,7 +65,7 @@ export function RhythmCard() {
                         key={`${day.key}-${hour}`}
                         title={`${weekday(day.date)} ${String(hour).padStart(2, '0')}:00 · ${future ? t('Not yet') : formatBytes(value * GIB)}`}
                         aria-hidden
-                        className={`h-[18px] rounded-[3px] ${future ? 'border border-dashed border-border/70' : ''} ${now ? 'ring-1 ring-foreground ring-offset-1 ring-offset-card' : ''}`}
+                        className={`h-[18px] rounded-[3px] ${future ? 'border border-dashed border-border/70' : ''} ${now ? 'ring-1 ring-foreground/40 ring-offset-1 ring-offset-card' : ''}`}
                         style={backgroundColor ? { backgroundColor } : undefined}
                       />
                     }),

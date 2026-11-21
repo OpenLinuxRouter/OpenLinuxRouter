@@ -8,7 +8,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: "bg-primary-fill text-primary-foreground hover:bg-primary-fill/90 active:bg-primary-fill/80 active:text-primary-foreground",
+        // A filled rank does not fade when it is disabled: 50% of a saturated
+        // fill leaves white text at about 2:1, which reads as a broken control
+        // rather than an unavailable one. It turns to the neutral surface
+        // instead, so "not yet" is legible and unmistakable. The quiet ranks
+        // keep the opacity because they have no fill to wash out.
+        primary: "bg-primary-fill text-primary-foreground hover:bg-primary-fill/90 active:bg-primary-fill/80 active:text-primary-foreground disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
         secondary:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         subtle:
@@ -16,7 +21,7 @@ const buttonVariants = cva(
         quiet:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         danger:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
+          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

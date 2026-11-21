@@ -1,4 +1,4 @@
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts'
 
 import { OverviewCard } from './card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
@@ -6,6 +6,7 @@ import { Heading } from '@/components/ui/heading'
 import { MetricValue } from '@/components/ui/metric-value'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useActivitySeries } from '@/features/gateway/queries'
+import { axisScale, formatTick } from '@/lib/chart-ticks'
 import { t, useLocale } from '@/lib/i18n'
 import { formatBytes } from '@/lib/utils'
 
@@ -41,6 +42,10 @@ export function TrafficCard() {
     return row.downGiB + row.upGiB > best.downGiB + best.upGiB ? row : best
   }, undefined)
   const peakBytes = peak ? (peak.downGiB + peak.upGiB) * GIB : 0
+  // The axis is drawn from the tallest hour, not from the axis' own idea of a
+  // round number: a scale computed from rounded labels prints the same number
+  // twice (lib/chart-ticks.ts).
+  const scale = axisScale(peakBytes / GIB)
   const ticks = rows.length === 0 ? [] : [0, 6, 12, 18, rows.length - 1]
     .map(index => rows[Math.min(index, rows.length - 1)]?.label)
     .filter((label, index, all): label is string => Boolean(label) && all.indexOf(label) === index)
@@ -64,9 +69,9 @@ export function TrafficCard() {
         <MetricValue value={series.isPending ? undefined : total} unit={series.isPending ? undefined : totalUnit} size="lg" />
         <span className="text-xs text-muted-foreground">{t('down + up')}</span>
         <span className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5"><span aria-hidden className="h-0.5 w-3 rounded-full bg-receive" />{t('Download')}</span>
-          <span className="inline-flex items-center gap-1.5"><span aria-hidden className="h-0.5 w-3 rounded-full bg-transmit" />{t('Upload')}</span>
-          <span className="text-muted-foreground/70">· {t('GiB per hour')}</span>
+          <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2 rounded-[2px] bg-receive" />{t('Download')}</span>
+          <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2 rounded-[2px] bg-transmit" />{t('Upload')}</span>
+          <span className="text-muted-foreground/70">{t('GiB per hour')}</span>
         </span>
       </div>
 
@@ -78,9 +83,10 @@ export function TrafficCard() {
             </div>
           : <ChartContainer config={config} className="h-[240px] w-full">
               <BarChart data={rows} margin={{ top: 8, right: 4, bottom: 0, left: -10 }} barCategoryGap="22%">
-                <CartesianGrid vertical={false} strokeDasharray="2 4" />
+                <CartesianGrid vertical={false} />
                 <XAxis dataKey="label" ticks={ticks} interval={0} tick={<ClockTick count={ticks.length} />} tickLine={false} axisLine={false} tickMargin={8} />
-                <YAxis tickLine={false} axisLine={false} width={38} tickFormatter={(value: number) => `${Math.round(value)}`} />
+                <YAxis tickLine={false} axisLine={false} width={38} domain={[0, scale.top]} ticks={scale.ticks} tickFormatter={(value: number) => formatTick(value, scale.decimals)} />
+                <ReferenceLine y={0} />
                 <ChartTooltip
                   cursor={{ fill: 'var(--color-muted)', opacity: 0.35 }}
                   content={<ChartTooltipContent

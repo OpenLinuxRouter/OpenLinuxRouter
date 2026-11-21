@@ -156,12 +156,20 @@ function StatusBar({ faults, known, idle, failed, host, addresses, modules }: {
           </div>
         })}
       </>}>
-      {faults.map((fault) => <p key={fault.key} className="text-sm leading-5 text-muted-foreground">
-        {fault.to
-          ? <Link to={fault.to} className="font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{fault.title}</Link>
-          : <span className="font-medium text-foreground">{fault.title}</span>}
-        {` · ${fault.detail}`}
-      </p>)}
+      {/* A fault is a verdict and a consequence, and the two read as a stack
+          rather than as one sentence glued with a middot. The measure is
+          constrained because a detail running the width of a 1216px card is
+          150 characters on a single line. */}
+      <div className="max-w-2xl space-y-3">
+        {faults.map((fault) => <div key={fault.key} className="space-y-1">
+          <div className="text-sm font-medium">
+            {fault.to
+              ? <Link to={fault.to} className="underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{fault.title}</Link>
+              : fault.title}
+          </div>
+          <p className="text-sm leading-5 text-muted-foreground">{fault.detail}</p>
+        </div>)}
+      </div>
     </StatusStrip>
   </section>
 }

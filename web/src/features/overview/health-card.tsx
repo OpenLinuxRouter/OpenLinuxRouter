@@ -7,6 +7,7 @@ import { Heading } from '@/components/ui/heading'
 import { MetricValue } from '@/components/ui/metric-value'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useGatewayLatency } from '@/features/gateway/queries'
+import { axisScale, formatTick } from '@/lib/chart-ticks'
 import { t, useLocale } from '@/lib/i18n'
 
 import { hourlyLatency, latencyDay } from '@/features/gateway/hourly-latency'
@@ -39,6 +40,10 @@ export function HealthCard() {
   const today = latency.data && day && target
     ? summarizeLatency([hourlyLatency(target, day)])
     : undefined
+  // One scale for the day's line, chosen so the labels are evenly spaced round
+  // milliseconds rather than whatever the tallest spike happened to be
+  // (lib/chart-ticks.ts).
+  const scale = axisScale(today?.max ?? 0, 4)
   const current = latency.data?.milliseconds
   const measuring = latency.data?.state === 'measuring'
 
@@ -67,9 +72,9 @@ export function HealthCard() {
             </div>
           : <ChartContainer config={config} className="h-[132px] w-full">
               <AreaChart data={today.points} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
-                <CartesianGrid vertical={false} strokeDasharray="2 4" />
+                <CartesianGrid vertical={false} />
                 <XAxis dataKey="label" ticks={['00:00', '06:00', '12:00', '18:00', '23:00']} interval={0} tick={<ClockTick count={5} />} tickLine={false} axisLine={false} tickMargin={8} />
-                <YAxis width={34} tickLine={false} axisLine={false} domain={[0, 'auto']} allowDecimals={false} />
+                <YAxis width={34} tickLine={false} axisLine={false} domain={[0, scale.top]} ticks={scale.ticks} tickFormatter={(value: number) => formatTick(value, scale.decimals)} />
                 <ChartTooltip content={<ChartTooltipContent
                   formatter={(value) => `${Math.round(Number(value))} ms`}
                   labelFormatter={(_, payload) => (payload?.[0]?.payload as { label?: string } | undefined)?.label}
