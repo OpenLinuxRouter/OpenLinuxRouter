@@ -1,4 +1,6 @@
 import { PageHeading } from '@/components/layout/page-heading'
+import { ClientTable } from '@/features/performance/client-table'
+import { EventBand } from '@/features/performance/event-band'
 import { LinkLane } from '@/features/performance/link-lane'
 import { RouterLane } from '@/features/performance/router-lane'
 import { SummaryStrip } from '@/features/performance/summary'
@@ -23,7 +25,9 @@ export function PerformancePage() {
       description={t('Throughput, CPU and drops on one time axis, so a dip can be lined up against the line and the router.')}
     />
     <SummaryStrip evidence={evidence} />
+    <EventBand evidence={evidence} />
     <LinkLane evidence={evidence} />
     <RouterLane evidence={evidence} />
+    <ClientTable />
   </div>
 }
