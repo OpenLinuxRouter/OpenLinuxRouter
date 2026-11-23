@@ -12,6 +12,19 @@ export const NEAR_CAPACITY = 0.8
 export const BUSY_CPU = 70
 export const IDLE_CPU = 20
 
+/**
+ * Drops per second that mean the router is losing packets rather than merely
+ * counting a few.
+ *
+ * Interface drop counters tick over on any busy link — a gigabit carrying
+ * torrents drops on the order of one packet a second, which is noise and not a
+ * bottleneck. A verdict that fires on the first drop would call every busy
+ * network broken, so the threshold sits well above that floor (roughly a
+ * twentieth of a percent of a gigabit's packet rate) and is published with the
+ * other judgement calls.
+ */
+export const DROP_BUSY = 50
+
 export type CapacityState = 'loading' | 'missing' | 'measured' | 'warming'
 
 export type VerdictCode =
@@ -66,7 +79,8 @@ export function verdict(input: VerdictInput): Verdict {
   }
 
   // A dropping router answers the question even while the line has headroom.
-  if (input.dropsPerSecond != null && input.dropsPerSecond > 0) {
+  // Below the busy threshold the counters are ticking, not bottlenecking.
+  if (input.dropsPerSecond != null && input.dropsPerSecond >= DROP_BUSY) {
     return { code: 'router-dropping', provisional }
   }
 

@@ -28,7 +28,9 @@ test('the busiest direction decides which capacity is being approached', () => {
 })
 
 test('a dropping router answers the question while the line has headroom', () => {
-  assert.equal(measured({ dropsPerSecond: 2 }).code, 'router-dropping')
+  // One or two drops a second is a busy link, not a bottleneck.
+  assert.equal(measured({ dropsPerSecond: 2 }).code, 'link-free')
+  assert.equal(measured({ dropsPerSecond: 1200, cpuPercent: 4 }).code, 'router-dropping')
   // A measured zero is not a drop.
   assert.equal(measured({ dropsPerSecond: 0 }).code, 'link-free')
   // Drops are unknown, not zero: CPU alone decides, and low CPU is idle.

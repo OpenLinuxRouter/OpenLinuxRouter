@@ -14,7 +14,8 @@ export interface CapacitySide {
   p99_bps: number
   peak_bps: number
   points: number
-  since: string
+  /** Omitted when points is 0: there is no window to describe yet. */
+  since?: string
 }
 
 /**
