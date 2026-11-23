@@ -611,7 +611,7 @@ func run(args []string) error {
 	// already stored into the clients that hold those addresses now, before the
 	// sampler starts writing new rows, and make the fold durable so a restart
 	// does not have to repeat it.
-	activity.Owners = clientOwners(clientsApplier.Presence)
+	activity.Clients = clientJoin(clientsApplier)
 	foldCtx, stopFold := context.WithTimeout(context.Background(), 2*time.Minute)
 	foldErr := activity.Adopt(foldCtx)
 	stopFold()
@@ -622,18 +622,23 @@ func run(args []string) error {
 	// walk, but not its history: a restart restarts this series on purpose,
 	// and the API reports the coverage it actually has.
 	capacity := gateway.NewCapacity()
+	// The connection census shares that walk too, and is observation only: it
+	// differences the kernel's conntrack counters rather than adding a route,
+	// a rule or a mark.
+	connections := gateway.NewConnections()
 	places := geoip.NewCity(runtimeDB)
 	defer places.Close()
 	world := gateway.NewWorldTraffic(places)
 	world.Enabled = func() bool { cfg, err := gatewayApplier.Load(); return err == nil && cfg.StatsOrDefault() }
 	srv.Mount(gateway.ModuleName, gateway.HTTP{
-		World:    world,
-		Activity: activity,
-		Capacity: capacity,
-		Latency:  latency,
-		Applier:  gatewayApplier,
-		Lock:     srv.ApplyLock(),
-		Events:   srv.Events(),
+		World:       world,
+		Activity:    activity,
+		Capacity:    capacity,
+		Connections: connections,
+		Latency:     latency,
+		Applier:     gatewayApplier,
+		Lock:        srv.ApplyLock(),
+		Events:      srv.Events(),
 		Watch: func(cfg gateway.Config) {
 			prober.Watch(context.Background(), cfg)
 			// Gateway and DNS share one document. Refresh the relay's routing
@@ -1234,7 +1239,7 @@ func run(args []string) error {
 	activityCtx, stopActivity := context.WithCancel(ctx)
 	go func() {
 		defer close(activityDone)
-		activity.Run(activityCtx, gatewayApplier, capacity)
+		activity.Run(activityCtx, gatewayApplier, capacity, connections)
 	}()
 	defer func() {
 		stopActivity()

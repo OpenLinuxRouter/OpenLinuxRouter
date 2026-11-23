@@ -1463,6 +1463,16 @@ belongs to the network, a second and deliberate act.
    traffic that never left the uplink, and it cannot see traffic that stayed
    on one segment or that the router originated itself.
 
+   **Connection census:** the same ten-second walk also reads
+   `/proc/net/nf_conntrack` once and differences the per-entry counters, so
+   `/api/gateway/connections` can say which client holds the 10 MB/s and how its
+   rate divides across its connections, and `/api/gateway/flows` can name the
+   busiest of them. Observation only, bounded by the kernel's own table and
+   retained for one window: rates are bits per second from the per-direction
+   counters, a connection with no traffic in the window counts as zero in the
+   percentiles, and a table that cannot be read is reported rather than shown as
+   no connections. Flow age is not reported — the kernel's timestamps stay off.
+
    **Continuous client inspection is an explicit retention exception.** Its
    per-client switch survives stop/start of the control daemon, deployments and
    reboots. On packaged Linux systems the proxy is a separate systemd service,

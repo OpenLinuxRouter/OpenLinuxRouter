@@ -283,8 +283,8 @@ func TestActivityAdoptFoldsStoredAddressHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	mac := "aa:bb:cc:dd:ee:ff"
-	a.Owners = func(context.Context) map[netip.Addr]string {
-		return map[netip.Addr]string{addr: mac}
+	a.Clients = func(context.Context) ClientJoin {
+		return ClientJoin{Owners: map[netip.Addr]string{addr: mac}}
 	}
 	if err := a.Adopt(context.Background()); err != nil {
 		t.Fatal(err)

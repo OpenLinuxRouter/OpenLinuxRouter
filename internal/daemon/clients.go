@@ -3,7 +3,6 @@ package daemon
 import (
 	"context"
 	"errors"
-	"net/netip"
 	"sort"
 	"strings"
 	"sync"
@@ -14,6 +13,7 @@ import (
 	"github.com/open-linux-router/open-linux-router/internal/devices"
 	"github.com/open-linux-router/open-linux-router/internal/dhcp"
 	"github.com/open-linux-router/open-linux-router/internal/dns"
+	"github.com/open-linux-router/open-linux-router/internal/gateway"
 )
 
 // Adapters joining the dhcp module to the devices module.
@@ -25,15 +25,52 @@ import (
 // that an inventory exists. The two are introduced at the one place that
 // already knows the whole module list.
 
-// clientOwners is the address → client join the traffic sampler keys history by,
-// read from the same presence sources the client list joins. Problems are
-// dropped here rather than reported: a source that cannot be read leaves its
-// addresses unattributed, which history already knows how to store, and the
-// client list is where an operator is told why.
-func clientOwners(sources []clients.PresenceSource) func(context.Context) map[netip.Addr]string {
-	return func(ctx context.Context) map[netip.Addr]string {
-		sightings, _ := clients.Gather(ctx, sources...)
-		return clients.Owners(sightings)
+// clientJoin is the address → client join the traffic samplers key by, read
+// from one pass over the same presence sources the client list joins, plus the
+// name each client goes by.
+//
+// Both halves travel together because both come from one Gather: asking twice
+// would open the lease file and the neighbour tables twice for one ten-second
+// sample. Names are resolved in the order internal/clients/list.go resolves
+// them — the operator's name, then the hostname the client announced, then the
+// last one the router remembers — because a performance page that labelled a
+// client differently from the client list would look like two devices.
+//
+// Problems are dropped here rather than reported: a source that cannot be read
+// leaves its addresses unattributed, which history already knows how to store,
+// and the client list is where an operator is told why.
+func clientJoin(applier clients.Applier) func(context.Context) gateway.ClientJoin {
+	return func(ctx context.Context) gateway.ClientJoin {
+		sightings, _ := clients.Gather(ctx, applier.Presence...)
+		join := gateway.ClientJoin{
+			Owners: clients.Owners(sightings),
+			Names:  map[string]string{},
+		}
+		presence, _ := clients.Merge(sightings)
+		for mac, p := range presence {
+			if p.Hostname != "" {
+				join.Names[mac] = p.Hostname
+			}
+		}
+		if cfg, err := applier.Load(); err == nil {
+			for _, client := range cfg.Clients {
+				if client.Name == "" {
+					continue
+				}
+				if mac, err := core.NormalizeMAC(client.MAC); err == nil {
+					join.Names[mac] = client.Name
+				}
+			}
+		}
+		for _, mac := range join.Owners {
+			if join.Names[mac] != "" {
+				continue
+			}
+			if name, _, ok := applier.Seen.Hostname(mac); ok {
+				join.Names[mac] = name
+			}
+		}
+		return join
 	}
 }
 

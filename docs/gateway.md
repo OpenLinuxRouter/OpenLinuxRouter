@@ -945,7 +945,9 @@ whose classify chain already reads `ct mark` on the same packets.
 Live throughput is the delta between samples. Per-flow detail — connection counts
 and who talked to what — comes from **conntrack destroy events**, which hand over
 a complete byte count once per flow rather than requiring a table walk. Both are
-needed: a four-hour stream reports nothing until it ends.
+needed: a four-hour stream reports nothing until it ends. Destroy events answer
+what a flow *moved*; what it is moving *now* is a different question, and that
+one needs the live table (§7.7).
 
 ### 7.2 Domains: attribution, not measurement
 
@@ -1081,6 +1083,87 @@ until thirty one-minute buckets exist.
 The uplink is named from `dial`'s configuration when the route is read. If the
 name changes, the retained series is discarded rather than attributing one
 interface's peak to another.
+
+### 7.7 Who is responsible, and how it divides
+
+A capacity number answers "how fast". The next question a performance page asks
+is "which client", and after that "which of its connections" — and neither is a
+causal guess. The honest answer is the census the kernel already keeps.
+
+`/proc/net/nf_conntrack` is read once per ten-second sample. It is the same tick
+that fills §7.5 and §7.6, not a second timer: one read of the table, parsed in
+place, and the routes serve the last sample rather than reading the kernel on a
+request. Accounting is on (§7.1's switch renders `nf_conntrack_acct=1`), so each
+entry carries `packets=`/`bytes=` per direction and the difference between two
+walks is a rate. Two routes publish it:
+
+- `GET /api/gateway/connections` (MCP `gateway_show_connections`) — per client:
+  its connection count with the TCP/UDP split, how many are half-open
+  (`[UNREPLIED]` or `SYN_SENT`), its aggregate rates, and the nearest-rank
+  p50/p90/p99 of its per-connection receive rates.
+- `GET /api/gateway/flows?limit=N` (MCP `gateway_show_flows`) — the busiest
+  connections by total rate, default 20, capped at 200, each labelled with the
+  client that owns its inside address.
+
+**An address is the unit, not a device.** conntrack speaks addresses and
+presence speaks addresses; a dual-stack client is two rows, each answering for
+its own connections, rather than one row carrying an invented primary address.
+The owner's MAC and name ride along where presence can place the address, and a
+client with no connections is absent rather than a zero row.
+
+**A connection is what the table holds**, not what a page would call active: a
+`TIME_WAIT` or `CLOSE` entry counts until the kernel drops it, which is why a
+torrent client's count can be thousands while only a handful are moving bytes.
+The percentiles are what separate those two facts.
+
+**Which end is the client is decided from the source addresses, not the
+destination**, because NAT rewrites one direction's destination and not the
+other. The box's own connections are left out — its DNS lookup is not a
+client's traffic — a connection that ends *on* the box belongs to the client
+that opened it (§7.1 counts those bytes for a client, so this page has to see
+them), an ordinary outbound connection belongs to its opener, and a forwarded
+one belongs to the translated inside endpoint the reply tuple carries.
+
+**RX is toward the client and TX away from it, in bits per second**, the units
+§7.6 uses. A flow is normalised to the client's end: for a forwarded connection
+the kernel's original tuple runs from the remote to the box's public address, so
+the published `src` is the inside endpoint and `dst` the remote, and `client`
+matches `src` exactly as it does for an outbound flow.
+
+**A connection with no traffic in the window counts as zero, and it is part of
+the distribution.** "This client has 2,900 connections and most of them are
+idle" is part of the answer to why its 90 MB/s is not spread evenly, so the
+percentiles are over every live connection rather than only the busy ones.
+
+**A flow's first window is its whole counter.** A conntrack entry is created by
+its first packet, so a connection the previous walk did not have was born inside
+the window and every byte it holds happened there. That is the one place this
+deliberately differs from §7.6's "a missing key is not counted", where a
+client's counters can predate the window.
+
+**The response says when it is not a measurement.** `state` is `warming` until a
+second walk exists to difference against — a restart starts the series over, and
+so does a gap longer than two windows, because the counters kept moving while
+nothing read them and differencing across the gap would bill the outage as one
+burst. `disabled` means no walk is being taken: olr's `stats` switch is off, or
+the kernel is not counting per connection. `unavailable` means the table could
+not be read — permission, or a build that is not Linux — and carries the reason
+rather than an empty census, because "no client has a connection" and "the table
+could not be read" are different answers and only one of them is true.
+
+**No flow age, deliberately.** The kernel's timestamps are off
+(`nf_conntrack_timestamp=0`) and this does not turn them on: that is a
+machine-wide sysctl shared with every other reader of the table, and the
+question here is what a connection is moving now. The routes carry no age field
+at all, which is the honest form of "unknown" — an age inferred from how many
+samples a connection has appeared in would be wrong for every connection that
+outlived the count.
+
+**The list is a head, not a total.** `/flows` returns at most `limit`
+connections sorted by `rx_bps + tx_bps` and says nothing about the ones it did
+not return; no count of the tail is invented from the top. The sample is bounded
+by the kernel's own table (`nf_conntrack_max`), retained for one window and
+replaced by the next. Nothing here is history.
 
 ---
 
