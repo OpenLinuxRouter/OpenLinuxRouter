@@ -668,3 +668,50 @@ func TestLatencyMeasureAllEndpoint(t *testing.T) {
 		t.Fatalf("unknown category: status = %d", w.Code)
 	}
 }
+
+// The capacity route is the whole surface: the page and the MCP tool both
+// read this body, and internal/mcp returns it unchanged. Asserting the names
+// here is what keeps a struct rename out of the wire contract.
+func TestGetCapacityPublishesTheMeasuredBaseline(t *testing.T) {
+	c := NewCapacity()
+	c.SetUplink("ens18")
+	at := time.Now().Add(-2 * time.Minute).Truncate(time.Minute)
+	c.recordLocked(at, 1_430_000_000, 210_000_000)
+	c.recordLocked(at.Add(time.Minute), 1_500_000_000, 260_000_000)
+
+	h := HTTP{
+		Applier:  Applier{Store: newTestStore(t), Uplink: StaticUplink("ens18")},
+		Capacity: c,
+		Lock:     core.NewLock(),
+		Events:   core.NewEvents(),
+	}.Handler()
+
+	w := do(t, h, http.MethodGet, "/capacity", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /capacity status = %d, body %s", w.Code, w.Body)
+	}
+	got := decode[map[string]any](t, w)
+	if got["uplink"] != "ens18" || got["state"] != capacityWarming {
+		t.Fatalf("top-level fields: %s", w.Body)
+	}
+	if _, ok := got["as_of"].(string); !ok {
+		t.Fatalf("as_of is not a timestamp: %s", w.Body)
+	}
+	for name, want := range map[string]float64{"peak_bps": 1_500_000_000, "p99_bps": 1_500_000_000, "points": 2} {
+		rx, ok := got["rx"].(map[string]any)
+		if !ok {
+			t.Fatalf("rx is not an object: %s", w.Body)
+		}
+		if rx[name] != want {
+			t.Errorf("rx.%s = %v, want %v", name, rx[name], want)
+		}
+	}
+	tx, ok := got["tx"].(map[string]any)
+	if !ok || tx["peak_bps"] != float64(260_000_000) {
+		t.Errorf("tx = %v: %s", got["tx"], w.Body)
+	}
+
+	if w := do(t, (HTTP{}).Handler(), http.MethodGet, "/capacity", nil); w.Code != http.StatusServiceUnavailable {
+		t.Errorf("missing sampler: status = %d, want 503", w.Code)
+	}
+}

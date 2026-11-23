@@ -1451,6 +1451,18 @@ belongs to the network, a second and deliberate act.
    volumes, not exact accounting totals. Restart restores retained buckets but
    starts new counter baselines; abrupt termination may lose the latest minute.
 
+   **Measured capacity:** the same ten-second walk also folds the aggregate
+   uplink rate into a 30-day in-memory ring of one-minute maxima per direction
+   (43,200 readings each, about 1 MiB total) and publishes peak and nearest-rank
+   p99 from what it retains. It is not persisted: a restart starts the series
+   over, and the API reports `points`, `since` and `state` so a page can say
+   "based on 6 hours" rather than imply 30 days. Traffic errors and
+   `stats: false` record nothing and reset the baseline, so an outage is never
+   billed as a burst. The number is what the accounting sets demonstrably
+   moved for clients, not a reading of the wire: it can include inter-VLAN
+   traffic that never left the uplink, and it cannot see traffic that stayed
+   on one segment or that the router originated itself.
+
    **Continuous client inspection is an explicit retention exception.** Its
    per-client switch survives stop/start of the control daemon, deployments and
    reboots. On packaged Linux systems the proxy is a separate systemd service,

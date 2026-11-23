@@ -1046,6 +1046,42 @@ per-client exclusion — decided now rather than after someone asks. It is also
 worth stating plainly as a property: it never leaves the box, which the
 ISP-supplied router cannot say.
 
+### 7.6 Measured capacity
+
+"What has this uplink actually demonstrated?" is a different question from "what
+is it doing now", and it needs a baseline rather than a counter. The same
+ten-second walk that fills §7.5's client history sums the per-client deltas into
+one aggregate rate per direction, keeps the maximum ten-second rate in each
+minute (a burst is the evidence; a minute average erases it), and retains thirty
+days of those minutes in a ring — about 43,000 readings per direction, in
+memory. From that ring `GET /api/gateway/capacity` (MCP
+`gateway_show_capacity`) reports the peak and the nearest-rank 99th percentile
+of the minute peaks per direction.
+
+The number is what the box demonstrably **moved for its clients**, not a
+reading of the wire. It is built from the accounting sets, so it sees traffic
+that crossed the router and could be attributed to a client. That cuts both
+ways: it can include inter-VLAN traffic that never left the uplink, while
+LAN-to-LAN traffic that stayed on one segment, traffic the router originates
+itself and anything behind a second router are missing. The `uplink` name says
+which interface `dial` says is the way out; the rate is the aggregate the
+accounting saw, which is the evidence a page can compare with the link's
+negotiated speed instead of guessing.
+
+Three boundaries are part of the contract. The sampler writes nothing when
+`Stats` is off or the kernel cannot be read — a zero would be an observation
+nobody took — and it drops its baseline across such a gap so the recovery
+sample is not billed as one burst. A minute in which nothing moved counts
+toward `points` (coverage) but not toward the distribution, because an idle
+minute says what the house asked for, not what the uplink could carry. The
+series lives in memory: a restart starts it over, and `points`, `since` and
+`state` say how much history the answer actually covers; `state` is `warming`
+until thirty one-minute buckets exist.
+
+The uplink is named from `dial`'s configuration when the route is read. If the
+name changes, the retained series is discarded rather than attributing one
+interface's peak to another.
+
 ---
 
 ## 8. What each form carries

@@ -506,7 +506,10 @@ func (a *Activity) makeRoom(current int64) bool {
 	return true
 }
 
-func (a *Activity) Run(ctx context.Context, applier Applier) {
+// Run samples traffic every ten seconds. capacity is folded from the same
+// walk — nil is legal for a caller that only wants the activity history — so
+// the measured baseline costs no second read of the kernel.
+func (a *Activity) Run(ctx context.Context, applier Applier, capacity *Capacity) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	checkpoint := time.NewTicker(time.Minute)
@@ -533,7 +536,9 @@ func (a *Activity) Run(ctx context.Context, applier Applier) {
 			usage, err = applier.Traffic(ctx)
 			valid = err == nil
 		}
-		a.observe(time.Now(), usage, valid)
+		now := time.Now()
+		a.observe(now, usage, valid)
+		capacity.observe(now, usage, valid)
 		select {
 		case <-ctx.Done():
 			return

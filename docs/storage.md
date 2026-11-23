@@ -49,6 +49,12 @@ Last-seen and sessions use transactional checkpoints. QoS state from a previous
 boot is never used against new kernel resources. Safety-critical recovery
 records are saved before modifying the corresponding system setting.
 
+Measured uplink capacity is the deliberate exception: the same ten-second walk
+keeps 30 days of one-minute maxima per direction in memory (about 1 MiB), and a
+restart starts the window over. It is not a SQLite table because it is a
+baseline, not a history anyone queries by time; the API reports `points` and
+`since` rather than implying the full retention.
+
 ## Upgrade and failure behavior
 
 Each legacy runtime file imports once in a transaction, together with its marker.

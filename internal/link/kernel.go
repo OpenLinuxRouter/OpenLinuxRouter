@@ -66,9 +66,24 @@ type Interface struct {
 
 	// Optional live counters and negotiated speed. Unsupported drivers leave
 	// them absent; an observed zero differs from an unavailable reading.
-	SpeedMbps *uint64
-	RXBytes   *uint64
-	TXBytes   *uint64
+	//
+	// The packet, drop and error readings are the other half of the traffic
+	// story: bytes alone cannot separate a link that is full from a router
+	// dropping what it could not afford to forward. They are cumulative since
+	// the interface came up, like the byte counters, and their consumers
+	// difference them rather than asking this package for a rate — the kernel
+	// already publishes the number, and a second clock here would only be a
+	// second thing to get wrong.
+	SpeedMbps    *uint64
+	RXBytes      *uint64
+	TXBytes      *uint64
+	RXPackets    *uint64
+	TXPackets    *uint64
+	RXDropped    *uint64
+	TXDropped    *uint64
+	RXErrors     *uint64
+	TXErrors     *uint64
+	RXFIFOErrors *uint64
 }
 
 // Source is where interface facts come from.
