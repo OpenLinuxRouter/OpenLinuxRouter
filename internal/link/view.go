@@ -46,6 +46,23 @@ type interfaceView struct {
 	RXBytes   *uint64 `json:"rx_bytes,omitempty"`
 	TXBytes   *uint64 `json:"tx_bytes,omitempty"`
 
+	// The packet, drop and error counters, cumulative for the same reason the
+	// byte counters are: a page that draws a rate differences them against
+	// its own previous read. Absent means the kernel did not answer, never
+	// zero, so a source that cannot report drops is not drawn as one that
+	// reports none.
+	//
+	// Only the drops reach the printed table. Everything else here is for the
+	// API and the performance page, where there is room to say what it means;
+	// a terminal row of seven cumulative numbers is a row nobody reads.
+	RXPackets    *uint64 `json:"rx_packets,omitempty"`
+	TXPackets    *uint64 `json:"tx_packets,omitempty"`
+	RXDropped    *uint64 `json:"rx_dropped,omitempty"`
+	TXDropped    *uint64 `json:"tx_dropped,omitempty"`
+	RXErrors     *uint64 `json:"rx_errors,omitempty"`
+	TXErrors     *uint64 `json:"tx_errors,omitempty"`
+	RXFIFOErrors *uint64 `json:"rx_fifo_errors,omitempty"`
+
 	// Prefixes are every address on the interface, link-local excluded.
 	Prefixes []string `json:"prefixes,omitempty"`
 
@@ -91,6 +108,13 @@ func viewInterface(info Info, observed map[string]Interface, cfg Config) interfa
 		v.SpeedMbps = iface.SpeedMbps
 		v.RXBytes = iface.RXBytes
 		v.TXBytes = iface.TXBytes
+		v.RXPackets = iface.RXPackets
+		v.TXPackets = iface.TXPackets
+		v.RXDropped = iface.RXDropped
+		v.TXDropped = iface.TXDropped
+		v.RXErrors = iface.RXErrors
+		v.TXErrors = iface.TXErrors
+		v.RXFIFOErrors = iface.RXFIFOErrors
 	}
 	if prefix, ok := core.FirstIPv4(info.Prefixes); ok {
 		v.Address = prefix.Addr().String()

@@ -26,7 +26,14 @@ import (
 type HTTP struct {
 	World    *WorldTraffic
 	Activity *Activity
-	Latency  *LatencyMonitor
+
+	// Capacity is the measured uplink baseline, fed by the same ten-second
+	// walk that fills Activity. Nil means this build has no sampler, and its
+	// route answers 503 rather than reporting an empty window as warming
+	// history nobody happened to fill.
+	Capacity *Capacity
+
+	Latency *LatencyMonitor
 
 	Applier Applier
 
@@ -213,6 +220,12 @@ func (h HTTP) Routes() []core.Route {
 			Summary: "Show bytes counted per client and per exit, read from the kernel. " +
 				"Reports counting:false rather than failing when the counters cannot be read.",
 			Handler: h.getTraffic,
+		},
+		{
+			Method: "GET", Path: "/capacity", Tool: "show capacity",
+			Summary: "Show the highest uplink rate measured per direction: one-minute peaks for up to 30 days, " +
+				"reduced to peak and p99, with how much history the answer covers.",
+			Handler: h.getCapacity,
 		},
 		{Method: "GET", Path: "/activity", Tool: "show activity", Summary: "Show retained half-hour traffic samples for one client, or for the requested addresses, over the last 90 days.", Handler: h.getActivity},
 		{Method: "GET", Path: "/activity/series", Tool: "show activity series", Summary: "Show retained half-hour traffic summed across every client this router can name. Counted traffic, not link throughput.", Query: []core.QueryParam{{Name: "hours", Type: "integer", Summary: "How far back to sum, in hours. Defaults to 24, capped at the retention window."}}, Handler: h.getActivitySeries},
@@ -738,6 +751,24 @@ func (h HTTP) getTraffic(w http.ResponseWriter, r *http.Request) {
 	}
 
 	core.WriteJSON(w, http.StatusOK, viewTraffic(cfg, usage, true, now))
+}
+
+// getCapacity is the one read on this module that answers from retained
+// history rather than from the kernel now. The uplink is named here instead
+// of in the sampler so the ten-second walk needs no window onto `dial`; a
+// name that has changed since the last sample discards the old series rather
+// than attributing it to an interface that never carried it.
+func (h HTTP) getCapacity(w http.ResponseWriter, r *http.Request) {
+	if h.Capacity == nil {
+		core.WriteError(w, http.StatusServiceUnavailable, "Capacity unavailable")
+		return
+	}
+	if h.Applier.Uplink != nil {
+		if name, err := h.Applier.Uplink.Uplink(); err == nil {
+			h.Capacity.SetUplink(name)
+		}
+	}
+	core.WriteJSON(w, http.StatusOK, h.Capacity.View(time.Now()))
 }
 
 func (h HTTP) getActivity(w http.ResponseWriter, r *http.Request) {

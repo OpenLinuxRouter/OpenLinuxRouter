@@ -618,6 +618,10 @@ func run(args []string) error {
 	if foldErr != nil {
 		logger.Warn("could not re-key stored activity history to clients", "error", foldErr)
 	}
+	// The measured uplink baseline shares the activity sampler's ten-second
+	// walk, but not its history: a restart restarts this series on purpose,
+	// and the API reports the coverage it actually has.
+	capacity := gateway.NewCapacity()
 	places := geoip.NewCity(runtimeDB)
 	defer places.Close()
 	world := gateway.NewWorldTraffic(places)
@@ -625,6 +629,7 @@ func run(args []string) error {
 	srv.Mount(gateway.ModuleName, gateway.HTTP{
 		World:    world,
 		Activity: activity,
+		Capacity: capacity,
 		Latency:  latency,
 		Applier:  gatewayApplier,
 		Lock:     srv.ApplyLock(),
@@ -1229,7 +1234,7 @@ func run(args []string) error {
 	activityCtx, stopActivity := context.WithCancel(ctx)
 	go func() {
 		defer close(activityDone)
-		activity.Run(activityCtx, gatewayApplier)
+		activity.Run(activityCtx, gatewayApplier, capacity)
 	}()
 	defer func() {
 		stopActivity()
