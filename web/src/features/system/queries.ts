@@ -20,11 +20,11 @@ export function useAdminAccess() {
   return useQuery({ queryKey: adminAccessKey, queryFn: () => api.get<AccessView>('/api/system/access') })
 }
 
-export function useHostMetrics() {
+export function useHostMetrics(refetchInterval = 5000) {
   return useQuery({
     queryKey: ['system', 'metrics'],
     queryFn: () => api.get<HostMetrics>('/api/system/metrics'),
-    refetchInterval: 5000,
+    refetchInterval,
     retry: false,
   })
 }

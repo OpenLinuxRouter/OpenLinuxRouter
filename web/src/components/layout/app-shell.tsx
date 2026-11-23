@@ -92,7 +92,7 @@ export function AppShell() {
 
         <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-[80rem] flex-1 px-4 py-6 outline-none sm:px-6 sm:py-8 xl:px-8">
           <div className="min-w-0">
-            {landing && !section.nested && <h1 className="sr-only">{pathname === '/' ? t('Network overview') : section.label}</h1>}
+            {landing && !section.nested && !section.detail && <h1 className="sr-only">{pathname === '/' ? t('Network overview') : section.label}</h1>}
             <Outlet />
           </div>
         </main>
@@ -100,15 +100,15 @@ export function AppShell() {
         <FooterLine />
 
         <nav aria-label={t('Sections')} className="fixed inset-x-0 bottom-0 z-20 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
-          <ul className="grid grid-cols-6">
+          <ul className="grid grid-cols-7">
             {/* Objects first, then configuration, so the bar and the rail tell the
                 same story even though the table interleaves them by module. */}
             {[...network, ...configuration].map(({ to, label, icon: Icon, end }) => (
-              // Six names across a 375px phone: the one place below 12px, so the
-              // longest label still fits its cell (docs/ui-style-guide.md).
+              // Seven names across a 375px phone: the one place below 12px, so
+              // the longest label still fits its cell (docs/ui-style-guide.md).
               <li key={to} className="min-w-0">
                 <NavLink to={to} end={end} className={({ isActive }) => cn(
-                  'flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-ring',
+                  'flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-0.5 text-center text-[11px] leading-tight font-medium break-words transition-colors focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-ring',
                   (isActive || owns(to)) ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
                 )}><Icon className="size-5" aria-hidden />{label}</NavLink>
               </li>
