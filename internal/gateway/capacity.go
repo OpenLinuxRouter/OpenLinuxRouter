@@ -305,17 +305,9 @@ func capacityDirection(points int, since time.Time, values []int64) capacityDire
 	return view
 }
 
-// percentile99 is the nearest-rank percentile: with n values, the
-// ceil(0.99*n)th smallest. On a fresh series it therefore equals the peak
-// until there are enough minutes for the tail to mean anything, and it never
-// interpolates between two readings the box did not take.
-func percentile99(sorted []int64) int64 {
-	if len(sorted) == 0 {
-		return 0
-	}
-	rank := (99*len(sorted) + 99) / 100
-	if rank < 1 {
-		rank = 1
-	}
-	return sorted[rank-1]
-}
+// percentile99 is the capacity series' percentile: the nearest-rank 99th of
+// the minute peaks. On a fresh series it therefore equals the peak until there
+// are enough minutes for the tail to mean anything, and it never interpolates
+// between two readings the box did not take. The general form lives beside the
+// connection census, which asks the same question at p50 and p90.
+func percentile99(sorted []int64) int64 { return percentile(sorted, 99) }

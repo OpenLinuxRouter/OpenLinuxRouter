@@ -33,6 +33,12 @@ type HTTP struct {
 	// history nobody happened to fill.
 	Capacity *Capacity
 
+	// Connections is the sampled conntrack census behind /connections and
+	// /flows, fed by that same walk. Nil means this build has no sampler, and
+	// both routes answer 503 rather than an empty census that would read as
+	// "no client has a connection".
+	Connections *Connections
+
 	Latency *LatencyMonitor
 
 	Applier Applier
@@ -226,6 +232,25 @@ func (h HTTP) Routes() []core.Route {
 			Summary: "Show the highest uplink rate measured per direction: one-minute peaks for up to 30 days, " +
 				"reduced to peak and p99, with how much history the answer covers.",
 			Handler: h.getCapacity,
+		},
+		// The connection census, sampled on the capacity sampler's cadence and
+		// served from the last walk. Observation only: neither route reads the
+		// kernel while a request is in flight.
+		{
+			Method: "GET", Path: "/connections", Tool: "show connections",
+			Summary: "Show the connection census per client from the last ten-second sample: counts by protocol, " +
+				"half-open, and the per-connection receive-rate distribution.",
+			Handler: h.getConnections,
+		},
+		{
+			Method: "GET", Path: "/flows", Tool: "show flows",
+			Summary: "Show the busiest live connections by rate over the last ten-second sample, " +
+				"with the client each belongs to. Returns the head of the list, not a total.",
+			Query: []core.QueryParam{{
+				Name: "limit", Type: "integer",
+				Summary: "How many flows to return. Defaults to 20, capped at 200.",
+			}},
+			Handler: h.getFlows,
 		},
 		{Method: "GET", Path: "/activity", Tool: "show activity", Summary: "Show retained half-hour traffic samples for one client, or for the requested addresses, over the last 90 days.", Handler: h.getActivity},
 		{Method: "GET", Path: "/activity/series", Tool: "show activity series", Summary: "Show retained half-hour traffic summed across every client this router can name. Counted traffic, not link throughput.", Query: []core.QueryParam{{Name: "hours", Type: "integer", Summary: "How far back to sum, in hours. Defaults to 24, capped at the retention window."}}, Handler: h.getActivitySeries},
@@ -769,6 +794,45 @@ func (h HTTP) getCapacity(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	core.WriteJSON(w, http.StatusOK, h.Capacity.View(time.Now()))
+}
+
+// getConnections is the census as of the last ten-second sample. Like
+// getCapacity it answers from what the sampler retained rather than reading the
+// kernel here: a conntrack walk on the request path would put the size of the
+// table on the handler's latency and let two screens take two different
+// snapshots of one moment.
+func (h HTTP) getConnections(w http.ResponseWriter, r *http.Request) {
+	if h.Connections == nil {
+		core.WriteError(w, http.StatusServiceUnavailable, "Connections unavailable")
+		return
+	}
+	core.WriteJSON(w, http.StatusOK, h.Connections.view())
+}
+
+// getFlows is the head of that sample: the connections moving the most, and who
+// they belong to. The limit is read here rather than kept by the sampler, so
+// one sample can answer every caller without being rebuilt per request.
+func (h HTTP) getFlows(w http.ResponseWriter, r *http.Request) {
+	if h.Connections == nil {
+		core.WriteError(w, http.StatusServiceUnavailable, "Connections unavailable")
+		return
+	}
+	limit := connectionFlowLimit
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 {
+			core.WriteError(w, http.StatusBadRequest, "Invalid limit")
+			return
+		}
+		limit = parsed
+	}
+	// Above the ceiling the answer is the ceiling, the same way ?hours= on the
+	// activity series stops at the retention window: a page asking for more
+	// than the table can usefully show is not making an error.
+	if limit > connectionFlowMax {
+		limit = connectionFlowMax
+	}
+	core.WriteJSON(w, http.StatusOK, h.Connections.flows(limit))
 }
 
 func (h HTTP) getActivity(w http.ResponseWriter, r *http.Request) {

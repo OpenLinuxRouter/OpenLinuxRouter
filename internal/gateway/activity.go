@@ -69,6 +69,19 @@ type activityView struct {
 	Buckets []activityBucket `json:"buckets"`
 }
 
+// ClientJoin is what presence knows when a sample is taken: which client holds
+// each address, and what each client is called.
+//
+// One value rather than two callbacks because both halves are read from one
+// pass over the same presence sources (§7.5): a second pass would open the
+// lease file and the neighbour tables twice to answer one ten-second sample.
+// Names are keyed by canonical MAC; a client nothing can name has no entry, and
+// the connection census falls back to the MAC rather than inventing one.
+type ClientJoin struct {
+	Owners map[netip.Addr]string
+	Names  map[string]string
+}
+
 // Activity retains bounded counter differences, never raw flows.
 //
 // Rows are keyed by *client* — the canonical MAC a presence source reports — and
@@ -94,10 +107,10 @@ type Activity struct {
 	db      *runtimedb.Store
 	saved   map[int64]map[string]activityBytes
 	// owners is the address → client join applied to the next sample, and
-	// Owners is how a fresh one is obtained. A nil Owners means nobody can
+	// Clients is how a fresh one is obtained. A nil Clients means nobody can
 	// resolve addresses, and history stays address-keyed.
-	owners map[netip.Addr]string
-	Owners func(context.Context) map[netip.Addr]string
+	owners  map[netip.Addr]string
+	Clients func(context.Context) ClientJoin
 	// named lists the addresses a screen asks about without a MAC — WireGuard
 	// peers, whose page is keyed by address because a peer has no hardware
 	// address anywhere else either. Traffic nothing can name is not history:
@@ -293,10 +306,10 @@ func (a *Activity) Save() error {
 // assumption the client list already makes when it shows that address under that
 // client — and a MAC that is not reachable today is simply not folded.
 func (a *Activity) Adopt(ctx context.Context) error {
-	if a == nil || a.Owners == nil {
+	if a == nil || a.Clients == nil {
 		return nil
 	}
-	owners := a.Owners(ctx)
+	owners := a.Clients(ctx).Owners
 	if len(owners) == 0 {
 		return nil
 	}
@@ -506,21 +519,23 @@ func (a *Activity) makeRoom(current int64) bool {
 	return true
 }
 
-// Run samples traffic every ten seconds. capacity is folded from the same
-// walk — nil is legal for a caller that only wants the activity history — so
-// the measured baseline costs no second read of the kernel.
-func (a *Activity) Run(ctx context.Context, applier Applier, capacity *Capacity) {
+// Run samples traffic every ten seconds. capacity and connections are folded
+// from the same walk — nil is legal for either, for a caller that only wants
+// the activity history — so the baseline and the connection census cost no
+// second read of the kernel and no second tick.
+func (a *Activity) Run(ctx context.Context, applier Applier, capacity *Capacity, connections *Connections) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	checkpoint := time.NewTicker(time.Minute)
 	defer checkpoint.Stop()
 	for {
-		if a.Owners != nil {
+		var join ClientJoin
+		if a.Clients != nil {
 			// Read once per sample rather than once per flow: the join is one
 			// pass over the same tables the client list reads.
-			owners := a.Owners(ctx)
+			join = a.Clients(ctx)
 			a.mu.Lock()
-			a.owners = owners
+			a.owners = join.Owners
 			a.mu.Unlock()
 		}
 		if a.Names != nil {
@@ -529,16 +544,30 @@ func (a *Activity) Run(ctx context.Context, applier Applier, capacity *Capacity)
 			a.named = named
 			a.mu.Unlock()
 		}
-		cfg, err := applier.Load()
+		cfg, loadErr := applier.Load()
+		stats := loadErr == nil && cfg.StatsOrDefault()
 		var usage []Usage
-		valid := err == nil && cfg.StatsOrDefault()
+		valid := stats
 		if valid {
-			usage, err = applier.Traffic(ctx)
-			valid = err == nil
+			var trafficErr error
+			usage, trafficErr = applier.Traffic(ctx)
+			valid = trafficErr == nil
 		}
 		now := time.Now()
 		a.observe(now, usage, valid)
 		capacity.observe(now, usage, valid)
+		// The census is independent of the accounting read above — it walks
+		// conntrack, not the nft sets — so only the statistics switch gates
+		// it. A configuration that could not be read is reported as the reason
+		// no walk was taken rather than mistaken for statistics being off.
+		var skip error
+		switch {
+		case loadErr != nil:
+			skip = fmt.Errorf("reading the gateway configuration: %w", loadErr)
+		case !stats:
+			skip = errConnectionStatsOff
+		}
+		connections.sample(now, join, skip)
 		select {
 		case <-ctx.Done():
 			return
