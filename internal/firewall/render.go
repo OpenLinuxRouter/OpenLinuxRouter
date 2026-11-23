@@ -13,13 +13,13 @@ import (
 // docs/firewall.md §3, and it is short enough to read in one go:
 //
 //	input    (to this router)          forward  (through it)
-//	  established, related  accept       established, related  accept
-//	  loopback              accept       from inside           accept
-//	  from inside           accept       not toward inside     accept
-//	  icmp, icmpv6          accept       port forwards (dnat)  accept
-//	  dhcp, dhcpv6 client   accept       icmpv6 echo, errors   accept
-//	  each opening          accept       drop
-//	  drop
+//	  established, related  accept       mss clamp             (no verdict)
+//	  loopback              accept       established, related  accept
+//	  from inside           accept       from inside           accept
+//	  icmp, icmpv6          accept       not toward inside     accept
+//	  dhcp, dhcpv6 client   accept       port forwards (dnat)  accept
+//	  each opening          accept       icmp, icmpv6          accept
+//	  drop                               drop
 //
 // Each rule is partitioned by incoming source and counted without changing
 // its order or verdict. Both chains end in explicit counted drops under an
@@ -56,10 +56,18 @@ const (
 	RuleOpening
 	RuleNotTowardInside
 	RulePortForward
+	RuleForwardICMP
 	RuleForwardICMPv6
 	RuleDrop
 	RuleIPTVIGMP
 	RuleIPTVStream
+
+	// RuleMSSClamp rewrites the TCP MSS option and has no verdict of its own:
+	// it narrows what a connection advertises, then evaluation continues into
+	// the accept or drop that would have matched anyway. It is the one rule
+	// that must sit before every verdict, and the one rule that is not
+	// partitioned by traffic source.
+	RuleMSSClamp
 )
 
 // Rule is one rule, in the order it is evaluated.
@@ -75,6 +83,12 @@ type Rule struct {
 
 	// Counter is the legacy aggregate counter for RuleDrop.
 	Counter string
+
+	// Interface is the egress interface RuleMSSClamp applies to.
+	Interface string
+
+	// MSS is the value RuleMSSClamp writes into the TCP MSS option.
+	MSS int
 
 	// Line is the canonical text: the diff basis, what the UI prints, and the
 	// comment stored on the rule so reading the kernel back reproduces it.
@@ -105,10 +119,18 @@ type Desired struct {
 // empty inside list, which would render a table that drops the operator's own
 // connection; Validate refuses that before anything reaches here.
 func Render(c Config, inside []string, openings []Opening) Desired {
-	return RenderIPTV(c, inside, openings, IPTV{})
+	return RenderMSS(c, inside, openings, IPTV{}, MSSClamp{})
 }
 
 func RenderIPTV(c Config, inside []string, openings []Opening, iptv IPTV) Desired {
+	return RenderMSS(c, inside, openings, iptv, MSSClamp{})
+}
+
+// RenderMSS is Render with the path-MTU observation that decides whether MSS
+// clamping is needed. The two renderers without it exist for callers that have
+// no observation — tests, and a box whose kernel cannot tell — and render
+// exactly what those callers can be sure of.
+func RenderMSS(c Config, inside []string, openings []Opening, iptv IPTV, clamp MSSClamp) Desired {
 	d := Desired{Enabled: c.Enabled}
 	if !c.Enabled {
 		return d
@@ -165,14 +187,23 @@ func RenderIPTV(c Config, inside []string, openings []Opening, iptv IPTV) Desire
 		// What a port forward translated is let through: the forward *is* the
 		// operator's permission, so there is nothing to write twice.
 		rule(ForwardChain, RulePortForward, "port forwards accept"),
-		// Echo and errors toward IPv6 hosts, per RFC 4890. There is no NAT to
-		// hide behind on v6, and a host that cannot be pinged or told a path's
-		// MTU is broken in ways nobody diagnoses.
+		// Echo and errors toward inside hosts, per RFC 4890. There is no NAT
+		// hiding a v4 path MTU here either: without the errors, a forwarded
+		// connection that meets a smaller link waits for a message this box
+		// drops. `related` covers most of them because conntrack ties the error
+		// to the connection it belongs to, but ICMP about a flow conntrack has
+		// already forgotten — or never saw — does not survive that.
+		rule(ForwardChain, RuleForwardICMP, "icmp accept"),
 		rule(ForwardChain, RuleForwardICMPv6, "icmpv6 accept"),
 		{
 			Kind: RuleDrop, Counter: ForwardCounter,
 			Line: fmt.Sprintf("nft %s drop counter %s", ForwardChain, ForwardCounter),
 		},
+	}
+	// First, because they have no verdict: a clamp rule after any accept is
+	// dead text. See clampRules for why both directions are clamped.
+	if clamps := clampRules(clamp); len(clamps) > 0 {
+		d.Forward = append(clamps, d.Forward...)
 	}
 	if iptv.Upstream != "" {
 		for _, down := range iptv.Downstream {

@@ -100,7 +100,8 @@ func BuildPlan(c Config, b Boundary, obs Observed, via string) (Plan, Desired, e
 			return Plan{}, Desired{}, fmt.Errorf("reading IPTV: %w", err)
 		}
 	}
-	desired := RenderIPTV(c, inside, openings, iptv)
+	clamp, _ := mssClampOf(b)
+	desired := RenderMSS(c, inside, openings, iptv, clamp)
 	plan := Plan{Impact: ImpactNone, Empty: true}
 
 	if obs.Known {

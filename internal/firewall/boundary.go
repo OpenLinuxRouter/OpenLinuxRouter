@@ -29,6 +29,29 @@ type Boundary interface {
 	InterfaceOf(addr netip.Addr) (string, bool)
 }
 
+// mssClamper is the optional half of a Boundary: the MTUs around the box that
+// decide whether a TCP MSS clamp is needed.
+//
+// Optional rather than a fourth method on Boundary because it is observed
+// state, not something every implementation can answer — a test Boundary and a
+// non-Linux box have no opinion, and the zero observation renders no clamp. The
+// same shape internal/gateway uses for an optional health source.
+type mssClamper interface {
+	MSSClamp() (MSSClamp, bool)
+}
+
+// mssClampOf asks a Boundary for its observation, or reports that it has none.
+func mssClampOf(b Boundary) (MSSClamp, bool) {
+	if b == nil {
+		return MSSClamp{}, false
+	}
+	c, ok := b.(mssClamper)
+	if !ok {
+		return MSSClamp{}, false
+	}
+	return c.MSSClamp()
+}
+
 // IPTV is the selected IPv4 multicast path, empty when disabled.
 type IPTV struct {
 	Upstream   string   `json:"upstream"`
@@ -95,6 +118,10 @@ type StaticBoundary struct {
 	Addresses  map[netip.Addr]string
 	Err        error
 	Multicast  IPTV
+
+	// Clamp is the optional path-MTU observation. Nil means this Boundary
+	// cannot see the kernel, which renders no clamp.
+	Clamp *MSSClamp
 }
 
 // Inside implements Boundary.
@@ -104,6 +131,14 @@ func (b StaticBoundary) Inside() ([]string, error) { return b.Interfaces, b.Err 
 
 // Openings implements Boundary.
 func (b StaticBoundary) Openings() ([]Opening, error) { return b.Open, b.Err }
+
+// MSSClamp implements the optional observation half of Boundary.
+func (b StaticBoundary) MSSClamp() (MSSClamp, bool) {
+	if b.Clamp == nil {
+		return MSSClamp{}, false
+	}
+	return *b.Clamp, true
+}
 
 // InterfaceOf implements Boundary.
 func (b StaticBoundary) InterfaceOf(addr netip.Addr) (string, bool) {

@@ -730,9 +730,11 @@ func run(args []string) error {
 	// itself whenever a module it is built from announces a change
 	// (followFirewall), rather than through a Dependents hook on each.
 	firewallApplier := firewall.Applier{
-		Store:    store,
-		Kernel:   firewall.NewKernel(),
-		Boundary: firewallBoundary{facts: facts, store: store},
+		Store:  store,
+		Kernel: firewall.NewKernel(),
+		Boundary: firewallBoundary{
+			facts: facts, store: store, mtu: firewall.NewMTUProber(),
+		},
 	}
 	srv.Mount(firewall.ModuleName, firewall.HTTP{
 		Applier: firewallApplier,

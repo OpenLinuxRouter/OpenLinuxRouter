@@ -41,6 +41,7 @@ func writeStatusText(w io.Writer, st Status) {
 	}
 
 	fmt.Fprintf(w, "\ninside:  %s\n", orNone(strings.Join(st.Inside, ", ")))
+	fmt.Fprintf(w, "path MTU: %s\n", st.PathMTU)
 
 	fmt.Fprintln(w, "\nopen to the outside:")
 	fmt.Fprintln(w, "  port forwards (each forward is its own permission)")
@@ -51,6 +52,10 @@ func writeStatusText(w io.Writer, st Status) {
 	if st.Enabled && st.Known {
 		fmt.Fprintf(w, "\nblocked since the rules were last written: %d to this router, %d through it\n",
 			st.BlockedInput, st.BlockedForward)
+	}
+
+	for _, p := range st.Problems {
+		fmt.Fprintf(w, "\nproblem: %s\n", p.Message)
 	}
 }
 

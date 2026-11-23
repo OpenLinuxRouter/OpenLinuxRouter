@@ -115,6 +115,16 @@ type Status struct {
 	TrafficKnown   bool      `json:"traffic_known"`
 	Traffic        []Traffic `json:"traffic"`
 
+	// PathMTU is the way out as measured, with the evidence: the number, how
+	// it was found, and when. Published even when no clamp is needed, because
+	// "the path is 1500" and "the path could not be measured" are different
+	// answers and only one of them is reassuring.
+	PathMTU PathMTU `json:"path_mtu"`
+
+	// Problems are findings that are not about one stored field: a path that
+	// advertises more than it can carry and no rule clamping it, above all.
+	Problems []core.Problem `json:"problems,omitempty"`
+
 	// Problem is why a plan could not be built — today only "no networks".
 	Problem string `json:"problem,omitempty"`
 }
@@ -125,7 +135,11 @@ func (a Applier) GetStatus(ctx context.Context) (Status, error) {
 	if err != nil {
 		return Status{}, err
 	}
-	st := Status{Enabled: c.Enabled, Native: len(c.Ruleset) > 0, Inside: []string{}, Openings: []Opening{}, Traffic: []Traffic{}}
+	clamp, _ := mssClampOf(a.Boundary)
+	st := Status{Enabled: c.Enabled, Native: len(c.Ruleset) > 0, Inside: []string{}, Openings: []Opening{}, Traffic: []Traffic{}, PathMTU: clamp.PathMTU}
+	if p, ok := clampProblem(c, clamp); ok {
+		st.Problems = append(st.Problems, p)
+	}
 	if st.Native {
 		plan, _, err := a.planNative(ctx, c)
 		if err != nil {

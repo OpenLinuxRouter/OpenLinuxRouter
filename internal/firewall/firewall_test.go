@@ -50,6 +50,7 @@ func TestRuleset(t *testing.T) {
 		"nft forward from br-lan,wg0 accept",
 		"nft forward to not br-lan,wg0 accept",
 		"nft forward port forwards accept",
+		"nft forward icmp accept",
 		"nft forward icmpv6 accept",
 		"nft forward drop counter blocked_forward",
 	}

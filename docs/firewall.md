@@ -136,20 +136,23 @@ One table, `inet olr_filter`, so IPv4 and IPv6 are one policy. Two chains:
 
 ```
 input   (to this router)            forward (through it)
-  established,related  accept         established,related  accept
-  from lo              accept         from <inside>         accept
-  from <inside>        accept         to not <inside>       accept
-  icmp, icmpv6         accept         port forwards (dnat)  accept
-  dhcp, dhcpv6 client  accept         icmpv6 errors, echo   accept
-  each opening         accept         drop (counted)
-  drop (counted)
+  established,related  accept         mss clamp             (no verdict)
+  from lo              accept         established,related  accept
+  from <inside>        accept         from <inside>         accept
+  icmp, icmpv6         accept         to not <inside>       accept
+  dhcp, dhcpv6 client  accept         port forwards (dnat)  accept
+  each opening         accept         icmp, icmpv6          accept
+  drop (counted)                      drop (counted)
 ```
 
 The choices that are not obvious:
 
-- **ICMPv6 is not optional.** Neighbour discovery and router advertisements are
+- **ICMP is not optional.** Neighbour discovery and router advertisements are
   ICMPv6, and dropping "packet too big" breaks path MTU discovery in the way that
-  reads as "ping works, pages hang". The accepted types are RFC 4890's.
+  reads as "ping works, pages hang". The accepted types are RFC 4890's, and the
+  same errors are let through the forward chain in both families — an IPv4
+  "fragmentation needed" for a forwarded connection is not always `related`
+  conntrack state, and without the rule it is dropped.
 - **The forward chain only guards traffic headed into our networks** (`to not
   <inside> accept`). Forwarding between interfaces olr does not own — Docker,
   libvirt — is not this module's to judge, so a box running containers keeps
@@ -166,6 +169,53 @@ The choices that are not obvious:
   binary): delete-and-recreate in one batch, so there is never a half-built
   ruleset. Each rule carries its canonical line as its nft comment, which is
   also the diff basis for drift.
+
+### 3.1 Path MTU and MSS clamping
+
+The ruleset also clamps the TCP maximum segment size when the way out is
+narrower than the networks behind it.
+
+A client on an ordinary 1500-byte LAN advertises MSS 1460 in every SYN. When
+the uplink is PPPoE at 1492, the first full-size packet of every new connection
+is discarded by the first router on the way, and the endpoints have to wait for
+an ICMP "fragmentation needed" before they retry at 1452. That is a visible
+stall on the first packet of every connection; where the ICMP is filtered
+anywhere along the path, the connection can hang instead of retrying.
+
+The clamp is the fix, and changing the interface MTU is not: 1500 is true of
+the LAN. Lowering it would fragment or reset local traffic for a limit that
+exists only on the way out, and would claim the LAN is smaller than it is. The
+MSS option is the one place a host can be told the path's limit without changing
+the link.
+
+**Detection is not configuration.** The module looks up the route the box's own
+traffic takes, reads the kernel's cached path MTU for that destination, and
+when there is none sends one DF-set echo at the uplink's MTU. The first router
+with a smaller link answers "fragmentation needed" and the kernel caches the
+number, which the next route lookup returns. The finding is kept for a few
+minutes, so a status page or an apply is not a probe. `olr firewall status`
+reports it with its evidence — `path MTU: 1492 via ens18 (probed)` — and `link`
+lists every interface's own MTU beside it.
+
+Rules are rendered **only when a path is narrower than a trusted interface**:
+
+```
+nft forward oifname <uplink> tcp flags syn tcp option maxseg size set <path mtu - 40>
+nft forward oifname <inside> tcp flags syn tcp option maxseg size set <path mtu - 40>
+nft forward oifname olr-6in4 tcp flags syn tcp option maxseg size set <tunnel mtu - 40>
+```
+
+40 is the IPv4 and TCP header the MSS option does not include. They sit before
+every verdict rule because they carry no verdict: they rewrite the option and
+evaluation continues, so a rule placed after any `accept` would never see a SYN.
+Matching the SYN bit covers both the SYN and the SYN-ACK, on the way out and on
+the way back into each trusted interface. The 6in4 device is a second path, and
+traffic into it and back into the networks is clamped to the narrower of the
+two.
+
+Turning the firewall off, or saving a native ruleset, removes the clamp. That
+is reported as a problem against `mss_clamp` in `olr firewall status`, because
+it is the state that pays the per-connection cost described above.
 
 ## 4. Lockout
 

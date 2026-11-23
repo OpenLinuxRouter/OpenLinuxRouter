@@ -21,10 +21,14 @@ import (
 // what it needs as firewall.Boundary and imports none of the modules that
 // answer, so design.md §4.1's arrows keep pointing one way.
 
-// firewallBoundary is the firewall's window onto link, remote and ingress.
+// firewallBoundary is the firewall's window onto link, remote, ingress and dial.
 type firewallBoundary struct {
 	facts link.Facts
 	store *core.Store
+
+	// mtu detects the way out's path MTU. Nil means nothing can be said about
+	// it, which renders no clamp rather than a guess.
+	mtu *firewall.MTUProber
 }
 
 // Inside implements firewall.Boundary: every network member, and the dial-in
@@ -115,6 +119,52 @@ func (b firewallBoundary) Openings() ([]firewall.Opening, error) {
 			Protocol: firewall.SixInFour, From: tunnel.Server})
 	}
 	return out, nil
+}
+
+// MSSClamp implements the optional half of firewall.Boundary: the path MTU and
+// the MTUs of the interfaces around it, which together decide whether a clamp
+// is needed.
+//
+// The detection is cached inside the prober, so an apply or a status read costs
+// one measurement every few minutes rather than one per call. Interface MTUs
+// come through link's facts; the 6in4 tunnel's comes from the uplink that owns
+// the device, because that is the object the number is stored on.
+func (b firewallBoundary) MSSClamp() (firewall.MSSClamp, bool) {
+	if b.mtu == nil {
+		return firewall.MSSClamp{}, false
+	}
+	inside, err := b.Inside()
+	if err != nil {
+		return firewall.MSSClamp{}, false
+	}
+	all, err := b.facts.Interfaces()
+	if err != nil {
+		return firewall.MSSClamp{}, false
+	}
+
+	clamp := firewall.MSSClamp{PathMTU: b.mtu.Observe(), Inside: map[string]int{}}
+	mtus := make(map[string]int, len(all))
+	for _, info := range all {
+		if info.Present && info.MTU > 0 {
+			mtus[info.Name] = info.MTU
+		}
+	}
+	for _, name := range inside {
+		if mtu, ok := mtus[name]; ok {
+			clamp.Inside[name] = mtu
+		}
+	}
+
+	doc, err := b.store.Load()
+	if err != nil {
+		return clamp, true
+	}
+	dc, err := dial.FromDocument(doc)
+	if err == nil && dc.Uplink != nil && dc.Uplink.HasTunnel() {
+		clamp.Tunnel = dial.TunnelInterface
+		clamp.TunnelMTU = dc.Uplink.IPv6.MTUOrDefault()
+	}
+	return clamp, true
 }
 
 func (b firewallBoundary) IPTV() (firewall.IPTV, error) {

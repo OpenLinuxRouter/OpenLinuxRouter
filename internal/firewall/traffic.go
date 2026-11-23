@@ -45,6 +45,13 @@ func splitSources(rules []Rule, inside []string) []Rule {
 			}
 		case RuleLoopback:
 			sources = []TrafficSource{SourceLocal}
+		case RuleMSSClamp:
+			// No source partition and no counter: this rule has no verdict and
+			// sees both directions, so counting it as an allowed/blocked
+			// decision would be a category error. It is appended whole rather
+			// than duplicated per source.
+			out = append(out, rule)
+			continue
 		case RuleIPTVIGMP, RuleIPTVStream:
 			iface := rule.Downstream
 			if rule.Kind == RuleIPTVStream {
@@ -76,6 +83,11 @@ func trafficFor(d Desired, counts map[string]TrafficCount) ([]Traffic, bool) {
 		dest  string
 	}{{d.Input, "router"}, {d.Forward, "forwarded"}} {
 		for _, r := range chain.rules {
+			if r.Kind == RuleMSSClamp {
+				// A rewrite, not a decision: it has no counter and belongs in
+				// neither the allowed nor the blocked total.
+				continue
+			}
 			count, ok := counts[r.Line]
 			complete = complete && ok
 			category, description := semanticCategory(r)
@@ -103,6 +115,8 @@ func semanticCategory(r Rule) (string, string) {
 		return "ICMP", "Permitted IPv4 errors and ping to the router."
 	case RuleICMPv6:
 		return "ICMPv6", "Permitted IPv6 errors, ping and control messages to the router."
+	case RuleForwardICMP:
+		return "ICMP", "Permitted IPv4 errors and ping to inside clients."
 	case RuleForwardICMPv6:
 		return "ICMPv6", "Permitted IPv6 errors and ping to inside clients."
 	case RuleDHCPClient:

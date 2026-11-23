@@ -177,9 +177,14 @@ var (
 // neighbour and router discovery. v6 through it: errors and echo (§4.3).
 var (
 	icmpTypes         = []byte{3, 8, 11, 12}
+	icmpForwardTypes  = []byte{3, 8, 11, 12}
 	icmpv6InputTypes  = []byte{1, 2, 3, 4, 128, 130, 131, 132, 134, 135, 136, 143}
 	icmpv6ForwardType = []byte{1, 2, 3, 4, 128}
 )
+
+// tcpOptionMaxseg is the TCP option kind for the maximum segment size, from
+// the IANA TCP option registry. nftables spells it `tcp option maxseg`.
+const tcpOptionMaxseg = 2
 
 // ipsDstNAT is IPS_DST_NAT from linux/netfilter/nf_conntrack_common.h: the
 // connection was destination-translated, which in this box means a port
@@ -187,15 +192,21 @@ var (
 const ipsDstNAT = 1 << 5
 
 func ruleExprs(conn *nftables.Conn, table *nftables.Table, d Desired, r Rule) ([]expr.Any, error) {
-	conditions, err := sourceExprs(conn, table, d.Inside, r.Source)
-	if err != nil {
-		return nil, err
-	}
 	expressions, err := baseRuleExprs(conn, table, d, r)
 	if err != nil {
 		return nil, err
 	}
-	// Every existing rule ends with its verdict. Count only after all of its
+	if r.Kind == RuleMSSClamp {
+		// A rewrite, not a decision: it ends in the exthdr write, has no
+		// traffic source to partition, and must not be counted or given a
+		// verdict that would stop the chain.
+		return expressions, nil
+	}
+	conditions, err := sourceExprs(conn, table, d.Inside, r.Source)
+	if err != nil {
+		return nil, err
+	}
+	// Every other rule ends with its verdict. Count only after all of its
 	// conditions matched and before that terminal verdict, exactly once.
 	conditions = append(conditions, expressions[:len(expressions)-1]...)
 	conditions = append(conditions, &expr.Counter{}, expressions[len(expressions)-1])
@@ -270,6 +281,10 @@ func baseRuleExprs(conn *nftables.Conn, table *nftables.Table, d Desired, r Rule
 		return icmpExprs(conn, table, unix.NFPROTO_IPV6, unix.IPPROTO_ICMPV6,
 			nftables.TypeICMP6Type, icmpv6InputTypes)
 
+	case RuleForwardICMP:
+		return icmpExprs(conn, table, unix.NFPROTO_IPV4, unix.IPPROTO_ICMP,
+			nftables.TypeICMPType, icmpForwardTypes)
+
 	case RuleForwardICMPv6:
 		return icmpExprs(conn, table, unix.NFPROTO_IPV6, unix.IPPROTO_ICMPV6,
 			nftables.TypeICMP6Type, icmpv6ForwardType)
@@ -342,6 +357,23 @@ func baseRuleExprs(conn *nftables.Conn, table *nftables.Table, d Desired, r Rule
 			&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 1, Mask: []byte{0xf0}, Xor: []byte{0}},
 			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{0xe0}}, accept,
 		}, nil
+	case RuleMSSClamp:
+		// tcp flags syn tcp option maxseg size set <n>. The SYN bit is set on
+		// both a SYN and a SYN-ACK, so one rule clamps both directions. MSS is
+		// option kind 2 and keeps its value at offset 2, after kind and length.
+		return []expr.Any{
+			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: ifname(r.Interface)},
+			l4proto(), l4protoCmp(unix.IPPROTO_TCP),
+			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseTransportHeader, Offset: 13, Len: 1},
+			&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 1,
+				Mask: []byte{0x02}, Xor: []byte{0x00}},
+			&expr.Cmp{Op: expr.CmpOpNeq, Register: 1, Data: []byte{0x00}},
+			&expr.Immediate{Register: 1, Data: binaryutil.BigEndian.PutUint16(uint16(r.MSS))},
+			&expr.Exthdr{SourceRegister: 1, Type: tcpOptionMaxseg, Offset: 2, Len: 2,
+				Op: expr.ExthdrOpTcpopt},
+		}, nil
+
 	case RuleDrop:
 		return []expr.Any{
 			&expr.Objref{Type: unix.NFT_OBJECT_COUNTER, Name: r.Counter},
