@@ -42,6 +42,12 @@ type Info struct {
 	Up       bool
 	Prefixes []netip.Prefix
 
+	// MTU is the kernel interface's maximum transmission unit, zero when it
+	// was not read. It is here because MSS clamping has to compare the way out
+	// against the way in, and that comparison belongs to whoever reads these
+	// facts rather than to a second kernel reader.
+	MTU int
+
 	// Present reports whether the kernel currently has this interface.
 	//
 	// False means it was adopted and is not there: a typo, a USB adapter that
@@ -125,6 +131,7 @@ func Join(cfg Config, observed []Interface) []Info {
 			Adopted:  cfg.IsAdopted(iface.Name),
 			Up:       iface.Up,
 			Prefixes: iface.Prefixes,
+			MTU:      iface.MTU,
 			Present:  true,
 		}
 		if n, ok := cfg.NetworkFor(iface.Name); ok {

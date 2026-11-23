@@ -209,3 +209,22 @@ func TestPhysicalInterfaceView(t *testing.T) {
 		}
 	}
 }
+
+// The MTU is what `firewall` derives its MSS clamp from, and what an operator
+// comparing a LAN against a PPPoE uplink needs to see in one place.
+func TestViewInterfaceCarriesTheMTU(t *testing.T) {
+	observed := []Interface{{Name: "lan0", Up: true, Running: true, MTU: 1500}}
+	cfg := Config{Adopted: []string{"lan0"}}
+	v := viewInterface(find(t, Join(cfg, observed), "lan0"), observedByName(observed), cfg)
+	if v.MTU != 1500 {
+		t.Errorf("MTU = %d, want 1500", v.MTU)
+	}
+
+	// An adopted interface the kernel does not have has no MTU to report; zero
+	// is the honest answer and `omitempty` keeps it out of the API.
+	withAbsent := Config{Adopted: []string{"lan0", "nosuch0"}}
+	absent := viewInterface(find(t, Join(withAbsent, observed), "nosuch0"), observedByName(observed), withAbsent)
+	if absent.MTU != 0 {
+		t.Errorf("MTU = %d for an absent interface, want 0", absent.MTU)
+	}
+}

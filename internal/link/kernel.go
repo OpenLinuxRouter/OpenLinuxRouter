@@ -49,6 +49,12 @@ type Interface struct {
 	// HardwareAddr is the MAC, empty for interfaces that have none.
 	HardwareAddr string
 
+	// MTU is the interface's maximum transmission unit in bytes, zero when it
+	// could not be read. Published because it is the number MSS clamping is
+	// decided from: a client on a 1500-byte LAN cannot learn that the way out
+	// is smaller, so the router has to do the arithmetic for it.
+	MTU int
+
 	// Prefixes are the addresses configured on the interface, with masks.
 	//
 	// Link-local addresses are excluded: fe80::/10 and 169.254.0.0/16 are
@@ -75,16 +81,18 @@ type Source func() ([]Interface, error)
 
 // Kernel reads the interfaces this machine actually has.
 //
-// stdlib `net`, not `vishvananda/netlink`. The dependency is already in
-// design.md §8's budget and the real link module will want it for bring-up and
-// for address changes — but nothing here needs more than enumeration, and
-// reaching for it now would spend the dependency on a package that does not use
-// any of it. `net.Interfaces` speaks the same netlink underneath.
+// Enumeration is stdlib `net`, with one netlink call beside it for MTUs
+// (mtu_linux.go). `net.Interface` carries no MTU, and it is the one fact in
+// this list that cannot be derived from addresses and flags — so it is worth
+// the second call, and nothing else here needs more than enumeration.
+// `net.Interfaces` speaks the same netlink underneath.
 func Kernel() ([]Interface, error) {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return nil, fmt.Errorf("reading the kernel's interface list: %w", err)
 	}
+
+	mtus := linkMTUs()
 
 	out := make([]Interface, 0, len(ifaces))
 	for _, iface := range ifaces {
@@ -99,6 +107,7 @@ func Kernel() ([]Interface, error) {
 		if len(iface.HardwareAddr) > 0 {
 			info.HardwareAddr = iface.HardwareAddr.String()
 		}
+		info.MTU = mtus[iface.Name]
 		readInterfaceMetrics(&info)
 
 		// An interface whose addresses cannot be read still belongs on the list.

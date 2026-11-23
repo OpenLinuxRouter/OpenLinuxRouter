@@ -63,11 +63,11 @@ func writeInterfacesText(w io.Writer, resp listResponse) error {
 	}
 
 	t := table(w)
-	fmt.Fprintln(t, "INTERFACE\tOLR\tNETWORK\tSTATE\tADDRESSES")
+	fmt.Fprintln(t, "INTERFACE\tOLR\tNETWORK\tMTU\tSTATE\tADDRESSES")
 	for _, iface := range resp.Interfaces {
-		fmt.Fprintf(t, "%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(t, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			iface.Name, adoptedText(iface), dashIfEmpty(iface.Network),
-			stateText(iface), addressesText(iface))
+			mtuText(iface), stateText(iface), addressesText(iface))
 	}
 	if err := t.Flush(); err != nil {
 		return err
@@ -168,6 +168,15 @@ func stateText(iface interfaceView) string {
 	default:
 		return "up"
 	}
+}
+
+// mtuText is the interface's own MTU, not the path's. Seeing 1500 here beside a
+// path MTU of 1492 is the comparison the clamp exists for.
+func mtuText(iface interfaceView) string {
+	if iface.MTU == 0 {
+		return "-"
+	}
+	return fmt.Sprint(iface.MTU)
 }
 
 func addressesText(iface interfaceView) string {

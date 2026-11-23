@@ -32,10 +32,16 @@ type interfaceView struct {
 	Up      bool `json:"up"`
 	Running bool `json:"running"`
 
-	Loopback  bool    `json:"loopback"`
-	Physical  bool    `json:"physical"`
-	MAC       string  `json:"mac,omitempty"`
-	Index     int     `json:"index,omitempty"`
+	Loopback bool   `json:"loopback"`
+	Physical bool   `json:"physical"`
+	MAC      string `json:"mac,omitempty"`
+	Index    int    `json:"index,omitempty"`
+
+	// MTU is the kernel's maximum transmission unit, absent when the interface
+	// is not present or the kernel could not be asked. It is shown because it
+	// is the number the MSS clamp is derived from, and an operator looking at a
+	// path-MTU complaint should be able to see both halves on one screen.
+	MTU       int     `json:"mtu,omitempty"`
 	SpeedMbps *uint64 `json:"speed_mbps,omitempty"`
 	RXBytes   *uint64 `json:"rx_bytes,omitempty"`
 	TXBytes   *uint64 `json:"tx_bytes,omitempty"`
@@ -81,6 +87,7 @@ func viewInterface(info Info, observed map[string]Interface, cfg Config) interfa
 		v.Physical = iface.Physical
 		v.MAC = iface.HardwareAddr
 		v.Index = iface.Index
+		v.MTU = iface.MTU
 		v.SpeedMbps = iface.SpeedMbps
 		v.RXBytes = iface.RXBytes
 		v.TXBytes = iface.TXBytes
