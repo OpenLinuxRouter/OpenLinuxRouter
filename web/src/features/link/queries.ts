@@ -29,11 +29,11 @@ export function useLinkConfig() {
  * being plugged in. An operator standing at the box plugging things in is a
  * real way this screen gets used, and a stale list there is worse than useless.
  */
-export function useInterfaces() {
+export function useInterfaces(refetchInterval = OBSERVED_REFETCH_MS) {
   return useQuery({
     queryKey: linkKeys.interfaces,
     queryFn: () => api.get<InterfaceList>('/api/link/interfaces'),
-    refetchInterval: OBSERVED_REFETCH_MS,
+    refetchInterval,
   })
 }
 

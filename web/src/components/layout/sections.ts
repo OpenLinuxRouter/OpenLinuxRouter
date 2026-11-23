@@ -1,5 +1,5 @@
 import { t } from '@/lib/i18n'
-import { Activity, ArrowLeftRight, Share2, Shield, SlidersHorizontal, Waypoints, Wifi, Wrench } from 'lucide-react'
+import { Activity, ArrowLeftRight, Gauge, Share2, Shield, SlidersHorizontal, Waypoints, Wifi, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 /**
@@ -68,6 +68,12 @@ export interface Section {
   nested?: boolean
   /** Top-level navigation owner for a destination with a separate URL. */
   navTo?: string
+  /**
+   * A section whose own page renders a visible PageHeading. Landing pages omit
+   * the visible title because navigation names them; this one is a detail page
+   * that happens to be its section's root, so the shell must not add a second h1.
+   */
+  detail?: boolean
   groups: SettingGroup[]
 }
 
@@ -203,6 +209,18 @@ export const SECTIONS: Section[] = [
     icon: Share2,
     end: true,
     group: 'network',
+    groups: [],
+  },
+  {
+    // The sibling of the overview that answers "is it the line or the router".
+    // A section of its own rather than a second view under Overview, so the
+    // rail names the page a reader is on.
+    to: '/performance',
+    get label() { return t('Performance') },
+    icon: Gauge,
+    end: true,
+    group: 'network',
+    detail: true,
     groups: [],
   },
   {

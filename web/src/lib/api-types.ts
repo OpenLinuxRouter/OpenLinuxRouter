@@ -316,6 +316,19 @@ export interface InterfaceRow {
   rx_bytes?: number
   tx_bytes?: number
 
+  /**
+   * Kernel packet counters. Rates are derived from their differences, so a
+   * driver that does not publish one leaves the field absent — which is not a
+   * measured zero. A counter that goes backwards is a reset, not negative
+   * traffic, and the derivation drops that sample.
+   */
+  rx_packets?: number
+  tx_packets?: number
+  rx_dropped?: number
+  tx_dropped?: number
+  rx_errors?: number
+  tx_errors?: number
+
   /** Every address on the interface, link-local excluded. */
   prefixes?: string[]
 

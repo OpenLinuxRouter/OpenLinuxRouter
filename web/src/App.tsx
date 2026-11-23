@@ -32,6 +32,7 @@ import { ForwardsPage } from '@/routes/advanced/forwards'
 import { IptvPage } from '@/routes/advanced/iptv'
 import { RemotePage } from '@/routes/access/remote'
 import { OverviewPage } from '@/routes/overview'
+import { PerformancePage } from '@/routes/performance'
 import { TopologyPage } from '@/routes/topology'
 import { LatencyPage } from '@/routes/latency'
 import { QualityPage } from '@/routes/quality'
@@ -59,6 +60,7 @@ export function App() {
       <Routes>
         <Route element={<AppShell />}>
           <Route index element={<OverviewPage />} />
+          <Route path="performance" element={<PerformancePage />} />
           <Route path="latency" element={<LatencyPage />} />
           <Route path="map" element={<MapPage />} />
           <Route path="quality" element={<QualityPage />} />

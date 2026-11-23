@@ -47,7 +47,7 @@ const artworkSizes = {
   'components/layout/launcher.tsx': ['28px'],
   'features/tools/speed-dial.tsx': ['40px', '12px'],
   'features/wireless/wireless-page.tsx': ['10px'],
-  // The phone tab bar: six labels across a 375px phone.
+  // The phone tab bar: seven labels across a 375px phone.
   'components/layout/app-shell.tsx': ['11px'],
 }
 

@@ -132,7 +132,7 @@ use 16px and shadow-md. Card spacing and title size are independent variants.
 
 Desktop navigation becomes a rail in the order the
 [console direction](ui-console-direction.md) sets out — Network (Overview,
-Topology) then Configuration (Gateway, Wireless, Access, Advanced) —
+Topology, Performance) then Configuration (Gateway, Wireless, Access, Advanced) —
 until then the top bar keeps Overview, Gateway, Wireless, Access and Advanced in
 that order. Wireless shows a managed access point's radios,
 findings and associated clients; it is read-only in this increment.
@@ -683,8 +683,8 @@ automatically center it and hide the first category.
 Page navigation resets document scroll to the top before paint. Hash links retain
 their section-target behavior; query-only changes preserve the current scroll.
 
-Desktop section navigation begins at 1024px. Below that, show all five sections
-in a five-column bottom navigation; do not require horizontal scrolling. The
+Desktop section navigation begins at 1024px. Below that, show every section
+in a seven-column bottom navigation; do not require horizontal scrolling. The
 bottom bar marks the current section with `text-primary` on an icon and label
 alone: it has no room for the desktop pill, and a fill behind a 20px icon reads
 as a pressed button rather than as a location.
