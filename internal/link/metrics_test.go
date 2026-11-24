@@ -26,6 +26,7 @@ func TestEachCounterIsAbsentWhenItCannotBeRead(t *testing.T) {
 		{"rx_errors", "statistics/rx_errors", func(i Interface) *uint64 { return i.RXErrors }},
 		{"tx_errors", "statistics/tx_errors", func(i Interface) *uint64 { return i.TXErrors }},
 		{"rx_fifo_errors", "statistics/rx_fifo_errors", func(i Interface) *uint64 { return i.RXFIFOErrors }},
+		{"rx_missed_errors", "statistics/rx_missed_errors", func(i Interface) *uint64 { return i.RXMissedErrors }},
 	}
 
 	for _, tc := range fields {
@@ -94,6 +95,7 @@ func TestInterfaceMetricsMissingUnsupportedAndZero(t *testing.T) {
 	write("statistics/rx_errors", "0\n")
 	write("statistics/tx_errors", "4\n")
 	write("statistics/rx_fifo_errors", "5\n")
+	write("statistics/rx_missed_errors", "6\n")
 	readMetricsAt(&iface, dir)
 	if iface.SpeedMbps != nil || iface.RXBytes == nil || *iface.RXBytes != 0 || iface.TXBytes != nil {
 		t.Fatalf("unsupported speed, observed zero, invalid counter: %+v", iface)
@@ -114,17 +116,18 @@ func TestInterfaceMetricsMissingUnsupportedAndZero(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]float64{
-		"rx_bytes":       0,
-		"tx_bytes":       123456,
-		"rx_packets":     81,
-		"tx_packets":     82,
-		"rx_dropped":     0,
-		"tx_dropped":     3,
-		"rx_errors":      0,
-		"tx_errors":      4,
-		"rx_fifo_errors": 5,
-		"speed_mbps":     2500,
-		"index":          7,
+		"rx_bytes":         0,
+		"tx_bytes":         123456,
+		"rx_packets":       81,
+		"tx_packets":       82,
+		"rx_dropped":       0,
+		"tx_dropped":       3,
+		"rx_errors":        0,
+		"tx_errors":        4,
+		"rx_fifo_errors":   5,
+		"rx_missed_errors": 6,
+		"speed_mbps":       2500,
+		"index":            7,
 	}
 	for name, value := range want {
 		if fields[name] != value {

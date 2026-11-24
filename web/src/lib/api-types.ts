@@ -328,6 +328,12 @@ export interface InterfaceRow {
   tx_dropped?: number
   rx_errors?: number
   tx_errors?: number
+  /**
+   * Packets the device could not hand up because it ran out of buffer space.
+   * The kernel counts this apart from `rx_dropped`, which is what lets a page
+   * separate "nothing wanted the frame" from "the device had no room".
+   */
+  rx_missed_errors?: number
 
   /** Every address on the interface, link-local excluded. */
   prefixes?: string[]

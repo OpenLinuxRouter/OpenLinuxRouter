@@ -39,13 +39,27 @@ export interface PerformanceEvidence {
   uploadRate?: number
   downloadUtil?: number
   uploadUtil?: number
-  dropCounters: CounterState
+  /**
+   * Whether each RFC 2863 counter is readable at all. Three states, because
+   * "the driver does not publish this" and "the kernel answered zero" are
+   * different readings and only one of them is a clean interface.
+   */
+  discardCounter: CounterState
+  errorCounter: CounterState
+  missedCounter: CounterState
   byteCounters: CounterState
   /** The uplink name is in the interface list the daemon just returned. */
   interfaceKnown: boolean
   linkState: LinkState
   interfacesPending: boolean
-  dropsPerSecond?: number
+  /** Input discards per second (ifInDiscards), receive direction only. */
+  discardsPerSecond?: number
+  /** Input errors per second (ifInErrors). */
+  errorsPerSecond?: number
+  /** Input missed per second: the device ran out of buffer space. */
+  missedPerSecond?: number
+  /** Discards as a fraction of received frames, the denominator 1.0/s lacks. */
+  discardShare?: number
   cpuSamples: CpuSample[]
   cpuPercent?: number
   cpuCores?: number
@@ -101,7 +115,12 @@ export function usePerformance(): PerformanceEvidence {
   const uploadRate = current?.tx
   const downloadUtil = utilisation(downloadRate, downloadCapacityBps)
   const uploadUtil = utilisation(uploadRate, uploadCapacityBps)
-  const dropsPerSecond = current?.dropped
+  const discardsPerSecond = current?.discards
+  const errorsPerSecond = current?.errors
+  const missedPerSecond = current?.missed
+  const discardShare = current?.discards != null && current.packets
+    ? current.discards / current.packets
+    : undefined
 
   const capacityState: CapacityState = capacity?.state
     ?? (capacityQuery.isPending ? 'loading' : 'missing')
@@ -111,9 +130,12 @@ export function usePerformance(): PerformanceEvidence {
     : !row.present ? 'missing'
       : !row.up || !row.running ? 'down'
         : 'up'
-  const dropCounters: CounterState = !row
+  const counterState = (value: number | undefined): CounterState => !row
     ? 'unknown'
-    : row.rx_dropped === undefined || row.tx_dropped === undefined ? 'absent' : 'present'
+    : value === undefined ? 'absent' : 'present'
+  const discardCounter = counterState(row?.rx_dropped)
+  const errorCounter = counterState(row?.rx_errors)
+  const missedCounter = counterState(row?.rx_missed_errors)
   const byteCounters: CounterState = !row
     ? 'unknown'
     : row.rx_bytes === undefined || row.tx_bytes === undefined ? 'absent' : 'present'
@@ -135,12 +157,17 @@ export function usePerformance(): PerformanceEvidence {
     uploadRate,
     downloadUtil,
     uploadUtil,
-    dropCounters,
+    discardCounter,
+    errorCounter,
+    missedCounter,
     byteCounters,
     interfaceKnown: Boolean(row),
     linkState,
     interfacesPending: interfaces.isPending,
-    dropsPerSecond,
+    discardsPerSecond,
+    errorsPerSecond,
+    missedPerSecond,
+    discardShare,
     cpuSamples: cpu.samples,
     cpuPercent: cpu.current,
     cpuCores: cpu.cores,
@@ -156,7 +183,7 @@ export function usePerformance(): PerformanceEvidence {
       downloadUtil,
       uploadUtil,
       cpuPercent: cpu.current,
-      dropsPerSecond,
+      discardsPerSecond,
       throughput: downloadRate != null || uploadRate != null,
     }),
   }

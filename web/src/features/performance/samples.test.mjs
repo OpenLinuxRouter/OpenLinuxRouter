@@ -4,7 +4,8 @@ import { test } from 'node:test'
 import {
   coveredWindow,
   coverageCopy,
-  formatDropRate,
+  formatFrameRate,
+  formatShare,
   formatPercent,
   linkPoints,
   sampleCount,
@@ -37,10 +38,14 @@ test('percentages keep a decimal only where it changes the reading', () => {
 })
 
 test('a zero drop count reads as zero, while an absent one is a dash', () => {
-  assert.equal(formatDropRate(0), '0')
-  assert.equal(formatDropRate(1.25), '1.3')
-  assert.equal(formatDropRate(12.4), '12')
-  assert.equal(formatDropRate(undefined), undefined)
+  assert.equal(formatFrameRate(0), '0')
+  assert.equal(formatFrameRate(1.25), '1.3')
+  assert.equal(formatFrameRate(12.4), '12')
+  assert.equal(formatFrameRate(undefined), undefined)
+  assert.equal(formatShare(0.00058), '<0.1%')
+  assert.equal(formatShare(0.0123), '1.2%')
+  assert.equal(formatShare(0), '0%')
+  assert.equal(formatShare(undefined), undefined)
 })
 
 test('the provisional sentence names the window it actually covered', () => {

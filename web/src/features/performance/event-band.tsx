@@ -8,9 +8,9 @@ import { cn, formatRate } from '@/lib/utils'
 
 import { scanEvents, type EventSource, type PerformanceEvent } from './events'
 import { clock } from './live'
-import { formatDropRate, formatPercent } from './samples'
+import { formatFrameRate, formatPercent } from './samples'
 import type { PerformanceEvidence } from './use-performance'
-import { BUSY_CPU, DROP_BUSY } from './verdict'
+import { BUSY_CPU, DISCARD_BUSY } from './verdict'
 
 /**
  * Events on the same time axis as the two lanes.
@@ -30,7 +30,7 @@ const PLOT_INSET = 'pl-[52px] pr-[44px]'
 const ROW_TOP: Record<EventSource, string> = {
   throughput: 'top-0',
   cpu: 'top-3',
-  drops: 'top-6',
+  discards: 'top-6',
 }
 
 function MarkShape({ kind, className }: { kind: EventSource; className?: string }) {
@@ -64,10 +64,10 @@ function eventSentence(event: PerformanceEvent): string {
         from: formatPercent(event.fromPercent / 100) ?? '—',
         to: formatPercent(event.toPercent / 100) ?? '—',
       })
-    case 'drops':
-      return t('Dropped packets {from} → {to} /s', {
-        from: formatDropRate(event.fromPerSecond) ?? '—',
-        to: formatDropRate(event.toPerSecond) ?? '—',
+    case 'discards':
+      return t('Input discards {from} → {to} /s', {
+        from: formatFrameRate(event.fromPerSecond) ?? '—',
+        to: formatFrameRate(event.toPerSecond) ?? '—',
       })
   }
 }
@@ -99,14 +99,14 @@ export function EventBand({ evidence }: { evidence: PerformanceEvidence }) {
       ? t('CPU was not watched: host metrics could not be read.')
       : t('CPU was not watched: the window has too few samples.'))
   }
-  if (!scan.watched.includes('drops')) {
+  if (!scan.watched.includes('discards')) {
     missing.push(evidence.interfacesError
-      ? t('Drops were not watched: the interface counters could not be read.')
-      : evidence.dropCounters === 'absent'
-        ? t('Drops were not watched: the uplink interface does not report drop counters.')
+      ? t('Discards were not watched: the interface counters could not be read.')
+      : evidence.discardCounter === 'absent'
+        ? t('Discards were not watched: the uplink interface does not report a discard counter.')
         : evidence.uplinkName && evidence.interfaceKnown
-          ? t('Drops were not watched: the window has too few samples.')
-          : t('Drops were not watched: the uplink interface is not known.'))
+          ? t('Discards were not watched: the window has too few samples.')
+          : t('Discards were not watched: the uplink interface is not known.'))
   }
 
   const quiet = scan.events.length === 0
@@ -118,7 +118,7 @@ export function EventBand({ evidence }: { evidence: PerformanceEvidence }) {
       <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1">
         <LegendItem kind="throughput" label={t('Throughput fall')} />
         <LegendItem kind="cpu" label={t('CPU busy')} />
-        <LegendItem kind="drops" label={t('Dropped packets')} />
+        <LegendItem kind="discards" label={t('Input discards')} />
       </div>
     </div>
 
@@ -157,7 +157,7 @@ export function EventBand({ evidence }: { evidence: PerformanceEvidence }) {
         </div>}
 
     <div className="space-y-1 pt-1 text-xs leading-4 text-muted-foreground">
-      <p>{t('A mark fires when download or upload falls below half the window median after a reading at or above it, CPU reaches {cpu}%, or dropped packets reach {drops}/s.', { cpu: BUSY_CPU, drops: DROP_BUSY })}</p>
+      <p>{t('A mark fires when download or upload falls below half the window median after a reading at or above it, CPU reaches {cpu}%, or input discards reach {discards}/s.', { cpu: BUSY_CPU, discards: DISCARD_BUSY })}</p>
       {!quiet && <p>{t('A mark reports the measured change only; it names no cause.')}</p>}
       {missing.map(note => <p key={note}>{note}</p>)}
     </div>

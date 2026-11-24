@@ -2,15 +2,15 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { FALL_SHARE, median, scanEvents } from './events.ts'
-import { BUSY_CPU, DROP_BUSY } from './verdict.ts'
+import { BUSY_CPU, DISCARD_BUSY } from './verdict.ts'
 
 const MiB = 1024 * 1024
 
-const sample = (at, rx, tx = 0, dropped) => ({
+const sample = (at, rx, tx = 0, discards) => ({
   at,
   rx: rx * MiB,
   tx: tx * MiB,
-  ...(dropped == null ? {} : { dropped }),
+  ...(discards == null ? {} : { discards }),
 })
 
 const cpu = (at, pct) => ({ at, pct })
@@ -35,14 +35,14 @@ test('a throughput fall below half the window median fires with the measured pai
   assert.equal(FALL_SHARE, 0.5)
 })
 
-test('a smaller fall, a normal CPU and a few drops do not fire', () => {
+test('a smaller fall, a normal CPU and a few discards do not fire', () => {
   const history = [
     sample(0, 100, 1, 0), sample(1000, 100, 1, 2),
     sample(2000, 100, 1, 10), sample(3000, 60, 1, 20),
   ]
   const { events, watched } = scan(history, [cpu(0, 40), cpu(1000, 60)])
   assert.deepEqual(events, [])
-  assert.deepEqual(watched, ['throughput', 'cpu', 'drops'])
+  assert.deepEqual(watched, ['throughput', 'cpu', 'discards'])
 })
 
 test('a quiet window is quiet and watched, not an empty strip', () => {
@@ -51,20 +51,20 @@ test('a quiet window is quiet and watched, not an empty strip', () => {
   ]
   const { events, watched } = scan(history, [cpu(0, 4), cpu(1000, 5)])
   assert.deepEqual(events, [])
-  assert.deepEqual(watched, ['throughput', 'cpu', 'drops'])
+  assert.deepEqual(watched, ['throughput', 'cpu', 'discards'])
 })
 
-test('CPU and drops fire only when they cross their published thresholds', () => {
+test('CPU and discards fire only when they cross their published thresholds', () => {
   const history = [
-    sample(0, 40, 2, 2), sample(1000, 40, 2, DROP_BUSY - 1), sample(2000, 40, 2, DROP_BUSY + 34),
+    sample(0, 40, 2, 2), sample(1000, 40, 2, DISCARD_BUSY - 1), sample(2000, 40, 2, DISCARD_BUSY + 34),
   ]
   const { events } = scan(history, [cpu(0, BUSY_CPU - 2), cpu(1000, BUSY_CPU + 4), cpu(2000, BUSY_CPU + 10)])
   const kinds = events.map(event => event.kind)
-  assert.deepEqual(kinds, ['cpu', 'drops'])
+  assert.deepEqual(kinds, ['cpu', 'discards'])
   const cpuEvent = events.find(event => event.kind === 'cpu')
   assert.deepEqual(cpuEvent, { kind: 'cpu', at: 1000, fromPercent: BUSY_CPU - 2, toPercent: BUSY_CPU + 4 })
-  const dropEvent = events.find(event => event.kind === 'drops')
-  assert.deepEqual(dropEvent, { kind: 'drops', at: 2000, fromPerSecond: DROP_BUSY - 1, toPerSecond: DROP_BUSY + 34 })
+  const dropEvent = events.find(event => event.kind === 'discards')
+  assert.deepEqual(dropEvent, { kind: 'discards', at: 2000, fromPerSecond: DISCARD_BUSY - 1, toPerSecond: DISCARD_BUSY + 34 })
 })
 
 test('a fall needs a previously high reading in the same window', () => {

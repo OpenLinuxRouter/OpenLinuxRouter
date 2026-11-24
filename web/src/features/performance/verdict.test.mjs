@@ -9,7 +9,7 @@ const measured = (over = {}) => verdict({
   downloadUtil: 0.2,
   uploadUtil: 0.2,
   cpuPercent: 40,
-  dropsPerSecond: 0,
+  discardsPerSecond: 0,
   ...over,
 })
 
@@ -29,12 +29,12 @@ test('the busiest direction decides which capacity is being approached', () => {
 
 test('a dropping router answers the question while the line has headroom', () => {
   // One or two drops a second is a busy link, not a bottleneck.
-  assert.equal(measured({ dropsPerSecond: 2 }).code, 'link-free')
-  assert.equal(measured({ dropsPerSecond: 1200, cpuPercent: 4 }).code, 'router-dropping')
+  assert.equal(measured({ discardsPerSecond: 2 }).code, 'link-free')
+  assert.equal(measured({ discardsPerSecond: 1200, cpuPercent: 4 }).code, 'router-dropping')
   // A measured zero is not a drop.
-  assert.equal(measured({ dropsPerSecond: 0 }).code, 'link-free')
+  assert.equal(measured({ discardsPerSecond: 0 }).code, 'link-free')
   // Drops are unknown, not zero: CPU alone decides, and low CPU is idle.
-  assert.equal(measured({ dropsPerSecond: undefined, cpuPercent: 4 }).code, 'link-free-router-idle')
+  assert.equal(measured({ discardsPerSecond: undefined, cpuPercent: 4 }).code, 'link-free-router-idle')
 })
 
 test('CPU decides the router side only where the numbers support it', () => {

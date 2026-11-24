@@ -40,11 +40,15 @@ func readMetricsAt(iface *Interface, dir string) {
 	iface.TXDropped = read("statistics/tx_dropped")
 	iface.RXErrors = read("statistics/rx_errors")
 	iface.TXErrors = read("statistics/tx_errors")
-	// rx_fifo_errors is the one queue-specific counter worth reading on its
-	// own: a full receive ring is the router doing too much work, not a link
-	// losing packets in transit, and the two are fixed differently. The
-	// sibling counters (missed, overrun, frame, carrier) are either folded
-	// into rx_errors by the driver or say the same thing as one of these; a
-	// page that needs them can ask the kernel directly.
+	// Two counters beside rx_dropped say what a drop was not.
+	//
+	// rx_missed_errors is the device's buffer-exhaustion counter — the kernel
+	// documents rx_dropped as excluding exactly these, because "nothing wanted
+	// the frame" and "the device had no room for it" are different faults. A
+	// page that reports only the sum cannot say which one it is looking at.
+	//
+	// rx_fifo_errors is a receive-FIFO error: a link or driver fault, not a
+	// queue decision.
+	iface.RXMissedErrors = read("statistics/rx_missed_errors")
 	iface.RXFIFOErrors = read("statistics/rx_fifo_errors")
 }

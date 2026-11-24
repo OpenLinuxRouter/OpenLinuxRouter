@@ -46,11 +46,26 @@ export function formatPercent(ratio: number | undefined): string | undefined {
   return percent < 10 ? `${percent.toFixed(1)}%` : `${Math.round(percent)}%`
 }
 
-/** Drops per second, shown as an integer count unless it is a small fraction. */
-export function formatDropRate(value: number | undefined): string | undefined {
+/** Frames per second, an integer unless it is a small fraction. */
+export function formatFrameRate(value: number | undefined): string | undefined {
   if (value == null || !Number.isFinite(value)) return undefined
   if (value === 0) return '0'
   return value < 10 ? value.toFixed(1) : String(Math.round(value))
+}
+
+/**
+ * A share of received frames, as a percentage.
+ *
+ * Below a tenth of a percent it reads "<0.1%" rather than rounding to zero: a
+ * counter that keeps ticking after being rounded away is exactly the reading
+ * this figure exists to keep in view.
+ */
+export function formatShare(ratio: number | undefined): string | undefined {
+  if (ratio == null || !Number.isFinite(ratio) || ratio < 0) return undefined
+  const percent = ratio * 100
+  if (percent === 0) return '0%'
+  if (percent < 0.1) return '<0.1%'
+  return percent < 10 ? `${percent.toFixed(1)}%` : `${Math.round(percent)}%`
 }
 
 /** The coverage sentence for a provisional baseline. */

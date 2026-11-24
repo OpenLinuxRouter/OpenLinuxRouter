@@ -525,6 +525,16 @@ written is not something the operator can see or act on. The card's title stays
 the module's own word, because the switch it reports is the one in the Gateway
 routing card at interfaces#forwarding.
 
+Name a measurement after the standard that defines it. The performance page's
+router card reports input errors, input discards and input missed — RFC 2863's
+`ifInErrors` and `ifInDiscards`, plus the buffer-exhaustion counter the kernel
+keeps apart from drops — instead of one "dropped packets" figure. A fused drop
+count cannot say whether the device had no room or nothing wanted the frame,
+and those are fixed differently. Where a standard counter has no per-interface
+source, say so: Linux publishes no `ifInUnknownProtos`, so the card's footnote
+names the missing counter rather than folding it silently into the number beside
+it.
+
 Avoid repeating the title in a description, stating obvious click behavior or
 adding a generic next-step sentence. Use one short sentence when an explanation
 is necessary. Keep essential text readable; reducing font size is not a remedy

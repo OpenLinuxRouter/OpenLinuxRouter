@@ -1,6 +1,6 @@
 import type { RateSample } from '@/features/link/interface-traffic'
 import type { CpuSample } from './live'
-import { BUSY_CPU, DROP_BUSY } from './verdict.ts'
+import { BUSY_CPU, DISCARD_BUSY } from './verdict.ts'
 
 /**
  * Events detected in the live window, from the samples already on screen.
@@ -13,7 +13,7 @@ import { BUSY_CPU, DROP_BUSY } from './verdict.ts'
 /** A fall has to be below this share of the window's own median to count. */
 export const FALL_SHARE = 0.5
 
-export type EventSource = 'throughput' | 'cpu' | 'drops'
+export type EventSource = 'throughput' | 'cpu' | 'discards'
 
 export interface ThroughputEvent {
   kind: 'throughput'
@@ -34,14 +34,15 @@ export interface CpuEvent {
   toPercent: number
 }
 
-export interface DropsEvent {
-  kind: 'drops'
+/** A crossing of the discard threshold: the router began dropping input. */
+export interface DiscardEvent {
+  kind: 'discards'
   at: number
   fromPerSecond: number
   toPerSecond: number
 }
 
-export type PerformanceEvent = ThroughputEvent | CpuEvent | DropsEvent
+export type PerformanceEvent = ThroughputEvent | CpuEvent | DiscardEvent
 
 export interface EventInput {
   start: number
@@ -122,15 +123,15 @@ function cpuEvents(samples: readonly CpuSample[]): CpuEvent[] {
   return events
 }
 
-function dropsEvents(samples: readonly RateSample[]): DropsEvent[] {
-  const measured = samples.filter((sample): sample is RateSample & { dropped: number } =>
-    sample.dropped != null && Number.isFinite(sample.dropped))
-  const events: DropsEvent[] = []
+function discardEvents(samples: readonly RateSample[]): DiscardEvent[] {
+  const measured = samples.filter((sample): sample is RateSample & { discards: number } =>
+    sample.discards != null && Number.isFinite(sample.discards))
+  const events: DiscardEvent[] = []
   for (let index = 1; index < measured.length; index += 1) {
     const previous = measured[index - 1]
     const current = measured[index]
-    if (previous.dropped < DROP_BUSY && current.dropped >= DROP_BUSY) {
-      events.push({ kind: 'drops', at: current.at, fromPerSecond: previous.dropped, toPerSecond: current.dropped })
+    if (previous.discards < DISCARD_BUSY && current.discards >= DISCARD_BUSY) {
+      events.push({ kind: 'discards', at: current.at, fromPerSecond: previous.discards, toPerSecond: current.discards })
     }
   }
   return events
@@ -162,12 +163,12 @@ export function scanEvents(input: EventInput): EventScan {
     watched.push('cpu')
     events.push(...cpuEvents(cpu))
   }
-  if (history.filter(sample => sample.dropped != null).length >= 2) {
-    watched.push('drops')
-    events.push(...dropsEvents(history))
+  if (history.filter(sample => sample.discards != null).length >= 2) {
+    watched.push('discards')
+    events.push(...discardEvents(history))
   }
 
-  const order: Record<EventSource, number> = { throughput: 0, cpu: 1, drops: 2 }
+  const order: Record<EventSource, number> = { throughput: 0, cpu: 1, discards: 2 }
   events.sort((a, b) => a.at - b.at || order[a.kind] - order[b.kind])
   return { events, watched }
 }

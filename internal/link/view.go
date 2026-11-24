@@ -63,6 +63,13 @@ type interfaceView struct {
 	TXErrors     *uint64 `json:"tx_errors,omitempty"`
 	RXFIFOErrors *uint64 `json:"rx_fifo_errors,omitempty"`
 
+	// RXMissedErrors is the device's buffer-exhaustion counter, published
+	// apart from RXDropped so a reader can tell "nothing wanted the frame"
+	// from "the device had no room for it". RFC 2863 puts both under
+	// ifInDiscards; the kernel keeps them separate and only the split is
+	// actionable.
+	RXMissedErrors *uint64 `json:"rx_missed_errors,omitempty"`
+
 	// Prefixes are every address on the interface, link-local excluded.
 	Prefixes []string `json:"prefixes,omitempty"`
 
@@ -115,6 +122,7 @@ func viewInterface(info Info, observed map[string]Interface, cfg Config) interfa
 		v.RXErrors = iface.RXErrors
 		v.TXErrors = iface.TXErrors
 		v.RXFIFOErrors = iface.RXFIFOErrors
+		v.RXMissedErrors = iface.RXMissedErrors
 	}
 	if prefix, ok := core.FirstIPv4(info.Prefixes); ok {
 		v.Address = prefix.Addr().String()

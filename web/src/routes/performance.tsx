@@ -22,7 +22,7 @@ export function PerformancePage() {
   return <div className="space-y-6">
     <PageHeading
       title={t('Performance details')}
-      description={t('Throughput, CPU and drops on one time axis, so a dip can be lined up against the line and the router.')}
+      description={t('Throughput, CPU and input discards on one time axis, so a dip can be lined up against the line and the router.')}
     />
     <SummaryStrip evidence={evidence} />
     <EventBand evidence={evidence} />

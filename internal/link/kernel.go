@@ -84,6 +84,15 @@ type Interface struct {
 	RXErrors     *uint64
 	TXErrors     *uint64
 	RXFIFOErrors *uint64
+
+	// RXMissedErrors is the device's own buffer-exhaustion counter, kept
+	// apart from RXDropped on purpose: the kernel documents drops as
+	// "received but not processed" and missed as "the device had nowhere to
+	// put it", and those two are fixed differently. /proc/net/dev folds them
+	// together; reading sysfs keeps the split.
+	//
+	// An unsupported driver leaves it absent, which is not a measured zero.
+	RXMissedErrors *uint64
 }
 
 // Source is where interface facts come from.

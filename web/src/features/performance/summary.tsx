@@ -4,7 +4,7 @@ import { t, useLocale } from '@/lib/i18n'
 import type { Tone } from '@/lib/state'
 
 import { WINDOW_MS } from './live'
-import { formatDropRate, formatPercent } from './samples'
+import { formatFrameRate, formatPercent } from './samples'
 import type { PerformanceEvidence } from './use-performance'
 
 const WINDOW_MINUTES = Math.round(WINDOW_MS / 60_000)
@@ -28,7 +28,7 @@ export function SummaryStrip({ evidence }: { evidence: PerformanceEvidence }) {
   const best = Math.max(evidence.downloadUtil ?? -1, evidence.uploadUtil ?? -1)
   const percent = formatPercent(best >= 0 ? best : undefined)
   const cpu = formatPercent(evidence.cpuPercent == null ? undefined : evidence.cpuPercent / 100)
-  const drops = formatDropRate(evidence.dropsPerSecond)
+  const discards = formatFrameRate(evidence.discardsPerSecond)
 
   let headline: string
   let detail: string
@@ -63,8 +63,8 @@ export function SummaryStrip({ evidence }: { evidence: PerformanceEvidence }) {
       detail = t('Inferred download utilisation is {percent} of the measured download capacity.', { percent: percent ?? '—' })
       break
     case 'router-dropping':
-      headline = t('The router is dropping packets')
-      detail = t('The line has headroom, but the router drops {rate} packets per second (derived from counters).', { rate: drops ?? '—' })
+      headline = t('The router is discarding input')
+      detail = t('The line has headroom, but the router discards {rate} frames per second: received, and not processed (RFC 2863 ifInDiscards).', { rate: discards ?? '—' })
       break
     case 'link-free-router-busy':
       headline = t('Line not saturated, router busy')

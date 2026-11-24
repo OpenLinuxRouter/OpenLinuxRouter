@@ -13,17 +13,18 @@ export const BUSY_CPU = 70
 export const IDLE_CPU = 20
 
 /**
- * Drops per second that mean the router is losing packets rather than merely
- * counting a few.
+ * Input discards per second that mean the router is losing traffic it was
+ * asked to carry, rather than merely counting frames on a busy link.
  *
- * Interface drop counters tick over on any busy link — a gigabit carrying
- * torrents drops on the order of one packet a second, which is noise and not a
- * bottleneck. A verdict that fires on the first drop would call every busy
- * network broken, so the threshold sits well above that floor (roughly a
- * twentieth of a percent of a gigabit's packet rate) and is published with the
+ * RFC 2863 defines a discard as "received, and discarded although no error
+ * prevented delivery", which covers both a full device and a frame nothing
+ * wanted. Device counters therefore tick over on any link — a gigabit carrying
+ * torrents discards on the order of one frame a second, which is noise and not
+ * a bottleneck — so the threshold sits well above that floor (roughly a
+ * twentieth of a percent of a gigabit's frame rate) and is published with the
  * other judgement calls.
  */
-export const DROP_BUSY = 50
+export const DISCARD_BUSY = 50
 
 export type CapacityState = 'loading' | 'missing' | 'measured' | 'warming'
 
@@ -51,7 +52,7 @@ export interface VerdictInput {
   downloadUtil?: number
   uploadUtil?: number
   cpuPercent?: number
-  dropsPerSecond?: number
+  discardsPerSecond?: number
   /** At least one direction has a current rate. */
   throughput: boolean
 }
@@ -80,7 +81,7 @@ export function verdict(input: VerdictInput): Verdict {
 
   // A dropping router answers the question even while the line has headroom.
   // Below the busy threshold the counters are ticking, not bottlenecking.
-  if (input.dropsPerSecond != null && input.dropsPerSecond >= DROP_BUSY) {
+  if (input.discardsPerSecond != null && input.discardsPerSecond >= DISCARD_BUSY) {
     return { code: 'router-dropping', provisional }
   }
 
