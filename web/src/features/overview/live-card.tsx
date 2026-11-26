@@ -83,6 +83,7 @@ export function LiveCard({ traffic, trafficFailed, flows, sampledAt }: {
 
   return <OverviewCard bodyClassName="gap-4">
     <OverviewCardHeader
+      level="h2"
       title={t('Throughput now')}
       scope={t('last minute')}
       meta={note ?? <span className="inline-flex items-center gap-1.5"><StatusDot tone="ok" />{t('Live')}</span>} />

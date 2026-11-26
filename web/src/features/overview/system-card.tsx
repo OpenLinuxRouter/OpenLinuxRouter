@@ -29,7 +29,7 @@ export function SystemCard() {
   const memory = data ? percent(data.memory_used_bytes, data.memory_total_bytes) : undefined
   const disk = data ? percent(data.disk_used_bytes, data.disk_total_bytes) : undefined
 
-  return <OverviewCard bodyClassName="gap-4">
+  return <OverviewCard quiet bodyClassName="gap-4">
     <OverviewCardHeader title={t('System')} meta={data && t('{count} cores', { count: data.cpu_cores })} />
 
     {host.isPending

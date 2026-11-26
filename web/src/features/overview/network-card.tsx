@@ -33,7 +33,7 @@ export function NetworkCard() {
   const isp = ipv4?.isp || ipv4?.organization
   const asn = ipv4?.asn
 
-  return <OverviewCard bodyClassName="gap-4">
+  return <OverviewCard quiet bodyClassName="gap-4">
     <OverviewCardHeader title={t('Network')} meta={isp} />
 
     <div>

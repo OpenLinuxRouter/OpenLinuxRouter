@@ -60,7 +60,7 @@ export function TrafficCard() {
 
     <div className="flex min-w-0 flex-col gap-2">
       <div className="flex flex-wrap items-baseline gap-2">
-        <MetricValue value={series.isPending ? undefined : total} unit={series.isPending ? undefined : totalUnit} size="lg" />
+        <MetricValue value={series.isPending ? undefined : total} unit={series.isPending ? undefined : totalUnit} size="md" />
         <span className="text-xs text-muted-foreground">{t('down + up')}</span>
         <span className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2 rounded-xs bg-receive" />{t('Download')}</span>

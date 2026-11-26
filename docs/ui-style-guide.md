@@ -558,8 +558,26 @@ DNS and Network cards: stack the two charts below 1024px; the bottom cards are
 one column, two from 768px (Network spanning both) and three from 1280px. The
 traffic plot keeps a 240px plot height. On phones
 the heat map narrows its cells to fit the card rather than scrolling sideways.
-Do not put a device list, topology map, radar or plan-speed dialog on Overview;
-clients are a count linking to /topology.
+Overview has three tiers below the status band and live row, each under a
+16px semibold muted section heading: Trends (traffic, rhythm, latency), Router
+(System, DNS, Network) and Clients. Tiers are 32px apart and their cards 16px
+apart. Only the live row uses 30–36px figures; Trends and Router figures are
+20px, so charts lead there, and the Router cards drop their shadow
+(`OverviewCard quiet`) to sit behind the network's own readings. The status
+band is a plain panel while healthy and takes a 5% destructive or warning tint
+with a matching border only when there is a fault, so it is the loudest
+surface exactly when it has something to say.
+The Clients tier is one plain table in the overview card shell, flush to its
+edges: Device (picture, name, model or vendor, linking to the device page), IP
+address from 768px, Group from 1024px, Download, Upload from 640px, and Last
+heard — never an Online/Offline word. Header cells are 12px muted. Rows are
+busiest first, then by last heard; the order is resampled every five seconds
+and held while the pointer is over the table, while the figures stay live. Zero
+rates are muted and a missing rate is a dash. Ten rows show, and a quiet
+button under them expands the rest in place; the section heading's trailing
+link gives the device count and opens /topology. Below 768px the name column
+takes the remaining width and truncates. Do not put a topology map, radar or
+plan-speed dialog on Overview.
 The Overview Quality readout and the /quality radar link to /quality;
 retain measured scores without age-based fading or hiding.
 On /quality, network quality uses a five-axis radar with theme-aware primary

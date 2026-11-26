@@ -13,7 +13,7 @@ export function DnsCard() {
   const share = (count: number) => stats && stats.queries > 0 ? `${(count / stats.queries * 100).toFixed(1)}%` : undefined
   const answered = stats ? Math.max(0, stats.queries - stats.blocked - stats.failed) : 0
 
-  return <OverviewCard bodyClassName="gap-4">
+  return <OverviewCard quiet bodyClassName="gap-4">
     <OverviewCardHeader title={t('DNS')} to="/gateway/dns" meta={stats && t('started {ago}', { ago: formatAgo(stats.since) })} />
 
     {!enabled && dns.data
@@ -22,7 +22,7 @@ export function DnsCard() {
         ? <p className="text-xs text-muted-foreground">{dns.isPending ? t('Checking…') : dns.isError ? t('Unavailable') : t('No relay stats')}</p>
         : <div className="flex flex-1 flex-col justify-between gap-4">
             <div>
-              <MetricValue value={stats.queries.toLocaleString()} unit={t('queries')} size="lg" />
+              <MetricValue value={stats.queries.toLocaleString()} unit={t('queries')} size="md" />
               {/* One bar, three parts: the share each outcome took. Blocked
                   and failed sit at the end so a small share is still a mark. */}
               <div className="mt-3 flex h-1.5 w-full gap-px overflow-hidden rounded-full bg-muted">

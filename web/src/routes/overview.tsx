@@ -9,6 +9,8 @@ import { RELAY_UNIT, serviceOf } from '@/features/dns/units'
 import { useGatewayStatus, useGatewayTraffic } from '@/features/gateway/queries'
 import { DnsCard } from '@/features/overview/dns-card'
 import { HealthCard } from '@/features/overview/health-card'
+import { OverviewSection } from '@/features/overview/card'
+import { ClientsTable } from '@/features/overview/clients-table'
 import { KeyFigures } from '@/features/overview/key-figures'
 import { LiveCard } from '@/features/overview/live-card'
 import { NetworkCard } from '@/features/overview/network-card'
@@ -32,8 +34,10 @@ import 'flag-icons/css/flag-icons.min.css'
  * missing — how much (a stacked volume chart) and when (a seven-day rhythm) —
  * are the two charts; everything else is a readout or a small panel.
  *
- * There is no device list here on purpose. Clients are a count and a link to
- * the topology; the overview is about the network, not the inventory on it.
+ * The page is drawn in tiers so that order is also weight: the status band and
+ * the live row carry the only large figures, Trends puts its charts first, the
+ * Router tier steps back, and the page ends with the clients as one plain
+ * table — who is on the network, busiest first — linking on to the topology.
  */
 export function OverviewPage() {
   useLocale()
@@ -61,41 +65,50 @@ export function OverviewPage() {
   const idle = known && !dhcp.data!.enabled && !dns.data!.enabled && !gateway.data!.enabled && !remote.data?.enabled
   const failed = dhcp.isError || dns.isError || gateway.isError
 
+  // Two gaps, not one: 16px between the cards of a tier and 32px between tiers,
+  // which is what lets the section headings group rather than merely label.
   return (
-    <div className="space-y-4">
-      {/* Above everything, on exactly the boxes where all three are empty. It
-          renders nothing once the router is doing something. */}
-      <FirstRun />
+    <div className="space-y-8">
+      <div className="space-y-4">
+        {/* Above everything, on exactly the boxes where all three are empty. It
+            renders nothing once the router is doing something. */}
+        <FirstRun />
 
-      <StatusBand
-        faults={faults} known={known} idle={idle} failed={failed}
-        host={host.isError ? undefined : host.data}
-        addresses={addresses.data}
-        modules={[
-          { name: 'DHCP', to: '/gateway/dhcp', data: dhcp.data, failed: dhcp.isError, observed: Boolean(dhcp.data?.service) && !dhcp.data?.service_error },
-          { name: 'DNS', to: '/gateway/dns', data: dns.data, failed: dns.isError, observed: Boolean(serviceOf(dns.data, RELAY_UNIT)?.status) },
-          { get name() { return t('Gateway') }, to: '/gateway', data: gateway.data, failed: gateway.isError, observed: Boolean(gateway.data?.known) },
-        ]} />
+        <StatusBand
+          faults={faults} known={known} idle={idle} failed={failed}
+          host={host.isError ? undefined : host.data}
+          addresses={addresses.data}
+          modules={[
+            { name: 'DHCP', to: '/gateway/dhcp', data: dhcp.data, failed: dhcp.isError, observed: Boolean(dhcp.data?.service) && !dhcp.data?.service_error },
+            { name: 'DNS', to: '/gateway/dns', data: dns.data, failed: dns.isError, observed: Boolean(serviceOf(dns.data, RELAY_UNIT)?.status) },
+            { get name() { return t('Gateway') }, to: '/gateway', data: gateway.data, failed: gateway.isError, observed: Boolean(gateway.data?.known) },
+          ]} />
 
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="min-w-0 lg:col-span-8">
-          <LiveCard traffic={traffic.data} trafficFailed={traffic.isError} flows={flows} sampledAt={traffic.dataUpdatedAt} />
+        <div className="grid gap-4 lg:grid-cols-12">
+          <div className="min-w-0 lg:col-span-8">
+            <LiveCard traffic={traffic.data} trafficFailed={traffic.isError} flows={flows} sampledAt={traffic.dataUpdatedAt} />
+          </div>
+          <div className="min-w-0 lg:col-span-4"><KeyFigures /></div>
         </div>
-        <div className="min-w-0 lg:col-span-4"><KeyFigures /></div>
       </div>
 
-      <TrafficCard />
+      <OverviewSection title={t('Trends')}>
+        <TrafficCard />
+        <div className="grid gap-4 lg:grid-cols-12">
+          <div className="min-w-0 lg:col-span-6"><RhythmCard /></div>
+          <div className="min-w-0 lg:col-span-6"><HealthCard /></div>
+        </div>
+      </OverviewSection>
 
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="min-w-0 lg:col-span-6"><RhythmCard /></div>
-        <div className="min-w-0 lg:col-span-6"><HealthCard /></div>
-      </div>
+      <OverviewSection title={t('Router')}>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <SystemCard />
+          <DnsCard />
+          <div className="min-w-0 md:col-span-2 xl:col-span-1"><NetworkCard /></div>
+        </div>
+      </OverviewSection>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <SystemCard />
-        <DnsCard />
-        <div className="min-w-0 md:col-span-2 xl:col-span-1"><NetworkCard /></div>
-      </div>
+      <ClientsTable flows={flows} />
     </div>
   )
 }
@@ -154,7 +167,12 @@ function StatusBand({ faults, known, idle, failed, host, addresses, modules }: {
   const place = [addresses?.ipv4?.city || addresses?.ipv4?.region || addresses?.ipv4?.country,
     addresses?.ipv4?.isp || addresses?.ipv4?.organization].filter(Boolean).join(', ')
 
-  return <section aria-label={t('Status')} className="panel-surface p-4 sm:p-5">
+  // Quiet while there is nothing to say; tinted, and so the loudest surface on
+  // the page, only when there is.
+  const band = tone === 'fault' ? 'border-destructive/40 bg-destructive/5 dark:bg-destructive/10'
+    : tone === 'warn' ? 'border-warning/50 bg-warning/5 dark:bg-warning/10'
+      : ''
+  return <section aria-label={t('Status')} className={`panel-surface p-4 sm:p-5 ${band}`}>
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
       <div className="flex min-w-0 flex-1 items-center gap-4">
         <span aria-hidden className={`grid size-11 shrink-0 place-items-center rounded-full ${verdictTint[tone]}`}>

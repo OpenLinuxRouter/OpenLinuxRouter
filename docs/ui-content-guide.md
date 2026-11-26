@@ -76,9 +76,12 @@ hidden page title. Detail and operation pages keep their identifying titles.
   busy; a today latency chart follows the selected target probe with its now,
   p95 and max; System, DNS and Network cards carry host capacity, relay counts
   (answered, blocked, failed) and WAN/ASN/DHCP/tunnel facts. A fact appears once:
-  the client count is a key figure, so the Network card does not repeat it. Do not put a device list, topology
-  map or plan-speed dialog on Overview; clients are a count with a link to
-  /topology. Keep the "counted, not link throughput" caveat under the traffic
+  the client count is a key figure, so the Network card does not repeat it. The page ends with a
+  Clients section: one plain table of the devices that have been seen, busiest
+  first, ten rows with the rest one click away in place, each name opening its
+  device page. Section headings — Trends, Router, Clients — group the page so
+  the live readings lead and the box's own facts sit behind them. Do not put a
+  topology map or plan-speed dialog on Overview. Keep the "counted, not link throughput" caveat under the traffic
   chart. Clicking Quality or its chart links to the assessment page at /quality.
   It leads with the overall score, one display grade, the count of scored categories and
   the measured coverage, with the reference transfer's download and upload rates
