@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react'
+import { ChevronRight } from 'lucide-react'
+import { Link } from 'react-router'
 
 import { Card } from '@/components/ui/card'
+import { Heading } from '@/components/ui/heading'
 import { cn } from '@/lib/utils'
 
 /**
@@ -20,4 +23,45 @@ export function OverviewCard({ children, className, bodyClassName }: {
   return <Card className={cn('h-full gap-0 py-0', className)}>
     <div className={cn('flex min-w-0 flex-1 flex-col gap-3 p-4', bodyClassName)}>{children}</div>
   </Card>
+}
+
+/**
+ * Every overview card's first line: title, its scope in muted text, and one
+ * trailing fact. A title that leads to a page carries the row's chevron, so
+ * the cards that open something look different from the ones that do not
+ * without anyone reading an underline on hover.
+ */
+export function OverviewCardHeader({ title, scope, meta, to }: {
+  title: string
+  scope?: ReactNode
+  meta?: ReactNode
+  to?: string
+}) {
+  return <div className="flex min-h-6 flex-wrap items-center gap-x-2 gap-y-1">
+    <Heading as="h2" size="sm" className="min-w-0">
+      {to
+        ? <Link to={to} className="group/title inline-flex items-center gap-0.5 rounded-sm hover:text-primary focus-visible:outline-2 focus-visible:outline-ring">
+            {title}
+            <ChevronRight aria-hidden className="size-3.5 text-muted-foreground transition-colors group-hover/title:text-primary" />
+          </Link>
+        : title}
+    </Heading>
+    {scope && <span className="text-xs text-muted-foreground">{scope}</span>}
+    {meta && <span className="ml-auto text-xs text-muted-foreground tabular-nums">{meta}</span>}
+  </div>
+}
+
+/** A label over its value, for the small stat groups at the foot of a card. */
+export function OverviewStat({ label, value, className }: { label: ReactNode; value: ReactNode; className?: string }) {
+  return <div className={cn('min-w-0', className)}>
+    <div className="truncate text-xs leading-4 text-muted-foreground">{label}</div>
+    <div className="mt-0.5 truncate text-sm leading-5 font-medium tabular-nums">{value}</div>
+  </div>
+}
+
+/** A thin share bar; neutral, because a share is not a state. */
+export function OverviewMeter({ percent, className = 'bg-foreground/70' }: { percent?: number; className?: string }) {
+  return <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+    {percent != null && <div className={cn('h-full rounded-full', className)} style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} />}
+  </div>
 }

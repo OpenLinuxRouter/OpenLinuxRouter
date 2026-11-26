@@ -66,14 +66,17 @@ to improve density while preserving values, units and mobile interaction targets
 Section landing pages omit titles duplicated by navigation, retaining a visually
 hidden page title. Detail and operation pages keep their identifying titles.
 
-- Overview leads with a compact status line — headline, uptime and place, faults,
-  and one technical-details disclosure — then four readouts: throughput now
-  (download and upload together in one card), online clients, quality and
-  uptime. Below them, a positive stacked bar chart shows the last 24 hours by
-  clock hour, with the total, the direction legend and the peak hour; a 7×24
-  heat map shows when the week is busy; a today latency chart follows the
-  selected target probe; System, DNS and Network cards carry host capacity,
-  relay counts and WAN/DHCP/tunnel counts. Do not put a device list, topology
+- Overview leads with a status band — verdict, uptime and place, the three
+  module states as visible links rather than a disclosure, and the faults under
+  them — then throughput now (download and upload together, with the last
+  minute plotted) beside three key figures: online clients, quality and latency.
+  Uptime lives in the band, not in a readout of its own. Below them, a positive
+  stacked bar chart shows the last 24 hours by clock hour, with the total, the
+  direction legend and the peak hour; a 7×24 heat map shows when the week is
+  busy; a today latency chart follows the selected target probe with its now,
+  p95 and max; System, DNS and Network cards carry host capacity, relay counts
+  (answered, blocked, failed) and WAN/ASN/DHCP/tunnel facts. A fact appears once:
+  the client count is a key figure, so the Network card does not repeat it. Do not put a device list, topology
   map or plan-speed dialog on Overview; clients are a count with a link to
   /topology. Keep the "counted, not link throughput" caveat under the traffic
   chart. Clicking Quality or its chart links to the assessment page at /quality.

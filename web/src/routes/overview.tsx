@@ -1,7 +1,7 @@
 import { t, useLocale } from '@/lib/i18n'
 import { Link } from 'react-router'
 
-import { StatusStrip } from '@/components/layout/status-strip'
+import { CircleAlert, CircleCheck, CircleDashed, TriangleAlert } from 'lucide-react'
 import { StatusInline } from '@/components/ui/status'
 import { useDhcpStatus } from '@/features/dhcp/queries'
 import { useDnsStatus } from '@/features/dns/queries'
@@ -9,7 +9,8 @@ import { RELAY_UNIT, serviceOf } from '@/features/dns/units'
 import { useGatewayStatus, useGatewayTraffic } from '@/features/gateway/queries'
 import { DnsCard } from '@/features/overview/dns-card'
 import { HealthCard } from '@/features/overview/health-card'
-import { KpiRow } from '@/features/overview/kpi-row'
+import { KeyFigures } from '@/features/overview/key-figures'
+import { LiveCard } from '@/features/overview/live-card'
 import { NetworkCard } from '@/features/overview/network-card'
 import { RhythmCard } from '@/features/overview/rhythm-card'
 import { SystemCard } from '@/features/overview/system-card'
@@ -66,7 +67,7 @@ export function OverviewPage() {
           renders nothing once the router is doing something. */}
       <FirstRun />
 
-      <StatusBar
+      <StatusBand
         faults={faults} known={known} idle={idle} failed={failed}
         host={host.isError ? undefined : host.data}
         addresses={addresses.data}
@@ -76,19 +77,24 @@ export function OverviewPage() {
           { get name() { return t('Gateway') }, to: '/gateway', data: gateway.data, failed: gateway.isError, observed: Boolean(gateway.data?.known) },
         ]} />
 
-      <KpiRow traffic={traffic.data} trafficFailed={traffic.isError} flows={flows} />
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className="min-w-0 lg:col-span-8">
+          <LiveCard traffic={traffic.data} trafficFailed={traffic.isError} flows={flows} sampledAt={traffic.dataUpdatedAt} />
+        </div>
+        <div className="min-w-0 lg:col-span-4"><KeyFigures /></div>
+      </div>
 
       <TrafficCard />
 
       <div className="grid gap-4 lg:grid-cols-12">
-        <div className="min-w-0 lg:col-span-7"><RhythmCard /></div>
-        <div className="min-w-0 lg:col-span-5"><HealthCard /></div>
+        <div className="min-w-0 lg:col-span-6"><RhythmCard /></div>
+        <div className="min-w-0 lg:col-span-6"><HealthCard /></div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <SystemCard />
         <DnsCard />
-        <NetworkCard />
+        <div className="min-w-0 md:col-span-2 xl:col-span-1"><NetworkCard /></div>
       </div>
     </div>
   )
@@ -96,15 +102,33 @@ export function OverviewPage() {
 
 /* -------------------------------------------------------------------------- */
 
+const verdictIcon: Record<Tone, typeof CircleCheck> = {
+  ok: CircleCheck,
+  warn: TriangleAlert,
+  fault: CircleAlert,
+  off: CircleDashed,
+  unknown: CircleDashed,
+}
+
+const verdictTint: Record<Tone, string> = {
+  ok: 'bg-success/10 text-success-foreground dark:bg-success/15',
+  warn: 'bg-warning/10 text-warning-foreground dark:bg-warning/15',
+  fault: 'bg-destructive/10 text-destructive dark:bg-destructive/20',
+  off: 'bg-muted text-muted-foreground',
+  unknown: 'bg-muted text-muted-foreground',
+}
+
 /**
- * The verdict, without a card around it.
+ * The verdict, and the three modules it was drawn from.
  *
- * A dashboard's first line is still the answer to "is anything wrong"; the
- * faults stay directly under it, and the module health is one disclosure away.
- * The System and Network cards below own the host and address evidence that
- * used to live in this disclosure.
+ * A dashboard's first line is the answer to "is anything wrong", so it is the
+ * largest words on the page, with the facts that make it believable beside it:
+ * how long it has been up, where it meets the internet, and the module states,
+ * which used to wait behind a disclosure even though they are three words. A
+ * fault is listed under the verdict inside the same band, so the answer and its
+ * reasons are read as one thing.
  */
-function StatusBar({ faults, known, idle, failed, host, addresses, modules }: {
+function StatusBand({ faults, known, idle, failed, host, addresses, modules }: {
   faults: Fault[]
   known: boolean
   idle: boolean
@@ -125,23 +149,30 @@ function StatusBar({ faults, known, idle, failed, host, addresses, modules }: {
       : faults.length ? t('Needs attention')
         : idle ? t('Not set up')
           : t('All systems OK')
+  const Icon = verdictIcon[tone]
 
   const place = [addresses?.ipv4?.city || addresses?.ipv4?.region || addresses?.ipv4?.country,
     addresses?.ipv4?.isp || addresses?.ipv4?.organization].filter(Boolean).join(', ')
 
-  return <section className="border-b border-border pb-4">
-    <StatusStrip
-      density="compact"
-      tone={tone}
-      headline={headline}
-      detail={<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span>{host ? `Up ${uptime(host.uptime_seconds)}` : t('Uptime unavailable')}</span>
-        {place && <>
-          <span aria-hidden className="text-border">·</span>
-          <span className="inline-flex items-center gap-1.5"><CountryIcon code={addresses?.ipv4?.country_code} />{place}</span>
-        </>}
-      </span>}
-      details={<>
+  return <section aria-label={t('Status')} className="panel-surface p-4 sm:p-5">
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+      <div className="flex min-w-0 flex-1 items-center gap-4">
+        <span aria-hidden className={`grid size-11 shrink-0 place-items-center rounded-full ${verdictTint[tone]}`}>
+          <Icon className="size-5" strokeWidth={2} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-xl leading-7 font-semibold tracking-[-0.01em]">{headline}</p>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted-foreground">
+            <span className="tabular-nums">{host ? t('Up {time}', { time: uptime(host.uptime_seconds) }) : t('Uptime unavailable')}</span>
+            {place && <>
+              <span aria-hidden className="text-border">·</span>
+              <span className="inline-flex items-center gap-1.5"><CountryIcon code={addresses?.ipv4?.country_code} />{place}</span>
+            </>}
+          </p>
+        </div>
+      </div>
+
+      <ul className="grid grid-cols-3 gap-2 lg:flex lg:shrink-0">
         {modules.map((module) => {
           const issues = faults.filter((fault) => fault.to === module.to)
           const health = module.failed ? state('Unavailable')
@@ -150,27 +181,37 @@ function StatusBar({ faults, known, idle, failed, host, addresses, modules }: {
                 : !module.data.enabled ? state('Disabled')
                   : !module.observed ? state('Unavailable')
                     : state('OK')
-          return <div key={module.name} className="flex items-baseline justify-between gap-2">
-            <dt><Link to={module.to} className="underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{module.name}</Link></dt>
-            <dd className="text-right"><StatusInline tone={health.tone} emphasis="dense">{health.label}</StatusInline></dd>
-          </div>
+          return <li key={module.name} className="min-w-0">
+            <Link to={module.to} aria-label={`${module.name}: ${health.label}`}
+              className="flex h-full min-h-11 flex-col justify-center rounded-lg bg-muted/60 px-3 py-1.5 transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring lg:min-w-28">
+              <span className="truncate text-xs leading-4 text-muted-foreground">{module.name}</span>
+              <StatusInline tone={health.tone}>{health.label}</StatusInline>
+            </Link>
+          </li>
         })}
-      </>}>
-      {/* A fault is a verdict and a consequence, and the two read as a stack
-          rather than as one sentence glued with a middot. The measure is
-          constrained because a detail running the width of a 1216px card is
-          150 characters on a single line. */}
-      <div className="max-w-2xl space-y-3">
-        {faults.map((fault) => <div key={fault.key} className="space-y-1">
-          <div className="text-sm font-medium">
-            {fault.to
-              ? <Link to={fault.to} className="underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{fault.title}</Link>
-              : fault.title}
+      </ul>
+    </div>
+
+    {/* A fault is a verdict and a consequence, and the two read as a stack
+        rather than as one sentence glued with a middot. The measure is
+        constrained because a detail running the width of the band is 150
+        characters on a single line. */}
+    {faults.length > 0 && <ul className="mt-4 space-y-3 border-t border-border pt-4">
+      {faults.map((fault) => {
+        const FaultIcon = fault.tone === 'bad' ? CircleAlert : TriangleAlert
+        return <li key={fault.key} className="flex gap-3">
+          <FaultIcon aria-hidden className={`mt-0.5 size-4 shrink-0 ${fault.tone === 'bad' ? 'text-destructive' : 'text-warning-foreground'}`} />
+          <div className="max-w-2xl min-w-0 space-y-0.5">
+            <div className="text-sm font-medium">
+              {fault.to
+                ? <Link to={fault.to} className="underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{fault.title}</Link>
+                : fault.title}
+            </div>
+            <p className="text-meta text-muted-foreground">{fault.detail}</p>
           </div>
-          <p className="text-sm leading-5 text-muted-foreground">{fault.detail}</p>
-        </div>)}
-      </div>
-    </StatusStrip>
+        </li>
+      })}
+    </ul>}
   </section>
 }
 

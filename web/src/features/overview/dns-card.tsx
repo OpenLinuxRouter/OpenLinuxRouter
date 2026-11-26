@@ -1,7 +1,4 @@
-import { Link } from 'react-router'
-
-import { OverviewCard } from './card'
-import { Heading } from '@/components/ui/heading'
+import { OverviewCard, OverviewCardHeader, OverviewStat } from './card'
 import { MetricValue } from '@/components/ui/metric-value'
 import { useDnsStatus } from '@/features/dns/queries'
 import { t, useLocale } from '@/lib/i18n'
@@ -13,40 +10,33 @@ export function DnsCard() {
   const dns = useDnsStatus()
   const stats = dns.data?.stats
   const enabled = Boolean(dns.data?.enabled)
-  const blockedShare = stats && stats.queries > 0 ? (stats.blocked / stats.queries) * 100 : undefined
-  const answered = stats ? Math.max(0, stats.queries - stats.blocked) : 0
+  const share = (count: number) => stats && stats.queries > 0 ? `${(count / stats.queries * 100).toFixed(1)}%` : undefined
+  const answered = stats ? Math.max(0, stats.queries - stats.blocked - stats.failed) : 0
 
-  return <OverviewCard>
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-      <Heading as="h2" size="sm"><Link to="/gateway/dns" className="underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{t('DNS')}</Link></Heading>
-      {stats && <span className="ml-auto text-xs text-muted-foreground tabular-nums">{t('started {ago}', { ago: formatAgo(stats.since) })}</span>}
-    </div>
+  return <OverviewCard bodyClassName="gap-4">
+    <OverviewCardHeader title={t('DNS')} to="/gateway/dns" meta={stats && t('started {ago}', { ago: formatAgo(stats.since) })} />
 
     {!enabled && dns.data
       ? <p className="text-xs text-muted-foreground">{t('DNS is off')}</p>
       : !stats
         ? <p className="text-xs text-muted-foreground">{dns.isPending ? t('Checking…') : dns.isError ? t('Unavailable') : t('No relay stats')}</p>
-        : <>
+        : <div className="flex flex-1 flex-col justify-between gap-4">
             <div>
-              <MetricValue value={stats.queries.toLocaleString()} size="lg" />
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {t('queries')}{blockedShare == null ? '' : ` · ${t('{count} blocked', { count: stats.blocked.toLocaleString() })} · ${blockedShare.toFixed(1)}%`}
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex h-1 w-full overflow-hidden rounded-full bg-muted">
-                <div className="h-full bg-foreground/35" style={{ width: `${stats.queries > 0 ? answered / stats.queries * 100 : 0}%` }} />
-                <div className="h-full bg-foreground/70" style={{ width: `${blockedShare ?? 0}%` }} />
-              </div>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{t('Answered')}</span>
-                <span>{t('Blocked')}</span>
+              <MetricValue value={stats.queries.toLocaleString()} unit={t('queries')} size="lg" />
+              {/* One bar, three parts: the share each outcome took. Blocked
+                  and failed sit at the end so a small share is still a mark. */}
+              <div className="mt-3 flex h-1.5 w-full gap-px overflow-hidden rounded-full bg-muted">
+                <div className="h-full bg-foreground/45" style={{ width: `${stats.queries > 0 ? answered / stats.queries * 100 : 0}%` }} />
+                {stats.blocked > 0 && <div className="h-full min-w-0.5 bg-foreground/75" style={{ width: share(stats.blocked) }} />}
+                {stats.failed > 0 && <div className="h-full min-w-0.5 bg-foreground" style={{ width: share(stats.failed) }} />}
               </div>
             </div>
-            <p className="mt-auto text-xs leading-4 text-muted-foreground">
-              {stats.failed > 0 ? t('{count} failed', { count: stats.failed.toLocaleString() }) : t('No failed lookups')}
-              {stats.dropped > 0 ? ` · ${t('{count} dropped', { count: stats.dropped.toLocaleString() })}` : ''}
-            </p>
-          </>}
+            <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/50 px-3 py-2">
+              <OverviewStat label={t('Answered')} value={answered.toLocaleString()} />
+              <OverviewStat label={t('Blocked')} value={stats.blocked.toLocaleString()} />
+              <OverviewStat label={t('Failed')} value={stats.failed.toLocaleString()} />
+            </div>
+            {stats.dropped > 0 && <p className="-mt-2 text-xs leading-4 text-muted-foreground">{t('{count} dropped', { count: stats.dropped.toLocaleString() })}</p>}
+          </div>}
   </OverviewCard>
 }

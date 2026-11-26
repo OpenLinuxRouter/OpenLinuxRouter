@@ -1,8 +1,7 @@
 import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts'
 
-import { OverviewCard } from './card'
+import { OverviewCard, OverviewCardHeader } from './card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
-import { Heading } from '@/components/ui/heading'
 import { MetricValue } from '@/components/ui/metric-value'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useActivitySeries } from '@/features/gateway/queries'
@@ -56,21 +55,16 @@ export function TrafficCard() {
   } satisfies ChartConfig
 
   return <OverviewCard>
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-      <Heading as="h2" size="sm">{t('Traffic')}</Heading>
-      <span className="text-xs text-muted-foreground">{t('last {hours} hours', { hours: 24 })}</span>
-      {peak && <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-        {t('peak {value} at {time}', { value: formatBytes(peakBytes), time: peak.label })}
-      </span>}
-    </div>
+    <OverviewCardHeader title={t('Traffic')} scope={t('last {hours} hours', { hours: 24 })}
+      meta={peak && t('peak {value} at {time}', { value: formatBytes(peakBytes), time: peak.label })} />
 
     <div className="flex min-w-0 flex-col gap-2">
       <div className="flex flex-wrap items-baseline gap-2">
         <MetricValue value={series.isPending ? undefined : total} unit={series.isPending ? undefined : totalUnit} size="lg" />
         <span className="text-xs text-muted-foreground">{t('down + up')}</span>
         <span className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2 rounded-[2px] bg-receive" />{t('Download')}</span>
-          <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2 rounded-[2px] bg-transmit" />{t('Upload')}</span>
+          <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2 rounded-xs bg-receive" />{t('Download')}</span>
+          <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2 rounded-xs bg-transmit" />{t('Upload')}</span>
           <span className="text-muted-foreground/70">{t('GiB per hour')}</span>
         </span>
       </div>

@@ -1,10 +1,8 @@
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { Link } from 'react-router'
 
-import { OverviewCard } from './card'
+import { OverviewCard, OverviewCardHeader, OverviewStat } from './card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
-import { Heading } from '@/components/ui/heading'
-import { MetricValue } from '@/components/ui/metric-value'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useGatewayLatency } from '@/features/gateway/queries'
 import { axisScale, formatTick } from '@/lib/chart-ticks'
@@ -48,29 +46,30 @@ export function HealthCard() {
   const measuring = latency.data?.state === 'measuring'
 
   const config = {
-    ms: { label: t('Latency'), color: 'var(--foreground)' },
+    ms: { label: t('Latency'), color: 'var(--primary)' },
   } satisfies ChartConfig
 
+  const fmt = (value?: number | null) => value == null ? '—' : `${Math.round(value)} ms`
+
   return <OverviewCard>
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-      <Heading as="h2" size="sm"><Link to="/latency" className="underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{t('Internet health')}</Link></Heading>
-      <span className="text-xs text-muted-foreground">{t('today')}{target ? ` · ${target.name}` : ''}</span>
-      <span className="ml-auto text-xs text-muted-foreground tabular-nums">{latency.data?.state === 'unreachable' ? t('No response') : measuring ? t('Measuring…') : current == null ? t('Unavailable') : `${Math.round(current)} ms`}</span>
+    <OverviewCardHeader title={t('Internet health')} to="/latency"
+      scope={`${t('today')}${target ? ` · ${target.name}` : ''}`}
+      meta={t('{count} hours measured', { count: today?.samples ?? 0 })} />
+
+    <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/50 px-3 py-2">
+      <OverviewStat label={t('Now')} value={latency.data?.state === 'unreachable' ? t('No response') : measuring ? '…' : current == null ? '—' : current < 1 ? '<1 ms' : fmt(current)} />
+      <OverviewStat label={t('p95')} value={fmt(today?.p95)} />
+      <OverviewStat label={t('Max')} value={fmt(today?.max)} />
     </div>
 
-    <div className="flex min-w-0 flex-col gap-2">
-      <div className="flex flex-wrap items-baseline gap-2">
-        <MetricValue value={current == null ? undefined : Math.round(current)} unit={current == null ? undefined : 'ms'} size="lg" />
-        <span className="text-xs text-muted-foreground">{t('DNS lookup')} {latency.data?.dns_milliseconds == null ? '—' : `${Math.round(latency.data.dns_milliseconds)} ms`}</span>
-      </div>
-
+    <div className="flex min-w-0 flex-1 flex-col gap-2">
       {latency.isPending
-        ? <Skeleton className="h-[132px] w-full" />
+        ? <Skeleton className="h-[140px] w-full" />
         : !today || today.samples === 0
-          ? <div className="grid h-[132px] place-items-center rounded-lg border border-dashed border-border text-xs text-muted-foreground">
+          ? <div className="grid h-[140px] place-items-center rounded-lg border border-dashed border-border text-xs text-muted-foreground">
               {latency.isError ? t('Could not read measurements') : t('No measurements today')}
             </div>
-          : <ChartContainer config={config} className="h-[132px] w-full">
+          : <ChartContainer config={config} className="h-[140px] w-full">
               <AreaChart data={today.points} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="label" ticks={['00:00', '06:00', '12:00', '18:00', '23:00']} interval={0} tick={<ClockTick count={5} />} tickLine={false} axisLine={false} tickMargin={8} />
@@ -79,19 +78,14 @@ export function HealthCard() {
                   formatter={(value) => `${Math.round(Number(value))} ms`}
                   labelFormatter={(_, payload) => (payload?.[0]?.payload as { label?: string } | undefined)?.label}
                 />} />
-                <Area type="linear" dataKey="ms" stroke="var(--color-ms)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" fill="var(--color-ms)" fillOpacity={0.08} dot={false} connectNulls={false} isAnimationActive={false} />
+                <Area type="linear" dataKey="ms" stroke="var(--color-ms)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" fill="var(--color-ms)" fillOpacity={0.1} dot={false} connectNulls={false} isAnimationActive={false} />
               </AreaChart>
             </ChartContainer>}
 
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
-        <span>{t('p95')} <span className="tabular-nums text-foreground">{today?.p95 == null ? '—' : `${Math.round(today.p95)} ms`}</span></span>
-        <span>{t('Max')} <span className="tabular-nums text-foreground">{today?.max == null ? '—' : `${Math.round(today.max)} ms`}</span></span>
-        <span className="ml-auto">{t('{count} hours measured', { count: today?.samples ?? 0 })}</span>
-      </div>
-      {pinned.length > 0 && <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
-        {pinned.map(site => <Link key={site.name} to="/latency" className="inline-flex items-center gap-1.5 underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring">
+      {pinned.length > 0 && <div className="mt-auto flex flex-wrap gap-1.5 border-t border-border pt-3">
+        {pinned.map(site => <Link key={site.name} to="/latency" className="inline-flex h-7 items-center gap-1.5 rounded-md bg-muted/60 px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
           {site.name}
-          <span className="tabular-nums text-foreground">{site.milliseconds == null ? '—' : `${Math.round(site.milliseconds)} ms`}</span>
+          <span className="font-medium tabular-nums text-foreground">{fmt(site.milliseconds)}</span>
         </Link>)}
       </div>}
     </div>

@@ -1,5 +1,4 @@
-import { OverviewCard } from './card'
-import { Heading } from '@/components/ui/heading'
+import { OverviewCard, OverviewCardHeader } from './card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useActivitySeries } from '@/features/gateway/queries'
 import { t, useLocale } from '@/lib/i18n'
@@ -31,11 +30,8 @@ export function RhythmCard() {
   const label = t('Traffic rhythm for the last {days} days, busiest at {hour}:00', { days: 7, hour: rhythm.peakHour })
 
   return <OverviewCard>
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-      <Heading as="h2" size="sm">{t('Traffic rhythm')}</Heading>
-      <span className="text-xs text-muted-foreground">{t('last {days} days', { days: 7 })}</span>
-      <span className="ml-auto text-xs text-muted-foreground tabular-nums">{t('peak {time}', { time: `${String(rhythm.peakHour).padStart(2, '0')}:00` })}</span>
-    </div>
+    <OverviewCardHeader title={t('Traffic rhythm')} scope={t('last {days} days', { days: 7 })}
+      meta={t('peak {time}', { time: `${String(rhythm.peakHour).padStart(2, '0')}:00` })} />
 
     <div className="flex min-w-0 flex-col gap-2">
       {series.isPending
@@ -45,14 +41,14 @@ export function RhythmCard() {
               {series.isError ? t('The traffic history could not be read.') : t('Nothing counted yet')}
             </div>
           : <div className="overflow-x-auto pb-1">
-              <div className="min-w-0 sm:min-w-[560px]" role="img" aria-label={label}>
+              <div className="min-w-0 sm:min-w-[560px] lg:min-w-0" role="img" aria-label={label}>
                 <div className="grid gap-[3px]" style={{ gridTemplateColumns: '2rem repeat(24, minmax(0, 1fr))' }}>
                   <span />
                   {Array.from({ length: 24 }, (_, hour) => <span key={hour} className="text-xs leading-4 text-muted-foreground tabular-nums">
                     {[0, 6, 12, 18].includes(hour) ? String(hour).padStart(2, '0') : ''}
                   </span>)}
                   {rhythm.days.map((day, dayIndex) => [
-                    <span key={`${day.key}-label`} className="text-xs leading-[18px] text-muted-foreground">{weekday(day.date)}</span>,
+                    <span key={`${day.key}-label`} className="text-xs leading-[18px] text-muted-foreground lg:leading-[22px]">{weekday(day.date)}</span>,
                     ...day.hours.map((value, hour) => {
                       const future = value == null
                       const now = dayIndex === rhythm.nowDay && hour === rhythm.nowHour
@@ -65,7 +61,7 @@ export function RhythmCard() {
                         key={`${day.key}-${hour}`}
                         title={`${weekday(day.date)} ${String(hour).padStart(2, '0')}:00 · ${future ? t('Not yet') : formatBytes(value * GIB)}`}
                         aria-hidden
-                        className={`h-[18px] rounded-[3px] ${future ? 'border border-dashed border-border/70' : ''} ${now ? 'ring-1 ring-foreground/40 ring-offset-1 ring-offset-card' : ''}`}
+                        className={`h-[18px] rounded-[3px] lg:h-[22px] ${future ? 'border border-dashed border-border/70' : ''} ${now ? 'ring-1 ring-foreground/40 ring-offset-1 ring-offset-card' : ''}`}
                         style={backgroundColor ? { backgroundColor } : undefined}
                       />
                     }),

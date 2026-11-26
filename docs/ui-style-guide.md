@@ -261,11 +261,15 @@ larger enclosing surfaces. Avoid arbitrary one-off radii.
 Overview cards use one card shell with 16px padding on every side, at every
 breakpoint, so readouts, charts and status lists share the same inner edge; do
 not mix that shell with the Card primitive's vertical-only spacing or add a
-second horizontal gutter. A readout is one label, one figure, one qualifier,
-with a meter only where the figure is a share. The 24-hour traffic plot is full
-width with a 240px plot; the rhythm heat map and latency plot share a row above
-1024px and stack below. On phones the heat map narrows its cells
-rather than scrolling sideways. Pinned latency sites are read-only chips in the
+second horizontal gutter. Every card opens with the shared `OverviewCardHeader`:
+a 14px semibold title, its scope in muted 12px text and one trailing fact at the
+right edge. A title that opens a page carries a 14px chevron after it instead of
+a hover-only underline. A readout is one label, one figure, one qualifier, with
+a meter only where the figure is a share; small stat groups sit in one muted
+inset (`OverviewStat`), not in nested cards. The 24-hour traffic plot is full
+width with a 240px plot; the rhythm heat map and latency plot share a row in
+equal halves above 1024px and stack below. On phones the heat map narrows its
+cells rather than scrolling sideways. Pinned latency sites are read-only chips in the
 health card; /latency owns pinning, probing and target selection.
 
 The /latency page is a test view, not an editor. Show all sites in one list
@@ -539,12 +543,20 @@ and a relevant next action where one exists.
 
 ## Responsive behavior and motion
 
-Overview leads with a compact status line, then four readouts — throughput now
-with both directions in one card, online clients, quality and uptime — a
-full-width 24-hour stacked traffic chart, a 7×24 rhythm heat map beside a today
-latency chart, and System, DNS and Network cards. Use two readout columns on
-phones and four from 1280px; stack the two charts below 1024px and the three
-bottom cards: two from 768px and three from 1280px. The traffic plot keeps a 240px plot height. On phones
+Overview leads with a status band: one panel holding a 44px tinted verdict
+icon, the verdict at 20px semibold, uptime and the public-network place under
+it, and the DHCP, DNS and Gateway states as three always-visible links at the
+right (a three-column row on phones); faults list inside the same band below a
+divider. Then the live row: throughput now — both directions as 36px figures
+over a 120px plot of the last minute's one-second samples, kept in the page and
+filling from the right, with flat 10% fills and no axis labels — beside one
+key-figures card of hairline-divided Clients, Quality and Latency links, each
+leading to its page. Below 1024px the live card spans the width and the key
+figures become a three-column strip under it. Then a full-width 24-hour stacked
+traffic chart, a 7×24 rhythm heat map beside a today latency chart, and System,
+DNS and Network cards: stack the two charts below 1024px; the bottom cards are
+one column, two from 768px (Network spanning both) and three from 1280px. The
+traffic plot keeps a 240px plot height. On phones
 the heat map narrows its cells to fit the card rather than scrolling sideways.
 Do not put a device list, topology map, radar or plan-speed dialog on Overview;
 clients are a count linking to /topology.
