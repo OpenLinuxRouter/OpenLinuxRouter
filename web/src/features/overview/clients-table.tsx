@@ -10,8 +10,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DeviceIcon } from '@/features/clients/client-icon'
 import { lastHeardLabel, lastHeardTitle } from '@/features/clients/last-heard'
 import { useClientList } from '@/features/clients/queries'
+import { useIngressConfig, useIngressStatus } from '@/features/ingress/queries'
+import { ServiceIcon, serviceIconVersion } from '@/features/topology/nodes'
+import { servicesOf } from '@/features/topology/services'
 import type { TrafficView } from '@/features/topology/traffic'
 import type { ClientRow } from '@/lib/api-types'
+import type { Service } from '@/lib/config-types'
 import { t, useLocale } from '@/lib/i18n'
 import { formatRate } from '@/lib/utils'
 
@@ -20,6 +24,31 @@ const FIRST = 10
 
 /** How often the busiest-first order is allowed to change. */
 const RERANK_MS = 5000
+
+/**
+ * Every service a device is published as, each a tile that opens it.
+ *
+ * All of them, not the first few: this column is the one place on the overview
+ * that answers "what runs where", and a "+3" would make it the place that does
+ * not. The tiles wrap when a host carries many. No add action — publishing a
+ * service is the device page's job (features/ingress/client-services.tsx).
+ */
+function Services({ services, domain, domainKnown }: { services: Service[]; domain?: string; domainKnown: boolean }) {
+  if (!services.length) return <span className="text-muted-foreground">—</span>
+  return <span className="inline-flex min-w-20 max-w-56 flex-wrap justify-end gap-1 align-middle">
+    {services.map(service => {
+      const label = domain ? `${service.name}.${domain}${service.link_path ?? ''}` : service.name
+      // No version until the published suffix is known; see ServiceLinks.
+      const version = domainKnown ? serviceIconVersion(service, domain) : undefined
+      const tile = <ServiceIcon key={`${service.name}:${version ?? ''}`} name={service.name} version={version} choice={service.icon} />
+      const className = 'flex size-6 shrink-0 items-center justify-center rounded-md bg-muted transition-colors'
+      return domain
+        ? <a key={service.name} href={`https://${label}`} target="_blank" rel="noopener noreferrer" title={label} aria-label={`Open ${label}`}
+            className={`${className} hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring`}>{tile}</a>
+        : <span key={service.name} title={service.name} className={className}>{tile}</span>
+    })}
+  </span>
+}
 
 function seenAt(device: ClientRow) {
   return device.last_seen ? Date.parse(device.last_seen) : 0
@@ -38,6 +67,9 @@ function seenAt(device: ClientRow) {
 export function ClientsTable({ flows }: { flows: TrafficView }) {
   useLocale()
   const clients = useClientList()
+  const ingress = useIngressConfig()
+  const status = useIngressStatus()
+  const domain = status.data?.domain
   const [expanded, setExpanded] = useState(false)
 
   const rate = (device: ClientRow) => {
@@ -99,7 +131,8 @@ export function ClientsTable({ flows }: { flows: TrafficView }) {
                       <TableHead className="hidden lg:table-cell">{t('Group')}</TableHead>
                       <TableHead className="text-right">↓ {t('Download')}</TableHead>
                       <TableHead className="hidden text-right sm:table-cell">↑ {t('Upload')}</TableHead>
-                      <TableHead className="pr-4 text-right">{t('Last heard')}</TableHead>
+                      <TableHead className="hidden text-right sm:table-cell">{t('Last heard')}</TableHead>
+                      <TableHead className="text-right">{t('Services')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -107,17 +140,18 @@ export function ClientsTable({ flows }: { flows: TrafficView }) {
                       <TableCell className="w-full max-w-0 pl-4 md:w-auto md:max-w-none">
                         <Link to={`/clients/${encodeURIComponent(device.mac)}`} className="group flex min-w-0 items-center gap-2.5 focus-visible:outline-2 focus-visible:outline-ring">
                           <DeviceIcon icon={device.icon} category={device.category} vendor={device.vendor} vendorKey={device.vendor_key} size="sm" />
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium group-hover:text-primary">{device.name || device.mac}</span>
-                            {(device.model || device.vendor) && <span className="block truncate text-xs text-muted-foreground">{device.model || device.vendor}</span>}
-                          </span>
+                          <span className="min-w-0 truncate font-medium group-hover:text-primary">{device.name || device.mac}</span>
                         </Link>
                       </TableCell>
                       <TableCell className="hidden font-mono text-meta md:table-cell">{device.ips?.[0] ?? '—'}</TableCell>
                       <TableCell className="hidden text-muted-foreground lg:table-cell">{device.group ?? '—'}</TableCell>
                       <TableCell className="text-right tabular-nums">{figure(rate?.down)}</TableCell>
                       <TableCell className="hidden text-right tabular-nums sm:table-cell">{figure(rate?.up)}</TableCell>
-                      <TableCell className="pr-4 text-right text-muted-foreground tabular-nums" title={lastHeardTitle(device)}>{lastHeardLabel(device)}</TableCell>
+                      <TableCell className="hidden text-right text-muted-foreground tabular-nums sm:table-cell" title={lastHeardTitle(device)}>{lastHeardLabel(device)}</TableCell>
+                      <TableCell className="text-right whitespace-normal">
+                        <Services services={servicesOf(ingress.data?.services, { mac: device.mac, name: device.name, addresses: device.ips })}
+                          domain={domain} domainKnown={!status.isPending} />
+                      </TableCell>
                     </TableRow>)}
                   </TableBody>
                 </Table>

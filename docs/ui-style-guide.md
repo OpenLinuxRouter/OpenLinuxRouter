@@ -568,9 +568,13 @@ band is a plain panel while healthy and takes a 5% destructive or warning tint
 with a matching border only when there is a fault, so it is the loudest
 surface exactly when it has something to say.
 The Clients tier is one plain table in the overview card shell, flush to its
-edges: Device (picture, name, model or vendor, linking to the device page), IP
-address from 768px, Group from 1024px, Download, Upload from 640px, and Last
-heard — never an Online/Offline word. Header cells are 12px muted. Rows are
+edges: Device (picture and name on one line, linking to the device page; no
+vendor or model), IP address from 768px, Group from 1024px, Download, Upload
+and Last heard from 640px — never an Online/Offline word — and Services as the
+rightmost column at every width. Services draws every service the device is
+published as, uncapped, as 24px tiles that open the service in a new tab; the
+tiles wrap within at least three and at most eight tiles' width, a device with
+none shows a dash, and there is no add action. Header cells are 12px muted. Rows are
 busiest first, then by last heard; the order is resampled every five seconds
 and held while the pointer is over the table, while the figures stay live. Zero
 rates are muted and a missing rate is a dash. Ten rows show, and a quiet
