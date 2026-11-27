@@ -26,12 +26,12 @@ const FIRST = 10
 const RERANK_MS = 5000
 
 /**
- * Every service a device is published as, each a tile that opens it.
+ * Every service a client is published as, each a tile that opens it.
  *
  * All of them, not the first few: this column is the one place on the overview
  * that answers "what runs where", and a "+3" would make it the place that does
  * not. The tiles wrap when a host carries many. No add action — publishing a
- * service is the device page's job (features/ingress/client-services.tsx).
+ * service is the client page's job (features/ingress/client-services.tsx).
  */
 function Services({ services, domain, domainKnown }: { services: Service[]; domain?: string; domainKnown: boolean }) {
   if (!services.length) return <span className="text-muted-foreground">—</span>
@@ -55,13 +55,13 @@ function seenAt(device: ClientRow) {
 }
 
 /**
- * The devices on the network, as one plain table.
+ * The clients on the network, as one plain table.
  *
  * Busiest first, because the question a visitor brings to the bottom of the
  * overview is "who is using it"; the rest follow by when they were last heard.
  * The trailing column is that time and never an Online/Offline word, which a
  * device on the LAN has no evidence for (features/clients/last-heard.ts). The
- * first ten rows show; the rest are one click away in place, and the device's
+ * first ten rows show; the rest are one click away in place, and the client's
  * own page is its name.
  */
 export function ClientsTable({ flows }: { flows: TrafficView }) {
@@ -83,7 +83,7 @@ export function ClientsTable({ flows }: { flows: TrafficView }) {
   // The rates move every second and a table that re-sorts every second cannot
   // be read or clicked. The order is sampled every five seconds instead, and
   // held while the pointer is over the table, as the network map does; the
-  // figures inside the rows stay live. A device that appears between samples
+  // figures inside the rows stay live. A client that appears between samples
   // joins at the end until the next one, and one that leaves goes at once.
   const [order, setOrder] = useState<string[]>([])
   const [hovering, setHovering] = useState(false)
@@ -110,7 +110,7 @@ export function ClientsTable({ flows }: { flows: TrafficView }) {
       : <span className="text-muted-foreground/70">0</span>
 
   return <OverviewSection title={t('Clients')} aside={<Link to="/topology" className="inline-flex items-center gap-0.5 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
-    {clients.data ? t('{count} devices', { count: rows.length }) : t('Topology')}
+    {clients.data ? t('{count} clients', { count: rows.length }) : t('Topology')}
     <ChevronRight aria-hidden className="size-3.5" />
   </Link>}>
   <OverviewCard bodyClassName="gap-0 p-0">
@@ -126,7 +126,7 @@ export function ClientsTable({ flows }: { flows: TrafficView }) {
                 <Table className="text-sm [&_td]:px-3 [&_th]:px-3 [&_td:first-child]:pl-4 [&_th:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:last-child]:pr-4">
                   <TableHeader>
                     <TableRow className="hover:bg-transparent [&>th]:h-9 [&>th]:text-xs [&>th]:font-medium [&>th]:text-muted-foreground">
-                      <TableHead className="pl-4">{t('Device')}</TableHead>
+                      <TableHead className="pl-4">{t('Client')}</TableHead>
                       <TableHead className="hidden md:table-cell">{t('IP address')}</TableHead>
                       <TableHead className="hidden lg:table-cell">{t('Group')}</TableHead>
                       <TableHead className="text-right">↓ {t('Download')}</TableHead>

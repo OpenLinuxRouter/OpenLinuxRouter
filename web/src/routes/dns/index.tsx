@@ -61,7 +61,7 @@ export function DnsContent() {
             variant="inline"
             id="dns-query-log"
             label={t('Keep a query log')}
-            hint={t('Records the names each device asks for. Kept in memory and dropped on restart.')}
+            hint={t('Records the names each client asks for. Kept in memory and dropped on restart.')}
             checked={config.query_log.enabled}
             busy={busy}
             onChange={(enabled) => change({ ...config, query_log: { ...config.query_log, enabled } })}

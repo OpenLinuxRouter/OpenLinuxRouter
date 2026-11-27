@@ -43,7 +43,7 @@ export function DnsBlockingPage() {
 
 
       {policies.length === 0 ? (
-        <ListEmpty>{t('No rules yet. Every device may look up anything.')}</ListEmpty>
+        <ListEmpty>{t('No rules yet. Every client may look up anything.')}</ListEmpty>
       ) : (
         <List>
           {policies.map((p) => (

@@ -369,13 +369,13 @@ function Attached({ device }: { device: ClientRow }) {
             {t('Attached to')}{' '}
           </div>
           <div className="mt-0.5 text-meta text-muted-foreground">
-            {state === 'idle' && t('Ask the switches which port this device is plugged into.')}
+            {state === 'idle' && t('Ask the switches which port this client is plugged into.')}
             {state === 'asking' && t('Asking the switches…')}
             {state === 'done' && error !== '' && error}
             {state === 'done' &&
               error === '' &&
               answers.length === 0 &&
-              t('No switch that can report its ports has this device.')}
+              t('No switch that can report its ports has this client.')}
             {state === 'done' &&
               answers.map((a) => (
                 <div key={`${a.device_id}-${a.port}`} className="mt-1 font-mono">
@@ -386,7 +386,7 @@ function Attached({ device }: { device: ClientRow }) {
           </div>
           {state === 'done' && error === '' && answers.length > 0 && (
             <div className="mt-1 text-meta text-muted-foreground">
-              {t('As the switch learnt it, so it is the last time the device spoke.')}
+              {t('As the switch learnt it, so it is the last time the client spoke.')}
             </div>
           )}
         </div>

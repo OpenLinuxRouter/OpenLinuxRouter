@@ -57,7 +57,7 @@ export function SocksOutPage() {
         </CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle>{t('Choose who uses it')}</CardTitle><CardDescription>Starting does not change device routes. Create a way out through <code>olrsocks0</code> and assign it to a network or device. IPv6 and backend failure block rather than bypass the proxy.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>{t('Choose who uses it')}</CardTitle><CardDescription>Starting does not change client routes. Create a way out through <code>olrsocks0</code> and assign it to a network or client. IPv6 and backend failure block rather than bypass the proxy.</CardDescription></CardHeader>
         <CardContent><Button variant="secondary" nativeButton={false} render={<Link to="/access/gateway">{t('Open gateways')}</Link>} /></CardContent>
       </Card>
     </SubPage>

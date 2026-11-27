@@ -228,8 +228,8 @@ export function GatewayInterfacesPage() {
 
         <SwitchField
           id="gateway-stats"
-          label={t('Count device traffic')}
-          hint={t('Counts forwarded traffic by device. Turning off clears the current counters.')}
+          label={t('Count client traffic')}
+          hint={t('Counts forwarded traffic by client. Turning off clears the current counters.')}
           checked={config.stats ?? true}
           busy={busy}
           onChange={stats => change(gatewayChange.settings({ stats }))}

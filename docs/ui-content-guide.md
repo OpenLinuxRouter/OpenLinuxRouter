@@ -77,9 +77,9 @@ hidden page title. Detail and operation pages keep their identifying titles.
   p95 and max; System, DNS and Network cards carry host capacity, relay counts
   (answered, blocked, failed) and WAN/ASN/DHCP/tunnel facts. A fact appears once:
   the client count is a key figure, so the Network card does not repeat it. The page ends with a
-  Clients section: one plain table of the devices that have been seen, busiest
+  Clients section: one plain table of the clients that have been seen, busiest
   first, ten rows with the rest one click away in place, each name opening its
-  device page. Section headings — Trends, Router, Clients — group the page so
+  client page. Section headings — Trends, Router, Clients — group the page so
   the live readings lead and the box's own facts sit behind them. Do not put a
   topology map or plan-speed dialog on Overview. Keep the "counted, not link throughput" caveat under the traffic
   chart. Clicking Quality or its chart links to the assessment page at /quality.
